@@ -255,7 +255,7 @@ function GoalSection({
       <div className="flex flex-col gap-2">
         {tasks.length === 0 ? (
           <div className={cn('text-[12px] px-1 py-2 transition-colors', isOver ? 'text-accent-warm' : 'text-text-muted')}>
-            {isOver ? 'Release it here.' : 'Nothing held here yet.'}
+            {isOver ? 'Release it here.' : 'Awaiting focus.'}
           </div>
         ) : (
           tasks.map((task, i) => (
@@ -267,7 +267,7 @@ function GoalSection({
   );
 }
 
-export function TodaysFlow() {
+export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
   const { isLight, isFocus } = useTheme();
   const {
     weeklyGoals,
@@ -284,8 +284,10 @@ export function TodaysFlow() {
     nextBlock,
     bringForward,
     unscheduleTaskBlock,
+    resetDay,
   } = useApp();
   const [inputValue, setInputValue] = useState('');
+  const [confirmReset, setConfirmReset] = useState(false);
   const { play } = useSound();
 
   const finishedCount = plannedTasks.filter((task) => task.status === 'done' && dailyPlan.committedTaskIds.includes(task.id)).length;
@@ -418,13 +420,51 @@ export function TodaysFlow() {
         </div>
         <div className="workspace-header-meta">
           <span key={`count-${finishedCount}-${totalDayCount}`} className={cn('animate-fade-in', isFocus && 'focus-fade-meta')}>
-            {finishedCount}/{totalDayCount} finished
+            {finishedCount}/{totalDayCount} complete
           </span>
           <span className={cn(isFocus && 'focus-fade-meta')}>
-            {unscheduledCount} open
+            {unscheduledCount} left
           </span>
+          {committedTasks.length > 0 && !isFocus && (
+            confirmReset ? (
+              <span className="flex items-center gap-1.5">
+                <button
+                  onClick={async () => { setConfirmReset(false); await resetDay(); play('paper'); }}
+                  className="text-[10px] uppercase tracking-[0.14em] text-accent-warm hover:text-accent-warm/80 transition-colors"
+                >
+                  Clear
+                </button>
+                <span className="text-text-muted text-[10px]">/</span>
+                <button
+                  onClick={() => setConfirmReset(false)}
+                  className="text-[10px] uppercase tracking-[0.14em] text-text-muted hover:text-text-primary transition-colors"
+                >
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmReset(true)}
+                className="text-[10px] uppercase tracking-[0.14em] text-text-muted hover:text-text-primary transition-colors"
+              >
+                Clear board
+              </button>
+            )
+          )}
         </div>
       </div>
+
+      {committedTasks.length > 0 && onCollapse && (
+        <div className="px-6 pb-3 shrink-0">
+          <button
+            onClick={() => { onCollapse(); play('paper'); }}
+            className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-accent-warm/10 hover:bg-accent-warm/20 border border-accent-warm/20 text-accent-warm transition-all duration-200 group"
+          >
+            <span className="text-[11px] uppercase tracking-[0.18em] font-medium">Lock in the day</span>
+            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-8 hide-scrollbar">
         <form onSubmit={handleSubmit} className="animate-fade-in relative group">
@@ -435,7 +475,7 @@ export function TodaysFlow() {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Something that belongs in today's commit..."
+            placeholder="Add to commit..."
             className="editorial-inset w-full rounded-[18px] py-3 pl-11 pr-12 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-accent-warm/40 focus:bg-bg-elevated transition-all"
           />
           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
@@ -465,7 +505,7 @@ export function TodaysFlow() {
             ) : nextBlock ? (
               <span className="text-text-muted">Next: {nextBlock.title}</span>
             ) : (
-              <span className="text-text-muted">No blocks scheduled</span>
+              <span className="text-text-muted">Time is open</span>
             )}
           </div>
           <div className="text-[11px] text-text-muted font-mono shrink-0">

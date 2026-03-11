@@ -12,6 +12,16 @@ export function AppMark({ className }: IconProps) {
   );
 }
 
+export function AppWordmark({ className }: IconProps) {
+  return (
+    <img
+      src="/threadline_wordmark.png"
+      alt="Threadline"
+      className={className}
+    />
+  );
+}
+
 export function AsanaIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">

@@ -3,7 +3,7 @@ import path from 'node:path';
 import { registerAsanaHandlers } from './asana';
 import { registerGCalHandlers } from './gcal';
 import { registerStoreHandlers } from './store';
-import { registerTimerHandlers, setTrayUpdater } from './timer';
+import { registerTimerHandlers, setTrayUpdater, startLastUsedPomodoro } from './timer';
 import { registerFocusHandlers } from './focus';
 import { registerAnthropicHandlers } from './anthropic';
 
@@ -12,6 +12,7 @@ process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public');
 const APP_ICON_PATH = path.join(__dirname, '../build/icon.png');
+const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'threadline-menubar.svg');
 
 let mainWindow: BrowserWindow | null;
 let pomodoroWindow: BrowserWindow | null = null;
@@ -19,9 +20,13 @@ let tray: Tray | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 function createWindow() {
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  const winWidth = sw < 1600 ? Math.min(sw - 80, 1400) : 1600;
+  const winHeight = sh < 900 ? Math.min(sh - 60, 860) : 900;
+
   mainWindow = new BrowserWindow({
-    width: 1600,
-    height: 900,
+    width: winWidth,
+    height: winHeight,
     minWidth: 1200,
     minHeight: 700,
     titleBarStyle: 'hiddenInset',
@@ -63,9 +68,7 @@ function createWindow() {
 }
 
 function createTray() {
-  const icon = nativeImage
-    .createFromPath(APP_ICON_PATH)
-    .resize({ width: 16, height: 16 });
+  const icon = nativeImage.createFromPath(TRAY_ICON_PATH);
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
@@ -77,6 +80,16 @@ function createTray() {
       click: () => {
         mainWindow?.show();
         mainWindow?.focus();
+      },
+    },
+    {
+      label: 'Start thread',
+      click: () => {
+        const lastTask = startLastUsedPomodoro();
+        if (!lastTask) return;
+        if (!pomodoroWindow) createPomodoroWindow();
+        pomodoroWindow?.showInactive();
+        pomodoroWindow?.moveTop();
       },
     },
     { type: 'separator' },

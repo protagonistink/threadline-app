@@ -17,16 +17,17 @@
 
 @theme {
   /* === DARK MODE (default) — Protagonist Ink brand palette === */
+  /* Note: Tailwind v4 maps `--color-bg` to `bg-bg`, etc. */
   --color-bg: #0A0A0A;           /* trueblack */
-  --color-bg-card: #2C2C2C;     /* ink */
+  --color-bg-card: #2C2C2C;      /* ink */
   --color-bg-elevated: #353535;  /* above ink */
   --color-bg-hover: #3A3A3A;
-  --color-border: rgba(180, 195, 220, 0.08);  /* cool blue-gray at 8% */
-  --color-border-subtle: color-mix(in oklch, var(--color-border), transparent 50%);
+  --color-border: rgba(180, 195, 220, 0.08);
+  --color-border-subtle: color-mix(in srgb, var(--color-border), transparent 50%);
   --color-accent-warm: #C83C2F;  /* brand rust — the inkan */
   --color-accent-teal: #5b8f8c;
   --color-accent-cool: #6d8794;
-  --color-text-muted: #828282;   /* neutral mid-gray (solid hex — safe with /XX opacity modifiers) */
+  --color-text-muted: #828282;
   --color-text-primary: #FAFAFA; /* warmwhite */
   --color-text-emphasis: #FAFAFA;
 
@@ -46,6 +47,35 @@
   --font-display: 'Cormorant Garamond', Georgia, serif;
 }
 
+@layer base {
+  :root {
+    --color-bg: #0A0A0A;
+    --color-bg-card: #2C2C2C;
+    --color-bg-elevated: #353535;
+    --color-bg-hover: #3A3A3A;
+    --color-border: rgba(180, 195, 220, 0.08);
+    --color-border-subtle: rgba(180, 195, 220, 0.04);
+    --color-accent-warm: #C83C2F;
+    --color-accent-teal: #5b8f8c;
+    --color-accent-cool: #6d8794;
+    --color-text-muted: #828282;
+    --color-text-primary: #FAFAFA;
+    --color-text-emphasis: #FAFAFA;
+    --color-active: #C83C2F;
+    --color-done: #5b8f8c;
+    --color-source-gmail: #60a5fa;
+    --color-source-asana: #f87171;
+    --color-source-gcal: #34d399;
+    --color-source-notion: #a78bfa;
+  }
+}
+
+/* === BRAND SELECTION === */
+::selection {
+  background-color: var(--color-accent-warm);
+  color: var(--color-text-primary);
+}
+
 /* === LIGHT MODE === */
 [data-theme="light"] {
   --color-bg: #f5f4f1;
@@ -53,7 +83,7 @@
   --color-bg-elevated: #ffffff;
   --color-bg-hover: #f0eeeb;
   --color-border: rgba(120, 113, 100, 0.15);
-  --color-border-subtle: color-mix(in oklch, var(--color-border), transparent 50%);
+  --color-border-subtle: rgba(120, 113, 100, 0.075);
   --color-accent-warm: #b07058;
   --color-accent-teal: #5b8f8c;
   --color-accent-cool: #6f8a96;
@@ -178,6 +208,19 @@
 }
 
 /* ============================================================
+   Window Drag Region (macOS titleBarStyle: hiddenInset)
+   ============================================================ */
+.drag-region {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 14px;
+  -webkit-app-region: drag;
+  z-index: 50;
+}
+
+/* ============================================================
    Atmosphere: Grain Texture
    ============================================================ */
 .grain::after {
@@ -240,10 +283,10 @@
 
 /* Theater Lighting: soft dim for non-focal panels (e.g. Today's Commit) */
 [data-theme="focus"] .focus-dim-soft {
-  opacity: 0.24;
+  opacity: 0.18;
   pointer-events: none;
-  filter: saturate(0.32) blur(2px);
-  transform: scale(0.994);
+  filter: saturate(0.2) blur(3px) sepia(0.2) hue-rotate(200deg); /* Cinematic deep indigo wash */
+  transform: scale(0.992);
   transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
               filter 700ms cubic-bezier(0.22, 1, 0.36, 1),
               transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -358,8 +401,9 @@
   border-radius: inherit;
   background:
     linear-gradient(90deg, rgba(255, 255, 255, 0.03), transparent 12%, transparent 88%, rgba(255, 255, 255, 0.02)),
-    linear-gradient(180deg, rgba(200, 60, 47, 0.06), transparent 22%, transparent 78%, rgba(250, 250, 250, 0.02));
-  opacity: 0.75;
+    linear-gradient(180deg, rgba(200, 60, 47, 0.06), transparent 22%, transparent 78%, rgba(250, 250, 250, 0.02)),
+    repeating-linear-gradient(45deg, rgba(250, 250, 250, 0.01) 0px, rgba(250, 250, 250, 0.01) 1px, transparent 1px, transparent 4px); /* paper ribbing */
+  opacity: 0.85;
 }
 
 .editorial-card {
@@ -436,8 +480,8 @@
 [data-theme="focus"] .editorial-panel {
   background:
     repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.008) 0px, rgba(255, 255, 255, 0.008) 1px, transparent 1px, transparent 24px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 16%, rgba(0, 0, 0, 0.2) 100%),
-    linear-gradient(180deg, rgba(14, 15, 18, 0.78), rgba(8, 8, 10, 0.84));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.01), transparent 16%, rgba(0, 0, 0, 0.3) 100%),
+    linear-gradient(180deg, rgba(16, 17, 24, 0.82), rgba(8, 8, 12, 0.90)); /* Deep indigo cinematic wash */
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.02),
     0 20px 50px rgba(0, 0, 0, 0.12);
@@ -499,7 +543,7 @@
   pointer-events: none;
   z-index: 1;
   border-radius: inherit;
-  opacity: 0.022;
+  opacity: 0.045;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
   background-repeat: repeat;
   background-size: 512px;
@@ -513,6 +557,21 @@
 
 [data-theme="focus"] .paper-texture::after {
   opacity: 0.028;
+}
+
+/* ── TodaysFlow (editorial-panel) gets coarser grain ──────────── */
+/* Overrides the fine-grain default with a letterpress/stamp quality
+   that echoes the ink-bleed + stamp-texture filters in the logo. */
+.editorial-panel.paper-texture::after {
+  opacity: 0.075;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+  background-size: 256px;
+  mix-blend-mode: overlay;
+}
+
+[data-theme="light"] .editorial-panel.paper-texture::after {
+  opacity: 0.06;
+  mix-blend-mode: multiply;
 }
 
 /* ── Column gradient divider ────────────────────────────────── */

@@ -83,7 +83,7 @@ function BlockCard({
 }) {
   const { isLight, isFocus } = useTheme();
   const { setActiveTask } = useApp();
-  const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
+  const [{ isDragging }, , previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.BLOCK,
     canDrag: !block.readOnly && Boolean(block.linkedTaskId),
     item: {
@@ -259,8 +259,7 @@ function BlockCard({
       <div className="relative z-10 flex items-start gap-2 pr-6">
         {!block.readOnly && (
           <button
-            ref={dragRef}
-            onMouseDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.preventDefault()}
             className={cn(
               'mt-0.5 -ml-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-card cursor-grab active:cursor-grabbing transition-all',
               isShortBlock ? 'p-1' : 'px-1.5 py-1 flex items-center gap-1.5'

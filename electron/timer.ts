@@ -12,6 +12,12 @@ interface PomodoroState {
   pomodoroCount: number;
 }
 
+interface LastPomodoroTask {
+  taskId: string;
+  taskTitle: string | null;
+  startedAt: string;
+}
+
 let state: PomodoroState = {
   isRunning: false,
   isPaused: false,
@@ -37,6 +43,39 @@ function getConfig() {
     longBreakMins: (store.get('pomodoro.longBreakMins') as number) || 15,
     longBreakInterval: (store.get('pomodoro.longBreakInterval') as number) || 4,
   };
+}
+
+function persistLastTask(taskId: string, taskTitle?: string | null) {
+  const payload: LastPomodoroTask = {
+    taskId,
+    taskTitle: taskTitle || null,
+    startedAt: new Date().toISOString(),
+  };
+  store.set('pomodoro.lastTask', payload);
+}
+
+function startPomodoroSession(taskId: string, taskTitle?: string) {
+  const config = getConfig();
+  persistLastTask(taskId, taskTitle);
+  state = {
+    isRunning: true,
+    isPaused: false,
+    isBreak: false,
+    timeRemaining: config.workMins * 60,
+    totalTime: config.workMins * 60,
+    currentTaskId: taskId,
+    currentTaskTitle: taskTitle || state.currentTaskTitle || null,
+    pomodoroCount: state.pomodoroCount,
+  };
+  startTimer();
+  broadcast();
+}
+
+export function startLastUsedPomodoro(): LastPomodoroTask | null {
+  const lastTask = store.get('pomodoro.lastTask') as LastPomodoroTask | undefined;
+  if (!lastTask?.taskId) return null;
+  startPomodoroSession(lastTask.taskId, lastTask.taskTitle || undefined);
+  return lastTask;
 }
 
 function broadcast() {
@@ -82,19 +121,7 @@ function startTimer() {
 
 export function registerTimerHandlers() {
   ipcMain.handle('pomodoro:start', (_event, taskId: string, taskTitle?: string) => {
-    const config = getConfig();
-    state = {
-      isRunning: true,
-      isPaused: false,
-      isBreak: false,
-      timeRemaining: config.workMins * 60,
-      totalTime: config.workMins * 60,
-      currentTaskId: taskId,
-      currentTaskTitle: taskTitle || state.currentTaskTitle || null,
-      pomodoroCount: state.pomodoroCount,
-    };
-    startTimer();
-    broadcast();
+    startPomodoroSession(taskId, taskTitle);
   });
 
   ipcMain.handle('pomodoro:pause', () => {

@@ -16,7 +16,8 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
-import { AppMark, AsanaIcon, GCalIcon, GmailIcon } from './AppIcons';
+import { AsanaIcon, GCalIcon, GmailIcon } from './AppIcons';
+import { ThreadlineLogo } from './ThreadlineLogo';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -61,7 +62,12 @@ function ThemeSwitcher({ collapsed }: { collapsed: boolean }) {
   ];
 
   return (
-    <div className={cn('flex items-center gap-1 p-1 rounded-lg bg-bg-card shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]', collapsed && 'justify-center')}>
+    <div
+      className={cn(
+        'flex gap-1 rounded-lg bg-bg-card p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+        collapsed ? 'flex-col items-center justify-center' : 'items-center'
+      )}
+    >
       {modes.map(({ value, icon: Icon }) => (
         <button
           key={value}
@@ -128,33 +134,27 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
   const { activeView, setActiveView, activeSource, setActiveSource, openWeeklyPlanning } = useApp();
 
   return (
-    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex flex-col h-full shrink-0 transition-[width,opacity,border-width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] backdrop-blur-xl shadow-[24px_0_60px_rgba(0,0,0,0.22)]', collapsed ? 'w-[84px]' : 'w-[228px]')}>
-      <button
-        onClick={onToggleCollapse}
-        title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width,opacity,border-width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] backdrop-blur-xl shadow-[24px_0_60px_rgba(0,0,0,0.22)]', collapsed ? 'w-[84px]' : 'w-[228px]')}>
+      <div
         className={cn(
-          'no-drag absolute top-3 z-[90] rounded-full border backdrop-blur-md transition-all duration-200 ease-out hover:text-text-primary hover:scale-[1.03] active:scale-[0.98]',
-          isLight
-            ? 'border-stone-300/70 bg-white/86 text-stone-500 hover:border-stone-400/80'
-            : 'border-border-subtle bg-bg-elevated/82 text-text-muted hover:border-border',
-          collapsed ? 'left-1/2 -translate-x-1/2 p-2' : 'right-4 p-2'
+          'drag-region shrink-0 transition-all duration-300',
+          collapsed
+            ? 'flex min-h-[134px] items-end justify-center px-3 pt-[74px] pb-8'
+            : 'flex min-h-[148px] items-end px-4 pt-[76px] pb-6'
         )}
       >
-        {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
-      </button>
-
-      <div className={cn('drag-region flex items-center pt-10 pb-6 transition-all duration-300', collapsed ? 'justify-center px-3 pt-14' : 'gap-3 px-5')}>
-        <div className="w-8 h-8 rounded-lg overflow-hidden border border-white/10 bg-white/5 shadow-[0_12px_24px_rgba(0,0,0,0.22)]">
-          <AppMark className="w-full h-full object-cover" />
-        </div>
-        {!collapsed && (
-          <span className="font-display italic text-[15px] font-light tracking-wide text-text-emphasis transition-all duration-300">
-            Threadline
-          </span>
-        )}
+        <ThreadlineLogo
+          collapsed={collapsed}
+          className={collapsed ? 'mx-auto h-[60px] w-[60px] p-1.5' : 'ml-5 w-full max-w-[170px]'}
+        />
       </div>
 
-      <nav className={cn('flex-1 py-2 flex flex-col gap-1 overflow-y-auto hide-scrollbar', collapsed ? 'px-3' : 'px-3')}>
+      <nav
+        className={cn(
+          'flex flex-1 flex-col gap-1 overflow-y-auto hide-scrollbar pb-2',
+          collapsed ? 'px-3 pt-28' : 'px-3 pt-40'
+        )}
+      >
         <NavItem
           icon={Target}
           label="Weekly Intentions"
@@ -224,20 +224,47 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
 
         <NavItem icon={Settings} label="Settings" collapsed={collapsed} onClick={onSettingsClick} />
 
-        {!collapsed && (
-          <button className="no-drag flex items-center gap-3 w-full p-2 mt-1 rounded-lg hover:bg-bg-card transition-colors text-left group">
-            <div className="w-7 h-7 rounded-full bg-bg-elevated border border-border flex items-center justify-center text-[11px] font-medium text-text-primary">
-              P
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-[13px] font-medium truncate text-text-primary group-hover:text-text-emphasis transition-colors">
-                Patrick
+        {!collapsed ? (
+          <div className="flex items-center justify-between gap-1 mt-1 px-1.5">
+            <button className="no-drag flex items-center gap-3 flex-1 min-w-0 px-2.5 py-1.5 rounded-lg hover:bg-bg-card transition-colors text-left group">
+              <div className="w-6 h-6 rounded-full bg-bg-elevated border border-border flex items-center justify-center text-[10px] display-font font-medium text-text-primary shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                P
               </div>
-              <div className="text-[10px] text-emerald-500 flex items-center gap-1.5 mt-0.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Connected
+              <div className="flex-1 min-w-0 flex flex-col justify-center">
+                <div className="text-[12px] font-medium leading-none truncate text-text-primary group-hover:text-text-emphasis transition-colors">
+                  Patrick
+                </div>
+                <div className="text-[9px] uppercase tracking-wider text-emerald-500/90 flex items-center gap-1.5 mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                  Connected
+                </div>
               </div>
-            </div>
+            </button>
+            <button
+              onClick={onToggleCollapse}
+              title="Collapse sidebar"
+              className={cn(
+                'no-drag shrink-0 p-1.5 mr-1 rounded-md transition-all duration-200 ease-out hover:scale-[1.03] active:scale-[0.98]',
+                isLight
+                  ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                  : 'text-text-muted hover:text-text-primary hover:bg-bg-card'
+              )}
+            >
+              <ChevronsLeft className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onToggleCollapse}
+            title="Expand sidebar"
+            className={cn(
+              'no-drag flex items-center justify-center w-full py-2 rounded-lg transition-all duration-200 ease-out hover:scale-[1.03] active:scale-[0.98]',
+              isLight
+                ? 'text-stone-400 hover:text-stone-600 hover:bg-stone-100'
+                : 'text-text-muted hover:text-text-primary hover:bg-bg-card'
+            )}
+          >
+            <ChevronsRight className="w-4 h-4" />
           </button>
         )}
       </div>

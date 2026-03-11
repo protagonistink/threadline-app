@@ -55,7 +55,6 @@ function AppLayout() {
   const {
     activeView,
     activeSource,
-    lastCommitTimestamp,
     weeklyPlanningLastCompleted,
     openWeeklyPlanning,
     dailyPlan,
@@ -86,11 +85,6 @@ function AppLayout() {
   }, [openWeeklyPlanning, weeklyPlanningLastCompleted]);
 
   useEffect(() => {
-    if (activeView !== 'flow' || !lastCommitTimestamp || isFocus) return;
-    setSourceCollapsed(true);
-  }, [activeView, isFocus, lastCommitTimestamp]);
-
-  useEffect(() => {
     if (activeSource !== 'cover') {
       setSourceCollapsed(false);
       return;
@@ -106,6 +100,7 @@ function AppLayout() {
 
   return (
     <div className="grain cinematic-shell relative flex h-screen w-full bg-bg text-text-primary font-sans overflow-hidden transition-colors duration-700">
+      <div className="drag-region" />
       <AtmosphereLayer />
       <Sidebar
         collapsed={sidebarIsCollapsed}
@@ -117,7 +112,7 @@ function AppLayout() {
         {activeView === 'flow' && (
           <>
             <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
-            <TodaysFlow />
+            <TodaysFlow onCollapse={() => setSourceCollapsed(true)} />
             {showBriefing ? (
               <MorningBriefing onClose={() => {
                 setShowBriefing(false);

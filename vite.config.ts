@@ -17,6 +17,16 @@ export default defineConfig({
       },
     }),
   ],
+  server: {
+    watch: {
+      ignored: [
+        '**/dist/**',
+        '**/dist-electron/**',
+        '**/release/**',
+        '**/build/**',
+      ],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),

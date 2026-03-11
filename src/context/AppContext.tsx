@@ -116,6 +116,7 @@ interface AppContextValue {
   workdayEnd: { hour: number; min: number };
   setWorkdayEnd: (hour: number, min: number) => void;
   updateTaskEstimate: (id: string, mins: number) => void;
+  resetDay: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue>(null!);
@@ -342,6 +343,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTimeLogs((prev) => [entry, ...prev]);
   }, [plannedTasks, weeklyGoals]);
 
+  const resetDay = useCallback(async () => {
+    const focusBlocks = scheduleBlocks.filter((block) => !block.readOnly && block.kind === 'focus');
+    await Promise.allSettled(
+      focusBlocks
+        .filter((block) => block.eventId)
+        .map((block) => window.api.gcal.deleteEvent(block.eventId!, block.calendarId))
+    );
+
+    setScheduleBlocks((prev) => prev.filter((block) => block.readOnly || block.kind !== 'focus'));
+    setPlannedTasks((prev) =>
+      prev.map((task) =>
+        task.status === 'committed' || task.status === 'scheduled'
+          ? { ...task, status: 'candidate', scheduledEventId: undefined, scheduledCalendarId: undefined }
+          : task
+      )
+    );
+    setDailyPlan((prev) => ({ ...prev, committedTaskIds: [] }));
+    setLastCommitTimestamp(0);
+  }, [scheduleBlocks, setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setScheduleBlocks]);
+
   return (
     <AppContext.Provider
       value={{
@@ -400,6 +421,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         workdayEnd,
         setWorkdayEnd,
         updateTaskEstimate,
+        resetDay,
       }}
     >
       {children}

@@ -1,8 +1,45 @@
-# TimeFocus Memory
+# Threadline Memory
+
+## Current Naming / Brand State
+
+- the app is now `threadline`
+- the GitHub repo is `https://github.com/protagonistink/threadline-app`
+- the visual identity now centers on:
+  - `threadline` wordmark in `Cormorant Garamond`
+  - organic bracket mark
+  - rust dots
+  - warm white `#FAFAFA` for the dark / focus logo treatment
+  - cream reserved for light mode, not the dark shell
+- the tray / menu bar icon is now its own simplified mark:
+  - bracket plus one dot
+  - not a tiny version of the full app icon
+  - stored as `public/threadline-menubar.svg`
+
+## Recent Brand / UI Changes
+
+- `src/components/ThreadlineLogo.tsx` now drives the in-app wordmark and mark:
+  - dark / focus uses warm white `#FAFAFA`
+  - light mode can use the cream-backed treatment
+  - logo opacity in the sidebar is intentionally reduced to `0.9`
+- `src/components/Sidebar.tsx` received multiple spacing passes:
+  - expanded sidebar menu has significant top padding to create real breathing room for traffic lights + logo
+  - collapsed sidebar has a larger logo treatment and more separation before the first nav icon
+  - collapsed theme switcher is vertical, not horizontal
+- the collapsed logo is intentionally oversized relative to before:
+  - currently `60x60`
+  - border line removed in dark mode
+- the logo has extra left offset in expanded mode to sit closer to the nav icon rhythm
+- tray icon generation was updated in `scripts/generate-icons.py`:
+  - full textured app icon remains for the app / dock
+  - simplified tray glyph is generated separately for `public/icon-tray.png` and `public/icon-tray@2x.png`
+- Electron tray behavior changed in `electron/main.ts` and `electron/timer.ts`:
+  - tray menu now includes `Start thread`
+  - this starts a Pomodoro on the last-used task
+  - last-used Pomodoro task is persisted in store under `pomodoro.lastTask`
 
 ## What This App Is
 
-TimeFocus is a personal desktop planning and focus app for a single user.
+Threadline is a personal desktop planning and focus app for a single user.
 
 Core loop:
 - weekly intentions
@@ -59,6 +96,7 @@ UI:
 - 30-minute move/resize on focus blocks
 - local objective-linked time logging
 - real app icon wired into sidebar/web/Electron packaging
+- tray icon now has its own dedicated menu bar glyph and spacing logic
 - multiple Google calendar selection and single write target in settings
 
 ## Known Limits / Open Issues
@@ -198,3 +236,8 @@ If work resumes, the highest-value next pass is:
 - structural tech-debt reduction in `AppContext` and scheduling flow
 - then a live runtime pass on theater mode / texture balance
 - then clean error presentation and interaction polish
+
+## Next Session Note
+
+- remove the temporary Electron renderer/load logging added in `electron/main.ts` once the black-screen fix is confirmed stable
+- keep the Vite watcher ignore rules in `vite.config.ts`; they were added to stop reload churn from `release/`, `dist/`, `dist-electron/`, and `build/`
