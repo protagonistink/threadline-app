@@ -149,7 +149,7 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
         </div>
         {!collapsed && (
           <span className="font-display italic text-[15px] font-light tracking-wide text-text-emphasis transition-all duration-300">
-            TimeFocus
+            Threadline
           </span>
         )}
       </div>

@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { store } from './store';
 
 const HOSTS_PATH = '/etc/hosts';
-const HOSTS_MARKER = '# TimeFocus Focus Mode';
+const HOSTS_MARKER = '# Threadline Focus Mode';
 
 async function enableStageManager() {
   return new Promise<void>((resolve, reject) => {

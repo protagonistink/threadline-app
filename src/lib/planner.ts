@@ -9,7 +9,7 @@ import type {
 } from '@/types';
 import { formatRoundedHours } from '@/lib/utils';
 
-export const FOCUS_EVENT_MARKER = '[TimeFocus]';
+export const FOCUS_EVENT_MARKER = '[Threadline]';
 export const TODAY = format(new Date(), 'yyyy-MM-dd');
 
 export function asInboxItem(task: PlannedTask): InboxItem {

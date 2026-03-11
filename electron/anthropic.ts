@@ -76,7 +76,7 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
   const scheduledHours = (ctx.scheduledMinutes / 60).toFixed(1);
   const endTime = `${ctx.workdayEndHour}:${String(ctx.workdayEndMin).padStart(2, '0')}`;
 
-  return `You are the morning planning voice inside TimeFocus, a focus and planning app.
+  return `You are the morning planning voice inside Threadline, a focus and planning app.
 
 Today is ${ctx.date}. The workday ends at ${endTime}.
 

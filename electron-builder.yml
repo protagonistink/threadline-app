@@ -1,5 +1,5 @@
-appId: com.timefocus.app
-productName: TimeFocus
+appId: com.protagonistink.threadline
+productName: Threadline
 directories:
   buildResources: build
   output: release

@@ -69,11 +69,11 @@ function createTray() {
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('TimeFocus');
+  tray.setToolTip('Threadline');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show TimeFocus',
+      label: 'Show Threadline',
       click: () => {
         mainWindow?.show();
         mainWindow?.focus();

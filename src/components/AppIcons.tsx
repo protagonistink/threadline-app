@@ -6,7 +6,7 @@ export function AppMark({ className }: IconProps) {
   return (
     <img
       src="/icon.png"
-      alt="TimeFocus"
+      alt="Threadline"
       className={className}
     />
   );
