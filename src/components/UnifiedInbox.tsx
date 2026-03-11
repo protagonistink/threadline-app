@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
@@ -91,7 +91,15 @@ function IncomingCard({
   stagger: number;
 }) {
   const { isLight, isFocus } = useTheme();
+  const { plannedTasks } = useApp();
   const Icon = SOURCE_ICONS[item.source] || GmailIcon;
+  const [flipped, setFlipped] = useState(false);
+
+  const task = plannedTasks.find((t) => t.id === item.id);
+  const notes = task?.notes ?? '';
+  const project = task?.asanaProject ?? '';
+  const notesPreview = notes.length > 120 ? notes.slice(0, 120) + '…' : notes;
+
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.TASK,
     item: { id: item.id, title: item.title, priority: item.priority, sourceType: item.source },
@@ -102,64 +110,150 @@ function IncomingCard({
     previewRef(getEmptyImage(), { captureDraggingState: true });
   }, [previewRef]);
 
+  // Reset flip when card is deselected or source changes
+  useEffect(() => {
+    if (!selected) setFlipped(false);
+  }, [selected]);
+
+  function handleCardClick() {
+    if (!flipped) {
+      // First click: select and flip
+      onSelect();
+      setFlipped(true);
+    }
+  }
+
   return (
     <div
       ref={dragRef}
-      onClick={onSelect}
+      style={{ perspective: '800px' }}
       className={cn(
-        'editorial-card animate-fade-in relative overflow-hidden p-5 rounded-[18px] flex flex-col gap-2.5 transition-all duration-300 cursor-grab active:cursor-grabbing group',
-        selected
-          ? isLight
-            ? 'shadow-[0_18px_34px_rgba(120,113,100,0.12)]'
-            : 'border-accent-warm/24 shadow-[0_0_26px_rgba(200,60,47,0.08),0_24px_42px_rgba(0,0,0,0.18)]'
-          : cn(isLight ? 'hover:shadow-[0_16px_28px_rgba(120,113,100,0.08)]' : 'hover:border-border hover:shadow-[0_18px_32px_rgba(0,0,0,0.16)]'),
-        isDragging && 'opacity-20 scale-95 rotate-[1deg]',
-        !isDragging && 'hover:-translate-y-0.5',
+        'animate-fade-in relative',
         stagger === 1 && 'stagger-1',
         stagger === 2 && 'stagger-2',
         stagger === 3 && 'stagger-3',
-        stagger === 4 && 'stagger-4'
+        stagger === 4 && 'stagger-4',
+        isDragging && 'opacity-20'
       )}
     >
-      <div className="flex items-center justify-between text-[10px] font-medium tracking-[0.14em] uppercase text-text-muted">
-        <div className="flex items-center gap-2">
-          <Icon className={cn('w-3 h-3', isFocus ? 'text-text-muted' : SOURCE_COLORS[item.source])} />
-          <span>{item.source.toUpperCase()}</span>
-        </div>
-        {item.priority && (
-          <span className={cn('px-1.5 py-0.5 rounded text-[10px]', isLight ? 'bg-bg text-text-muted' : 'bg-bg-elevated text-text-muted border border-border-subtle')}>
-            {item.priority}
-          </span>
-        )}
-      </div>
-
-      <h4 className={cn('text-[14px] leading-snug font-medium transition-colors line-clamp-2', selected ? 'text-text-emphasis' : 'text-text-primary')}>
-        {item.title}
-      </h4>
-
-      <div className="flex items-center justify-between">
-        <div className="editorial-pill relative z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-text-muted">
-          <div className="w-3 h-3 rounded-full border border-current opacity-40 flex items-center justify-center">
-            <div className="w-1 h-1 bg-current rounded-full" />
+      {/* Flip container */}
+      <div
+        style={{
+          transformStyle: 'preserve-3d',
+          transition: 'transform 0.45s cubic-bezier(0.4, 0.2, 0.2, 1)',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+          position: 'relative',
+          minHeight: '108px',
+        }}
+      >
+        {/* FRONT FACE */}
+        <div
+          onClick={handleCardClick}
+          style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
+          className={cn(
+            'editorial-card p-5 rounded-[18px] flex flex-col gap-2.5 transition-all duration-300 cursor-pointer group',
+            selected
+              ? isLight
+                ? 'shadow-[0_18px_34px_rgba(120,113,100,0.12)]'
+                : 'border-accent-warm/24 shadow-[0_0_26px_rgba(200,60,47,0.08),0_24px_42px_rgba(0,0,0,0.18)]'
+              : cn(isLight ? 'hover:shadow-[0_16px_28px_rgba(120,113,100,0.08)]' : 'hover:border-border hover:shadow-[0_18px_32px_rgba(0,0,0,0.16)]'),
+            !isDragging && 'hover:-translate-y-0.5'
+          )}
+        >
+          <div className="flex items-center justify-between text-[10px] font-medium tracking-[0.14em] uppercase text-text-muted">
+            <div className="flex items-center gap-2">
+              <Icon className={cn('w-3 h-3', isFocus ? 'text-text-muted' : SOURCE_COLORS[item.source])} />
+              <span>{item.source.toUpperCase()}</span>
+            </div>
+            {item.priority && (
+              <span className={cn('px-1.5 py-0.5 rounded text-[10px]', isLight ? 'bg-bg text-text-muted' : 'bg-bg-elevated text-text-muted border border-border-subtle')}>
+                {item.priority}
+              </span>
+            )}
           </div>
-          <span>{item.time}</span>
+
+          <h4 className={cn('text-[14px] leading-snug font-medium transition-colors line-clamp-2', selected ? 'text-text-emphasis' : 'text-text-primary')}>
+            {item.title}
+          </h4>
+
+          <div className="flex items-center justify-between">
+            <div className="editorial-pill relative z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] text-text-muted">
+              <div className="w-3 h-3 rounded-full border border-current opacity-40 flex items-center justify-center">
+                <div className="w-1 h-1 bg-current rounded-full" />
+              </div>
+              <span>{item.time}</span>
+            </div>
+          </div>
         </div>
 
-        {selected && (
+        {/* BACK FACE */}
+        <div
+          style={{
+            backfaceVisibility: 'hidden',
+            WebkitBackfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+            position: 'absolute',
+            inset: 0,
+          }}
+          className={cn(
+            'editorial-card p-4 rounded-[18px] flex flex-col gap-2',
+            isLight
+              ? 'shadow-[0_18px_34px_rgba(120,113,100,0.12)]'
+              : 'border-accent-warm/24 shadow-[0_0_26px_rgba(200,60,47,0.08),0_24px_42px_rgba(0,0,0,0.18)]'
+          )}
+        >
+          {/* Back header: close button + title */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setFlipped(false);
+              }}
+              className="shrink-0 p-0.5 rounded text-text-muted hover:text-text-primary transition-colors"
+              aria-label="Flip back"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </button>
+            <span className="text-[12px] font-medium text-text-primary truncate leading-snug flex-1">
+              {item.title}
+            </span>
+          </div>
+
+          {/* Detail rows */}
+          <div className="flex flex-col gap-1.5 flex-1">
+            {project && (
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[10px] uppercase tracking-[0.12em] text-text-muted shrink-0">Project</span>
+                <span className="text-[11px] text-text-primary truncate">{project}</span>
+              </div>
+            )}
+
+            {notesPreview ? (
+              <p className="text-[11px] text-text-muted leading-relaxed line-clamp-3 mt-0.5">
+                {notesPreview}
+              </p>
+            ) : (
+              <p className="text-[11px] text-text-muted/50 italic mt-0.5">No notes</p>
+            )}
+          </div>
+
+          {/* Bring Forward — bottom of back face */}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onBringForward();
             }}
             className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium transition-all animate-slide-down',
-              isLight ? 'bg-bg text-text-primary hover:bg-border/30' : 'bg-bg-card text-text-primary hover:bg-bg-elevated'
+              'mt-1 flex items-center justify-center gap-1.5 w-full px-3 py-1.5 rounded-md text-[11px] font-medium transition-all',
+              isLight
+                ? 'bg-bg text-text-primary hover:bg-border/30'
+                : 'bg-bg-elevated text-text-primary hover:bg-bg-hover border border-border-subtle'
             )}
           >
             Bring Forward
             <ArrowRight className="w-3 h-3" />
           </button>
-        )}
+        </div>
       </div>
     </div>
   );
