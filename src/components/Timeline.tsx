@@ -39,6 +39,12 @@ function formatTime(h: number, m: number): string {
   return `${hour}:${min} ${ampm}`;
 }
 
+function getStepMins(durationMins: number): number {
+  if (durationMins < 60) return 15;
+  if (durationMins < 120) return 30;
+  return 60;
+}
+
 function FocusSetMeter({ durationMins }: { durationMins: number }) {
   const setCount = Math.max(1, Math.round(durationMins / 25));
 
@@ -287,23 +293,22 @@ function BlockCard({
           </span>
         )}
       </div>
-      {!block.readOnly && block.durationMins >= 25 && (() => {
-        const pomCount = Math.max(1, Math.round(block.durationMins / 25));
+      {!block.readOnly && block.durationMins >= 15 && (() => {
         return (
           <div
             onMouseDown={(e) => e.stopPropagation()}
             className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 opacity-0 group-hover/block:opacity-100 transition-opacity z-10"
           >
             <button
-              onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, Math.max(25, (pomCount - 1) * 25)); }}
-              disabled={pomCount <= 1}
+              onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, Math.max(15, block.durationMins - getStepMins(block.durationMins))); }}
+              disabled={block.durationMins <= 15}
               className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1 disabled:opacity-30"
             >
               –
             </button>
             <FocusSetMeter durationMins={block.durationMins} />
             <button
-              onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, (pomCount + 1) * 25); }}
+              onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, block.durationMins + getStepMins(block.durationMins)); }}
               className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1"
             >
               +
