@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
-import { useDrag } from 'react-dnd';
+import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
@@ -191,11 +191,43 @@ function CoverPanel() {
   );
 }
 
+function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
+  const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, unknown, { isOver: boolean; canDrop: boolean }>({
+    accept: DragTypes.TASK,
+    canDrop: (item) => item.sourceType === 'asana',
+    drop: (item) => { onDrop(item.id); },
+    collect: (monitor) => ({
+      isOver: monitor.isOver({ shallow: true }),
+      canDrop: monitor.canDrop(),
+    }),
+  });
+
+  return (
+    <div
+      ref={dropRef}
+      className={cn(
+        'mx-4 mb-3 rounded-xl border border-dashed flex items-center justify-center px-3 py-3 text-[11px] font-medium tracking-[0.08em] uppercase transition-all duration-200',
+        isOver && canDrop
+          ? 'border-accent-warm/60 bg-accent-warm/10 text-accent-warm'
+          : canDrop
+          ? 'border-border text-text-muted opacity-60'
+          : 'border-border-subtle text-text-muted opacity-30'
+      )}
+    >
+      Return to inbox
+    </div>
+  );
+}
+
+const PAGE_SIZE = 7;
+
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
   const { isFocus } = useTheme();
-  const { activeSource, candidateItems, selectedInboxId, selectInboxItem, bringForward, lastCommitTimestamp, syncStatus } = useApp();
+  const { activeSource, candidateItems, plannedTasks, selectedInboxId, selectInboxItem, bringForward, releaseTask, lastCommitTimestamp, syncStatus } = useApp();
 
   const [showZen, setShowZen] = useState(false);
+  const [page, setPage] = useState(0);
+
   useEffect(() => {
     if (!lastCommitTimestamp) return;
     setShowZen(true);
@@ -203,7 +235,18 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     return () => clearTimeout(timer);
   }, [lastCommitTimestamp]);
 
+  // Reset to first page when source switches
+  useEffect(() => { setPage(0); }, [activeSource]);
+
   const asanaItems = candidateItems.filter((item) => item.source === 'asana');
+  const totalPages = Math.ceil(asanaItems.length / PAGE_SIZE);
+
+  // Clamp page if items shrink (e.g. after committing last item on a page)
+  useEffect(() => {
+    if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
+  }, [asanaItems.length, totalPages, page]);
+
+  const pagedAsanaItems = asanaItems.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const syncIssue = syncStatus.asana || syncStatus.gcal
     ? summarizeSyncIssue(syncStatus.asana || syncStatus.gcal || '')
     : null;
@@ -213,23 +256,54 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
 
   if (activeSource === 'asana') {
     title = 'Asana';
+    const hasCommittedAsanaTasks = plannedTasks.some(
+      (t) => t.source === 'asana' && (t.status === 'committed' || t.status === 'scheduled')
+    );
     content = (
-      <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-3 hide-scrollbar">
-        {asanaItems.length === 0 ? (
-          <div className="flex-1 flex items-center justify-center text-text-muted text-[13px] py-12">
-            Asana is clear. Either it's a good day, or sync hasn't run.
-          </div>
-        ) : (
-          asanaItems.map((item, i) => (
-            <IncomingCard
-              key={item.id}
-              item={item}
-              selected={selectedInboxId === item.id}
-              onSelect={() => selectInboxItem(item.id)}
-              onBringForward={() => bringForward(item.id)}
-              stagger={i + 1}
-            />
-          ))
+      <div className="h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-3 hide-scrollbar min-h-0">
+          {asanaItems.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-text-muted text-[13px] py-12">
+              Asana is clear. Either it's a good day, or sync hasn't run.
+            </div>
+          ) : (
+            <>
+              {pagedAsanaItems.map((item, i) => (
+                <IncomingCard
+                  key={item.id}
+                  item={item}
+                  selected={selectedInboxId === item.id}
+                  onSelect={() => selectInboxItem(item.id)}
+                  onBringForward={() => bringForward(item.id)}
+                  stagger={i + 1}
+                />
+              ))}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-1 pt-1 pb-2">
+                  <button
+                    onClick={() => setPage((p) => p - 1)}
+                    disabled={page === 0}
+                    className="px-2.5 py-1 rounded-md text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-elevated/60 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="font-mono text-[10px] text-text-muted tracking-widest">
+                    {page + 1} / {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={page >= totalPages - 1}
+                    className="px-2.5 py-1 rounded-md text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-elevated/60 disabled:opacity-25 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        {hasCommittedAsanaTasks && (
+          <ReturnDropZone onDrop={(id) => releaseTask(id)} />
         )}
       </div>
     );
@@ -276,7 +350,7 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
         </div>
       )}
 
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 overflow-hidden">
         {content}
 
         {showZen && (
