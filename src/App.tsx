@@ -93,7 +93,6 @@ function AppLayout() {
   useEffect(() => {
     if (activeSource !== 'cover') {
       setSourceCollapsed(false);
-      setSidebarCollapsed(false);
       return;
     }
 
