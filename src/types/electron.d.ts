@@ -27,6 +27,8 @@ export interface BriefingContext {
     dueOn: string | null;
     priority?: string;
     project?: string;
+    notes?: string;
+    tags?: string[];
     daysSinceAdded?: number;
   }>;
   gcalEvents: GCalEventContext[];

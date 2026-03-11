@@ -32,10 +32,15 @@ export function registerAsanaHandlers() {
       const me = await asanaFetch('/users/me');
       const workspaceId = me.data.workspaces[0]?.gid;
       if (!workspaceId) throw new Error('No Asana workspace found');
-      const limit = options?.limit || 50;
+      const limit = options?.limit || 100;
+
+      // Use user_task_list endpoint — returns ALL My Tasks regardless of due date
+      const taskListResult = await asanaFetch(`/users/me/user_task_list?workspace=${workspaceId}&opt_fields=gid`);
+      const taskListGid = taskListResult.data?.gid;
+      if (!taskListGid) throw new Error('Could not find user task list');
 
       const result = await asanaFetch(
-        `/tasks?assignee=me&workspace=${workspaceId}&completed_since=now&opt_fields=gid,name,completed,due_on,projects.gid,projects.name,tags.gid,tags.name,notes,custom_fields.name,custom_fields.display_value&limit=${limit}`
+        `/user_task_lists/${taskListGid}/tasks?completed_since=now&opt_fields=gid,name,completed,due_on,projects.gid,projects.name,tags.gid,tags.name,notes,custom_fields.name,custom_fields.display_value&limit=${limit}`
       );
       return { success: true, data: result.data };
     } catch (error) {

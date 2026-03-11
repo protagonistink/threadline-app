@@ -25,6 +25,8 @@ interface BriefingContext {
     dueOn: string | null;
     priority?: string;
     project?: string;
+    notes?: string;
+    tags?: string[];
     daysSinceAdded?: number;
   }>;
   gcalEvents: GCalEventContext[];
@@ -53,7 +55,11 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
         const age = t.daysSinceAdded != null && t.daysSinceAdded > 7
           ? ` (${t.daysSinceAdded} days old)`
           : '';
-        return `- ${t.title}${priority}${project} (${due})${age}`;
+        const tags = t.tags?.length ? ` #${t.tags.join(' #')}` : '';
+        const notes = t.notes?.trim()
+          ? `\n  → ${t.notes.slice(0, 100)}${t.notes.length > 100 ? '…' : ''}`
+          : '';
+        return `- ${t.title}${priority}${project}${tags} (${due})${age}${notes}`;
       }).join('\n')
     : 'No Asana tasks found.';
 

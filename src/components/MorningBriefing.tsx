@@ -79,6 +79,8 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
             dueOn: t.due_on,
             priority,
             project,
+            notes: t.notes || undefined,
+            tags: t.tags?.map((tag: { name: string }) => tag.name),
           };
         });
       }
