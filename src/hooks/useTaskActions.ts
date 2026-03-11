@@ -161,6 +161,12 @@ export function useTaskActions({
     );
   }, [setPlannedTasks]);
 
+  const updateTaskEstimate = useCallback((id: string, mins: number) => {
+    setPlannedTasks((prev) =>
+      prev.map((t) => t.id === id ? { ...t, estimateMins: Math.max(15, Math.min(480, mins)) } : t)
+    );
+  }, [setPlannedTasks]);
+
   return {
     migrateOldTasks,
     dropTask,
@@ -171,5 +177,6 @@ export function useTaskActions({
     releaseTask,
     toggleTask,
     setActiveTask,
+    updateTaskEstimate,
   };
 }

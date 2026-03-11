@@ -115,6 +115,7 @@ interface AppContextValue {
   migrateOldTasks: () => PlannedTask[];
   workdayEnd: { hour: number; min: number };
   setWorkdayEnd: (hour: number, min: number) => void;
+  updateTaskEstimate: (id: string, mins: number) => void;
 }
 
 const AppContext = createContext<AppContextValue>(null!);
@@ -280,6 +281,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     releaseTask,
     toggleTask,
     setActiveTask,
+    updateTaskEstimate,
   } = useTaskActions({
     weeklyGoals,
     setPlannedTasks,
@@ -397,6 +399,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         migrateOldTasks,
         workdayEnd,
         setWorkdayEnd,
+        updateTaskEstimate,
       }}
     >
       {children}

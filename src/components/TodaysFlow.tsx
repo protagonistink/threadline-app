@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, CheckCircle2, Circle, Command, Play, ArrowRight, X, ChevronDown } from 'lucide-react';
 import { useDrag } from 'react-dnd';
 import { useDrop } from 'react-dnd';
@@ -13,7 +13,7 @@ import type { PlannedTask, WeeklyGoal } from '@/types';
 
 function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: number; actualMins?: number }) {
   const { isLight, isFocus, setMode } = useTheme();
-  const { toggleTask, setActiveTask, moveForward, releaseTask } = useApp();
+  const { toggleTask, setActiveTask, moveForward, releaseTask, updateTaskEstimate } = useApp();
   const { play } = useSound();
   const plannedHours = formatRoundedHours(task.estimateMins, true);
   const actualHours = formatRoundedHours(actualMins, true);
@@ -26,6 +26,48 @@ function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: n
         : varianceMinutes < 0
           ? `${formatRoundedHours(Math.abs(varianceMinutes), true)} under`
           : 'on estimate';
+
+  const [estimateEditing, setEstimateEditing] = useState(false);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function getEstimateStep(mins: number): number {
+    if (mins < 60) return 15;
+    if (mins < 120) return 30;
+    return 60;
+  }
+
+  function handleEstimateClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    setEstimateEditing(true);
+  }
+
+  function handleEstimateBlur() {
+    blurTimeoutRef.current = setTimeout(() => setEstimateEditing(false), 150);
+  }
+
+  function handleEstimateButtonMouseDown(e: React.MouseEvent) {
+    e.preventDefault();
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
+  }
+
+  function handleEstimateDecrement(e: React.MouseEvent) {
+    e.stopPropagation();
+    const step = getEstimateStep(task.estimateMins);
+    updateTaskEstimate(task.id, task.estimateMins - step);
+  }
+
+  function handleEstimateIncrement(e: React.MouseEvent) {
+    e.stopPropagation();
+    const step = getEstimateStep(task.estimateMins);
+    updateTaskEstimate(task.id, task.estimateMins + step);
+  }
+
+  function handleEstimateKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') setEstimateEditing(false);
+  }
 
   function handleStartFocus(e: React.MouseEvent<HTMLButtonElement>) {
     e.stopPropagation();
@@ -92,7 +134,40 @@ function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: n
             {task.title}
           </div>
           <div className="text-[10px] text-text-muted mt-1 flex items-center gap-2">
-            <span>{plannedHours} planned</span>
+            {estimateEditing ? (
+              <span
+                className="flex items-center gap-0.5"
+                onBlur={handleEstimateBlur}
+                onKeyDown={handleEstimateKeyDown}
+                tabIndex={-1}
+              >
+                <button
+                  onMouseDown={handleEstimateButtonMouseDown}
+                  onClick={handleEstimateDecrement}
+                  className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
+                  title="Decrease estimate"
+                >
+                  –
+                </button>
+                <span className="min-w-[28px] text-center text-text-primary font-mono">{plannedHours}</span>
+                <button
+                  onMouseDown={handleEstimateButtonMouseDown}
+                  onClick={handleEstimateIncrement}
+                  className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
+                  title="Increase estimate"
+                >
+                  +
+                </button>
+              </span>
+            ) : (
+              <span
+                onClick={handleEstimateClick}
+                className="cursor-pointer hover:text-text-primary transition-colors"
+                title="Click to edit estimate"
+              >
+                {plannedHours} planned
+              </span>
+            )}
             {actualMins > 0 && <span>{actualHours} actual</span>}
             {varianceLabel && <span>{varianceLabel}</span>}
             {task.status === 'scheduled' && <span>blocked</span>}
