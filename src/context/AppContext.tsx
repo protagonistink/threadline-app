@@ -146,7 +146,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const stored = await loadPlannerState();
         if (stored?.weeklyGoals?.length) setWeeklyGoals(stored.weeklyGoals.slice(0, 3));
-        if (stored?.plannedTasks?.length) setPlannedTasks(stored.plannedTasks);
+        if (stored?.plannedTasks?.length) {
+          // Repair tasks with missing titles (from stale persisted data)
+          const repairedTasks = stored.plannedTasks.map((task) => ({
+            ...task,
+            title: task.title || 'Untitled task',
+          }));
+          setPlannedTasks(repairedTasks);
+        }
         if (stored?.dailyPlan) setDailyPlan(stored.dailyPlan);
         if (stored?.timeLogs?.length) setTimeLogs(stored.timeLogs);
         if (stored?.activeView) {

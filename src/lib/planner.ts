@@ -16,7 +16,7 @@ export function asInboxItem(task: PlannedTask): InboxItem {
   return {
     id: task.id,
     source: task.source === 'asana' ? 'asana' : 'gmail',
-    title: task.title,
+    title: task.title || 'Untitled task',
     time: task.lastCommittedDate === TODAY ? 'Held for today' : formatRoundedHours(task.estimateMins),
     priority: task.priority,
   };
@@ -37,7 +37,7 @@ export function isDueSoon(task: AsanaTask): boolean {
 export function asPlannedTask(task: AsanaTask, existing?: PlannedTask): PlannedTask {
   return {
     id: existing?.id || `asana-${task.gid}`,
-    title: task.name,
+    title: task.name || 'Untitled task',
     source: 'asana',
     sourceId: task.gid,
     weeklyGoalId: existing?.weeklyGoalId || null,
