@@ -46,12 +46,14 @@ export function usePlannerSelectors({
 
   const dayTasks = useMemo(() => plannedTasks.filter((task) => (
     dailyPlan.committedTaskIds.includes(task.id) &&
-    (task.status === 'committed' || task.status === 'scheduled')
+    (task.status === 'committed' || task.status === 'scheduled') &&
+    (!task.parentId || !dailyPlan.committedTaskIds.includes(task.parentId))
   )), [dailyPlan.committedTaskIds, plannedTasks]);
 
   const committedTasks = useMemo(() => plannedTasks.filter((task) => (
     task.status === 'committed' &&
-    dailyPlan.committedTaskIds.includes(task.id)
+    dailyPlan.committedTaskIds.includes(task.id) &&
+    (!task.parentId || !dailyPlan.committedTaskIds.includes(task.parentId))
   )), [dailyPlan.committedTaskIds, plannedTasks]);
 
   const archiveTasks = useMemo(() => (

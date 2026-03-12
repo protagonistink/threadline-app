@@ -84,6 +84,7 @@ export interface PlannedTask {
   scheduledEventId?: string;
   scheduledCalendarId?: string;
   lastCommittedDate?: string;
+  parentId?: string;
 }
 
 export interface ScheduleBlock {

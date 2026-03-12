@@ -17,6 +17,7 @@ const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 let mainWindow: BrowserWindow | null;
 let pomodoroWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let fullWindowSize: [number, number] | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 function createWindow() {
@@ -197,6 +198,21 @@ app.whenReady().then(() => {
   ipcMain.handle('window:activate', () => {
     app.focus({ steal: true });
     pomodoroWindow?.focus();
+  });
+
+  ipcMain.handle('window:set-focus-size', (_event, locked: boolean) => {
+    if (!mainWindow) return;
+    if (locked) {
+      fullWindowSize = mainWindow.getSize() as [number, number];
+      mainWindow.setMinimumSize(400, 600);
+      mainWindow.setSize(520, mainWindow.getSize()[1], true);
+    } else {
+      mainWindow.setMinimumSize(1200, 700);
+      if (fullWindowSize) {
+        mainWindow.setSize(fullWindowSize[0], fullWindowSize[1], true);
+        fullWindowSize = null;
+      }
+    }
   });
 
   createWindow();

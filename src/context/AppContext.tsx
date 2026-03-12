@@ -30,36 +30,6 @@ import { usePlannerSelectors } from '@/hooks/usePlannerSelectors';
 export type View = 'flow' | 'archive' | 'goals';
 export type SourceView = 'cover' | 'asana' | 'gcal' | 'gmail';
 
-const INITIAL_GOALS: WeeklyGoal[] = [
-  { id: 'goal-work', title: 'Client Story Work', color: 'bg-accent-warm' },
-  { id: 'goal-writing', title: 'Screenplay Pages', color: 'bg-done' },
-  { id: 'goal-life', title: 'Body and Admin', color: 'bg-done' },
-];
-
-const INITIAL_TASKS: PlannedTask[] = [
-  {
-    id: 'local-1',
-    title: 'Shape the next scene of the app',
-    source: 'local',
-    weeklyGoalId: 'goal-work',
-    status: 'committed',
-    estimateMins: 90,
-    active: true,
-    priority: 'P1',
-    lastCommittedDate: TODAY,
-  },
-  {
-    id: 'local-2',
-    title: 'Revise act two pages',
-    source: 'local',
-    weeklyGoalId: 'goal-writing',
-    status: 'committed',
-    estimateMins: 60,
-    active: false,
-    lastCommittedDate: TODAY,
-  },
-];
-
 interface AppContextValue {
   activeView: View;
   setActiveView: (view: View) => void;
@@ -82,10 +52,10 @@ interface AppContextValue {
   bringForward: (taskId: string, goalId?: string) => void;
   lastCommitTimestamp: number;
   assignTaskToGoal: (taskId: string, goalId: string) => void;
-  moveForward: (taskId: string) => void;
-  releaseTask: (taskId: string) => void;
+  moveForward: (taskId: string) => Promise<void>;
+  releaseTask: (taskId: string) => Promise<void>;
   dropTask: (taskId: string) => void;
-  toggleTask: (id: string) => void;
+  toggleTask: (id: string) => Promise<void>;
   setActiveTask: (id: string) => void;
   scheduleBlocks: ScheduleBlock[];
   scheduleTaskBlock: (taskId: string, startHour: number, startMin: number, durationMins?: number) => Promise<void>;
@@ -116,6 +86,11 @@ interface AppContextValue {
   workdayEnd: { hour: number; min: number };
   setWorkdayEnd: (hour: number, min: number) => void;
   updateTaskEstimate: (id: string, mins: number) => void;
+  nestTask: (childId: string, parentId: string) => void;
+  unnestTask: (childId: string) => void;
+  dayLocked: boolean;
+  lockDay: () => void;
+  unlockDay: () => void;
   resetDay: () => Promise<void>;
 }
 
@@ -124,10 +99,10 @@ const AppContext = createContext<AppContextValue>(null!);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [activeView, setActiveView] = useState<View>('flow');
   const [activeSource, setActiveSource] = useState<SourceView>('cover');
-  const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>(INITIAL_GOALS);
-  const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>(INITIAL_TASKS);
+  const [weeklyGoals, setWeeklyGoals] = useState<WeeklyGoal[]>([]);
+  const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
-  const [dailyPlan, setDailyPlan] = useState<DailyPlan>({ date: TODAY, committedTaskIds: INITIAL_TASKS.map((task) => task.id) });
+  const [dailyPlan, setDailyPlan] = useState<DailyPlan>({ date: TODAY, committedTaskIds: [] });
   const [timeLogs, setTimeLogs] = useState<TimeLogEntry[]>([]);
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [lastCommitTimestamp, setLastCommitTimestamp] = useState(0);
@@ -137,6 +112,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [weeklyPlanningLastCompleted, setWeeklyPlanningLastCompleted] = useState<string | null>(null);
   const [isWeeklyPlanningOpen, setIsWeeklyPlanningOpen] = useState(false);
   const [workdayEnd, setWorkdayEndState] = useState<{ hour: number; min: number }>({ hour: 18, min: 0 });
+  const [dayLocked, setDayLocked] = useState(false);
   const [syncStatus, setSyncStatus] = useState<{ asana: string | null; gcal: string | null; loading: boolean }>({
     asana: null,
     gcal: null,
@@ -175,6 +151,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     loadState();
+  }, []);
+
+  useEffect(() => {
+    void window.api.store.get('dayLocked').then((val) => {
+      if (val) setDayLocked(true);
+    });
   }, []);
 
   usePlannerPersistence({
@@ -268,6 +250,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setWorkdayEndState({ hour, min });
   }, []);
 
+  const lockDay = useCallback(() => {
+    setDayLocked(true);
+    void window.api.store.set('dayLocked', true);
+    void window.api.window.setFocusSize(true);
+  }, []);
+
+  const unlockDay = useCallback(() => {
+    setDayLocked(false);
+    void window.api.store.set('dayLocked', false);
+    void window.api.window.setFocusSize(false);
+  }, []);
+
   const selectInboxItem = useCallback((id: string) => {
     setSelectedInboxId((prev) => prev === id ? null : id);
   }, []);
@@ -275,6 +269,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const {
     migrateOldTasks,
     dropTask,
+    nestTask,
+    unnestTask,
     bringForward,
     addLocalTask,
     assignTaskToGoal,
@@ -285,7 +281,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateTaskEstimate,
   } = useTaskActions({
     weeklyGoals,
+    scheduleBlocks,
     setPlannedTasks,
+    setScheduleBlocks,
     setDailyPlan,
     setSelectedInboxId,
     setLastCommitTimestamp,
@@ -355,12 +353,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setPlannedTasks((prev) =>
       prev.map((task) =>
         task.status === 'committed' || task.status === 'scheduled'
-          ? { ...task, status: 'candidate', scheduledEventId: undefined, scheduledCalendarId: undefined }
+          ? { ...task, status: 'candidate', scheduledEventId: undefined, scheduledCalendarId: undefined, parentId: undefined }
           : task
       )
     );
     setDailyPlan((prev) => ({ ...prev, committedTaskIds: [] }));
     setLastCommitTimestamp(0);
+    setDayLocked(false);
+    void window.api.store.set('dayLocked', false);
+    void window.api.window.setFocusSize(false);
   }, [scheduleBlocks, setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setScheduleBlocks]);
 
   return (
@@ -421,6 +422,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         workdayEnd,
         setWorkdayEnd,
         updateTaskEstimate,
+        nestTask,
+        unnestTask,
+        dayLocked,
+        lockDay,
+        unlockDay,
         resetDay,
       }}
     >
