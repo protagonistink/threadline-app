@@ -200,7 +200,7 @@ function BlockCard({
       onMouseDown={beginDrag}
       onClick={handleClick}
       className={cn(
-        'editorial-card animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[18px] p-4 flex flex-col gap-1.5 transition-all duration-300 group/block shadow-[0_14px_36px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]',
+        'editorial-card animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[8px] p-4 flex flex-col gap-1.5 transition-all duration-300 group/block shadow-[0_14px_36px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]',
         isFocus && block.kind !== 'hard' && 'focus-block-card',
         block.kind === 'hard'
           ? isLight
@@ -648,7 +648,7 @@ export function Timeline() {
               className="absolute left-0 right-0 flex border-b border-border-subtle/50"
               style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
-              <div className="w-20 p-2 text-[10px] font-mono text-text-muted text-right border-r border-border-subtle/50">
+              <div className="w-20 p-2 font-display italic text-[13px] text-text-muted text-right border-r border-border-subtle/50">
                 {formatTime(hour, 0)}
               </div>
               <div className="flex-1 relative">

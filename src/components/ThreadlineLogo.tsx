@@ -67,11 +67,11 @@ export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoP
           />
 
           <g>
-            <motion.circle cx="305" cy="102" r="11" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+            <motion.circle cx="305" cy="102" r="11" fill="#E55547" filter={`url(#${stampFilterId})`}
               initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5, duration: 0.5, type: "spring" }} />
-            <motion.circle cx="338" cy="102" r="11.5" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+            <motion.circle cx="338" cy="102" r="11.5" fill="#E55547" filter={`url(#${stampFilterId})`}
               initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7, duration: 0.5, type: "spring" }} />
-            <motion.circle cx="372" cy="102" r="12" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+            <motion.circle cx="372" cy="102" r="12" fill="#E55547" filter={`url(#${stampFilterId})`}
               initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.9, duration: 0.5, type: "spring" }} />
           </g>
         </svg>
@@ -134,11 +134,11 @@ export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoP
         />
 
         <g transform="translate(10, -2)">
-          <motion.circle cx="295" cy="104" r="11" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+          <motion.circle cx="295" cy="104" r="11" fill="#E55547" filter={`url(#${stampFilterId})`}
             initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.0, duration: 0.5, type: "spring" }} />
-          <motion.circle cx="326" cy="105" r="10.5" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+          <motion.circle cx="326" cy="105" r="10.5" fill="#E55547" filter={`url(#${stampFilterId})`}
             initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.2, duration: 0.5, type: "spring" }} />
-          <motion.circle cx="358" cy="103" r="11.5" fill="#B43D2F" filter={`url(#${stampFilterId})`}
+          <motion.circle cx="358" cy="103" r="11.5" fill="#E55547" filter={`url(#${stampFilterId})`}
             initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.4, duration: 0.5, type: "spring" }} />
         </g>
       </svg>

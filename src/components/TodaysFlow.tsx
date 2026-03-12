@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, CheckCircle2, Circle, Command, Play, ArrowRight, X, ChevronDown } from 'lucide-react';
+import { Plus, Command, Play, ArrowRight, X, ChevronDown, Check } from 'lucide-react';
 import { useDrag } from 'react-dnd';
 import { useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -100,12 +100,9 @@ function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: n
       ref={dragRef}
       data-task-id={task.id}
       className={cn(
-        'editorial-card animate-fade-in group relative overflow-hidden flex items-center gap-2.5 p-4 rounded-[18px] transition-all duration-300 cursor-grab active:cursor-grabbing',
-        task.active
-          ? isLight
-            ? 'shadow-[0_14px_28px_rgba(120,113,100,0.10)]'
-            : 'border-accent-warm/22 shadow-[0_18px_34px_rgba(0,0,0,0.16)]'
-          : 'hover:border-border hover:-translate-y-0.5',
+        'animate-fade-in group relative flex items-center gap-2.5 py-5 border-b border-ink/10 transition-all duration-300 cursor-grab active:cursor-grabbing',
+        task.active && 'border-accent-warm/20',
+        !task.active && 'hover:-translate-y-0.5',
         isDragging && 'opacity-20 scale-95 rotate-[1deg]',
         staggerClass
       )}
@@ -119,9 +116,11 @@ function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: n
         className="shrink-0"
       >
         {task.status === 'done' ? (
-          <CheckCircle2 className={cn('w-4 h-4 stroke-[1.5] animate-check-pop', isLight ? 'text-stone-300' : isFocus ? 'text-stone-700' : 'text-done')} />
+          <div className={cn('w-4 h-4 border flex items-center justify-center animate-check-pop', isLight ? 'border-stone-300 bg-stone-200/20' : isFocus ? 'border-stone-700 bg-stone-700/20' : 'border-accent-warm bg-accent-warm/20')}>
+            <Check className="w-2.5 h-2.5 stroke-[2]" />
+          </div>
         ) : (
-          <Circle className={cn('w-4 h-4 stroke-[1.5]', task.active ? 'text-active animate-breathe' : 'text-text-muted group-hover:text-text-primary')} />
+          <div className={cn('w-4 h-4 border transition-colors', task.active ? 'border-accent-warm bg-accent-warm/10 animate-breathe' : 'border-text-muted/40 group-hover:border-text-primary')} />
         )}
       </button>
 
@@ -130,10 +129,10 @@ function TaskCard({ task, index, actualMins = 0 }: { task: PlannedTask; index: n
           onClick={() => task.status !== 'done' && setActiveTask(task.id)}
           className="text-left w-full"
         >
-          <div className={cn('text-[13px] leading-snug transition-colors truncate', task.status === 'done' ? 'text-text-muted line-through' : task.active ? 'text-text-emphasis font-semibold' : 'text-text-primary')}>
+          <div className={cn('font-display text-[18px] leading-snug transition-colors line-clamp-2', task.status === 'done' ? 'text-text-muted line-through' : task.active ? 'text-text-emphasis font-semibold' : 'text-text-primary')}>
             {task.title}
           </div>
-          <div className="text-[10px] text-text-muted mt-1 flex items-center gap-2">
+          <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mt-1 flex items-center gap-2">
             {estimateEditing ? (
               <span
                 className="flex items-center gap-0.5"
@@ -458,11 +457,14 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
         <div className="px-6 pb-3 shrink-0">
           <button
             onClick={() => { onCollapse(); play('paper'); }}
-            className="w-full flex items-center justify-between px-4 py-2.5 rounded-lg bg-accent-warm/10 hover:bg-accent-warm/20 border border-accent-warm/20 text-accent-warm transition-all duration-200 group"
+            className="w-full flex items-center justify-between px-6 py-3 bg-accent-warm/[0.12] hover:bg-accent-warm/20 text-accent-warm transition-all duration-200 group"
           >
             <span className="text-[11px] uppercase tracking-[0.18em] font-medium">Lock in the day</span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
           </button>
+          <svg className="w-full h-2 mt-4" preserveAspectRatio="none">
+            <line x1="0" y1="50%" x2="100%" y2="50%" stroke="currentColor" className="text-text-muted/20" strokeWidth="1" strokeDasharray="8 4 12 4 6 4" />
+          </svg>
         </div>
       )}
 
@@ -523,7 +525,7 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
         {(realismWarning || balanceWarning || deadlineWarning) && (
           <div className="grid gap-3">
             {realismWarning && (
-              <div className="rounded-[18px] border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-[12px] text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="rounded-[18px] border border-amber-500/15 bg-amber-500/5 px-4 py-3 text-[12px] text-amber-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-amber-300/80">Reality Check</div>
                 <div className="mt-1 text-[13px] text-amber-50">{realismWarning}</div>
                 <div className="mt-2 text-[11px] text-amber-100/80">
@@ -538,7 +540,7 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
               </div>
             )}
             {deadlineWarning && (
-              <div className="rounded-[18px] border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-[12px] text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="rounded-[18px] border border-rose-500/15 bg-rose-500/5 px-4 py-3 text-[12px] text-rose-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
                 <div className="text-[10px] uppercase tracking-[0.18em] text-rose-300/80">Deadline Pressure</div>
                 <div className="mt-1 text-[13px] text-rose-50">{deadlineWarning}</div>
               </div>

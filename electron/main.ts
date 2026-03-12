@@ -12,7 +12,7 @@ process.env.VITE_PUBLIC = app.isPackaged
   ? process.env.DIST
   : path.join(process.env.DIST, '../public');
 const APP_ICON_PATH = path.join(__dirname, '../build/icon.png');
-const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'threadline-menubar.svg');
+const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 
 let mainWindow: BrowserWindow | null;
 let pomodoroWindow: BrowserWindow | null = null;

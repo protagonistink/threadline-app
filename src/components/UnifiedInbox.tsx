@@ -151,7 +151,7 @@ function IncomingCard({
           onClick={handleCardClick}
           style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}
           className={cn(
-            'editorial-card p-5 rounded-[18px] flex flex-col gap-2.5 transition-all duration-300 cursor-pointer group',
+            'editorial-card p-5 rounded-[8px] flex flex-col gap-2.5 transition-all duration-300 cursor-pointer group',
             selected
               ? isLight
                 ? 'shadow-[0_18px_34px_rgba(120,113,100,0.12)]'
@@ -196,7 +196,7 @@ function IncomingCard({
             inset: 0,
           }}
           className={cn(
-            'editorial-card p-4 rounded-[18px] flex flex-col gap-2',
+            'editorial-card p-4 rounded-[8px] flex flex-col gap-2',
             isLight
               ? 'shadow-[0_18px_34px_rgba(120,113,100,0.12)]'
               : 'border-accent-warm/24 shadow-[0_0_26px_rgba(200,60,47,0.08),0_24px_42px_rgba(0,0,0,0.18)]'
