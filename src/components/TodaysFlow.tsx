@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Plus, Command, Play, ArrowRight, X, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { Plus, Command, Play, ArrowRight, Lock, X, ChevronDown, ChevronRight, Check } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useModifierKey } from '@/hooks/useModifierKey';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -372,7 +372,7 @@ function GoalSection({
   );
 }
 
-export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
+export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   const { isLight, isFocus } = useTheme();
   const {
     weeklyGoals,
@@ -392,6 +392,8 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
     resetDay,
     nestTask,
     unnestTask,
+    lockDay,
+    unlockDay,
   } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
@@ -522,6 +524,21 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
 
   let runningIndex = 0;
 
+  if (collapsed) {
+    return (
+      <div
+        onClick={() => unlockDay()}
+        className="w-10 shrink-0 flex flex-col items-center justify-start pt-8 gap-4 cursor-pointer border-r border-border/30 hover:bg-bg-elevated/20 transition-colors select-none"
+        title="Today's Plan — click to unlock"
+      >
+        <Lock className="w-3.5 h-3.5 text-text-muted/60" />
+        <span className="text-[10px] uppercase tracking-[0.18em] text-text-muted/50 font-medium [writing-mode:vertical-rl] rotate-180">
+          Today&apos;s Plan
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div ref={dropRef} className={cn('focus-dim-soft bg-bg flex-1 min-w-[360px] column-divider flex flex-col h-full transition-colors duration-700', isOver && 'bg-accent-warm/[0.03]')}>
       <div className="workspace-header px-8 shrink-0">
@@ -569,13 +586,16 @@ export function TodaysFlow({ onCollapse }: { onCollapse?: () => void }) {
         </div>
       </div>
 
-      {dayTasks.length > 0 && onCollapse && (
+      {dayTasks.length > 0 && (
         <div className="px-6 pb-3 shrink-0">
           <button
-            onClick={() => { onCollapse(); play('paper'); }}
+            onClick={() => { lockDay(); play('paper'); }}
             className="w-full flex items-center justify-between px-6 py-3 bg-[#E55547]/10 hover:bg-[#E55547] text-[#E55547] hover:text-[#FAFAFA] transition-all duration-300 group"
           >
-            <span className="text-[11px] uppercase tracking-[0.18em] font-medium">Lock in the day</span>
+            <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium">
+              <Lock className="w-3 h-3" />
+              Focus
+            </span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
           </button>
           <svg className="w-full h-2 mt-4" preserveAspectRatio="none">

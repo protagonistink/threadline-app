@@ -50,14 +50,13 @@ function AppLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showBriefing, setShowBriefing] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sourceCollapsed, setSourceCollapsed] = useState(false);
   const { isFocus } = useTheme();
   const {
     activeView,
-    activeSource,
     weeklyPlanningLastCompleted,
     openWeeklyPlanning,
     dailyPlan,
+    dayLocked,
   } = useApp();
 
   // Auto-open briefing: before noon, no commits yet, API key configured
@@ -84,19 +83,8 @@ function AppLayout() {
     }
   }, [openWeeklyPlanning, weeklyPlanningLastCompleted]);
 
-  useEffect(() => {
-    if (activeSource !== 'cover') {
-      setSourceCollapsed(false);
-      return;
-    }
-
-    if (activeView !== 'flow') {
-      setSourceCollapsed(false);
-    }
-  }, [activeSource, activeView]);
-
   const sidebarIsCollapsed = isFocus || sidebarCollapsed;
-  const sourcePanelIsCollapsed = isFocus || (activeView === 'flow' && sourceCollapsed);
+  const sourcePanelIsCollapsed = isFocus || dayLocked;
 
   return (
     <div className="grain cinematic-shell relative flex h-screen w-full bg-bg text-text-primary font-sans overflow-hidden transition-colors duration-700">
@@ -112,7 +100,7 @@ function AppLayout() {
         {activeView === 'flow' && (
           <>
             <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
-            <TodaysFlow onCollapse={() => setSourceCollapsed(true)} />
+            <TodaysFlow collapsed={dayLocked} />
             {showBriefing ? (
               <MorningBriefing onClose={() => {
                 setShowBriefing(false);
