@@ -5,6 +5,11 @@ import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 
+interface TimeboxDecisionState {
+  taskId: string;
+  taskTitle: string;
+}
+
 function formatSeconds(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -25,6 +30,7 @@ export function PomodoroTimer({ floating = false }: { floating?: boolean }) {
     pomodoroCount: 0,
   });
   const [lastWorkState, setLastWorkState] = useState<PomodoroState | null>(null);
+  const [timeboxDecision, setTimeboxDecision] = useState<TimeboxDecisionState | null>(null);
 
   function logElapsedWorkSession(session: PomodoroState) {
     if (!session.currentTaskId || session.isBreak) return;
@@ -58,22 +64,12 @@ export function PomodoroTimer({ floating = false }: { floating?: boolean }) {
 
           if (taskStillOpen) {
             setActiveTask(prevState.currentTaskId);
-            window.setTimeout(() => {
-              const keepGoing = window.confirm(
-                'This timebox ended, but the task is still open.\n\nOK: keep going and run another focus block.\nCancel: return to the plan and re-scope the rest of the day.'
-              );
-
-              if (keepGoing) {
-                void window.api.pomodoro.start(prevState.currentTaskId!, prevState.currentTaskTitle || 'Focus');
-                void window.api.window.showPomodoro();
-                setMode('focus');
-                return;
-              }
-
-              setActiveView('flow');
-              setMode('dark');
-              void window.api.window.activate();
-            }, 0);
+            setTimeboxDecision({
+              taskId: prevState.currentTaskId,
+              taskTitle: prevState.currentTaskTitle || 'Focus block',
+            });
+            void window.api.window.hidePomodoro();
+            void window.api.window.showMain();
           }
         }
 
@@ -112,8 +108,45 @@ export function PomodoroTimer({ floating = false }: { floating?: boolean }) {
   const floatC = 2 * Math.PI * floatR;
 
   return (
-    <div className={cn('flex items-center justify-center bg-transparent', floating ? 'group w-full h-full' : 'w-[220px] h-[220px] drag-region')}>
-      <div className={cn('relative flex items-center justify-center', floating ? 'w-[92px] h-[92px]' : 'w-[180px] h-[180px]')}>
+    <>
+      {!floating && timeboxDecision && (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[420px] rounded-[24px] border border-border bg-bg-card/95 p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-warm">Timebox ended</div>
+            <h3 className="mt-3 font-display text-[28px] italic leading-none text-text-emphasis">
+              {timeboxDecision.taskTitle}
+            </h3>
+            <p className="mt-4 text-[13px] leading-relaxed text-text-muted">
+              The block is over, but the task is still open. Choose the tradeoff directly: keep going and let the day run longer, or stop and re-scope the rest of the plan.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                onClick={() => {
+                  void window.api.pomodoro.start(timeboxDecision.taskId, timeboxDecision.taskTitle);
+                  void window.api.window.showPomodoro();
+                  setMode('focus');
+                  setTimeboxDecision(null);
+                }}
+                className="rounded-full bg-accent-warm px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-white transition-colors hover:bg-accent-warm/90"
+              >
+                Keep going
+              </button>
+              <button
+                onClick={() => {
+                  setActiveView('flow');
+                  setMode('dark');
+                  setTimeboxDecision(null);
+                }}
+                className="rounded-full border border-border px-4 py-2 text-[11px] uppercase tracking-[0.16em] text-text-primary transition-colors hover:bg-bg-elevated"
+              >
+                Re-scope the day
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className={cn('flex items-center justify-center bg-transparent', floating ? 'group w-full h-full' : 'w-[220px] h-[220px] drag-region')}>
+        <div className={cn('relative flex items-center justify-center', floating ? 'w-[92px] h-[92px]' : 'w-[180px] h-[180px]')}>
         {state.isBreak && (
           <>
             <div
@@ -239,7 +272,8 @@ export function PomodoroTimer({ floating = false }: { floating?: boolean }) {
             </div>
           ) : null}
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }

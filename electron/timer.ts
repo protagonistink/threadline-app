@@ -71,6 +71,15 @@ function startPomodoroSession(taskId: string, taskTitle?: string) {
   broadcast();
 }
 
+function playCue(kind: 'focus-end' | 'break-end') {
+  const pattern = kind === 'focus-end' ? [0, 180] : [0];
+  pattern.forEach((delay) => {
+    setTimeout(() => {
+      shell.beep();
+    }, delay);
+  });
+}
+
 export function startLastUsedPomodoro(): LastPomodoroTask | null {
   const lastTask = store.get('pomodoro.lastTask') as LastPomodoroTask | undefined;
   if (!lastTask?.taskId) return null;
@@ -97,7 +106,7 @@ function startTimer() {
         // Timer complete
         if (!state.isBreak) {
           // Work session done — start break
-          shell.beep();
+          playCue('focus-end');
           state.pomodoroCount += 1;
           const config = getConfig();
           const isLongBreak = state.pomodoroCount % config.longBreakInterval === 0;
@@ -107,7 +116,7 @@ function startTimer() {
 
         } else {
           // Break done — ready for next work session
-          shell.beep();
+          playCue('break-end');
           state.isRunning = false;
           state.isBreak = false;
           state.timeRemaining = 0;

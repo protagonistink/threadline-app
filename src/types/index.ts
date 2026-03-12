@@ -47,6 +47,7 @@ export interface WeeklyGoal {
   title: string;
   color: string;
   why?: string;
+  countdownId?: string;
 }
 
 export interface DailyRitual {

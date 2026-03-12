@@ -40,6 +40,7 @@ interface AppContextValue {
   renameWeeklyGoal: (id: string, title: string) => void;
   updateGoalWhy: (id: string, why: string) => void;
   updateGoalColor: (id: string, color: string) => void;
+  updateGoalCountdown: (id: string, countdownId: string | null) => void;
   plannedTasks: PlannedTask[];
   dayTasks: PlannedTask[];
   committedTasks: PlannedTask[];
@@ -206,6 +207,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const updateGoalColor = useCallback((id: string, color: string) => {
     setWeeklyGoals((prev) => prev.map((goal) => goal.id === id ? { ...goal, color } : goal));
+  }, []);
+
+  const updateGoalCountdown = useCallback((id: string, countdownId: string | null) => {
+    setWeeklyGoals((prev) => prev.map((goal) => goal.id === id ? { ...goal, countdownId: countdownId ?? undefined } : goal));
   }, []);
 
   const addRitual = useCallback((title: string) => {
@@ -376,6 +381,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         renameWeeklyGoal,
         updateGoalWhy,
         updateGoalColor,
+        updateGoalCountdown,
         plannedTasks,
         dayTasks,
         committedTasks,

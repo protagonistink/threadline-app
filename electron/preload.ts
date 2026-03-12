@@ -40,6 +40,12 @@ contextBridge.exposeInMainWorld('api', {
     get: (key: string) => ipcRenderer.invoke('store:get', key),
     set: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
   },
+  // User Physics (working pattern persistence)
+  physics: {
+    get: () => ipcRenderer.invoke('physics:get'),
+    update: (patch: unknown) => ipcRenderer.invoke('physics:update', patch),
+    log: (entry: unknown) => ipcRenderer.invoke('physics:log', entry),
+  },
   // AI (Morning Briefing)
   ai: {
     chat: (messages: unknown[], context: unknown) =>
@@ -62,5 +68,6 @@ contextBridge.exposeInMainWorld('api', {
     hidePomodoro: () => ipcRenderer.invoke('window:hide-pomodoro'),
     activate: () => ipcRenderer.invoke('window:activate'),
     setFocusSize: (locked: boolean) => ipcRenderer.invoke('window:set-focus-size', locked),
+    showMain: () => ipcRenderer.invoke('window:show-main'),
   },
 });

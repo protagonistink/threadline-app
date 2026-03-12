@@ -1,9 +1,13 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
-import Store from 'electron-store';
-
-const store = new Store();
+import { store } from './store';
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
+
+// Default model — update here or override via store key 'anthropic.model'
+const DEFAULT_MODEL = 'claude-sonnet-4-6';
+
+// Max conversation turns to send per request (prevents token bloat in long sessions)
+const MAX_HISTORY_TURNS = 12;
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -16,6 +20,17 @@ interface GCalEventContext {
   endTime: string;
   isAllDay: boolean;
 }
+
+interface UserPhysics {
+  focusBlockLength: number;       // ideal uninterrupted focus block in minutes
+  peakEnergyWindow: string;       // e.g. "9am–12pm"
+  commonDerailers: string[];      // e.g. ["email rabbit holes", "scope creep mid-task"]
+  planningStyle: string;          // e.g. "needs explicit time boxes or tasks float"
+  recoveryPattern: string;        // e.g. "30 min context-switch cost between deep work modes"
+  warningSignals: string[];       // e.g. ["over-scheduling mornings", "no creative block before noon"]
+}
+
+// UserPhysics defaults live in store.ts — do not duplicate here
 
 interface BriefingContext {
   date: string;
@@ -36,6 +51,7 @@ interface BriefingContext {
   countdowns: Array<{ title: string; daysUntil: number }>;
   workdayEndHour: number;
   workdayEndMin: number;
+  userPhysics?: UserPhysics;
 }
 
 export function buildSystemPrompt(ctx: BriefingContext): string {
@@ -43,36 +59,12 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
     .map(g => `- ${g.title}${g.why ? ` (why: ${g.why})` : ''}`)
     .join('\n');
 
-  const asanaList = ctx.asanaTasks.length > 0
-    ? ctx.asanaTasks.map(t => {
-        const due = t.dueOn
-          ? new Date(t.dueOn).toDateString() === new Date().toDateString()
-            ? 'DUE TODAY'
-            : `due ${t.dueOn}`
-          : 'no due date';
-        const priority = t.priority ? ` [${t.priority}]` : '';
-        const project = t.project ? ` — ${t.project}` : '';
-        const age = t.daysSinceAdded != null && t.daysSinceAdded > 7
-          ? ` (${t.daysSinceAdded} days old)`
-          : '';
-        const tags = t.tags?.length ? ` #${t.tags.join(' #')}` : '';
-        const notes = t.notes?.trim()
-          ? `\n  → ${t.notes.slice(0, 100)}${t.notes.length > 100 ? '…' : ''}`
-          : '';
-        return `- ${t.title}${priority}${project}${tags} (${due})${age}${notes}`;
-      }).join('\n')
-    : 'No Asana tasks found.';
-
   const gcalList = ctx.gcalEvents.length > 0
     ? ctx.gcalEvents.map(e => {
         if (e.isAllDay) return `- All day: ${e.title}`;
         return `- ${e.startTime}–${e.endTime}: ${e.title}`;
       }).join('\n')
     : 'No calendar events today.';
-
-  const countdownsList = ctx.countdowns.length > 0
-    ? ctx.countdowns.map(c => `- ${c.title}: ${c.daysUntil} day${c.daysUntil === 1 ? '' : 's'} out`).join('\n')
-    : 'No active countdowns.';
 
   const alreadyCommitted = ctx.committedTasks.length > 0
     ? ctx.committedTasks.map(t => `- ${t.title} (${t.estimateMins}m, ${t.weeklyGoal})`).join('\n')
@@ -123,9 +115,27 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
         .join('\n')
     : 'No active countdowns.';
 
-  return `You are the morning planning voice inside TimeFocus — a focus and planning app built for Patrick Kirkland, a narrative strategist, screenwriter, and founder of Protagonist Ink.
+  const physics = ctx.userPhysics ?? loadUserPhysics();
+  const physicsSection = `## WHO YOU'RE TALKING TO
 
-Today is ${ctx.date}. Workday ends at ${endTime}.
+Patrick Kirkland — narrative strategist, screenwriter, and founder of Protagonist Ink.
+
+**Working physics:**
+- Ideal focus block: ${physics.focusBlockLength} min
+- Peak energy: ${physics.peakEnergyWindow}
+- Planning style: ${physics.planningStyle}
+- Recovery pattern: ${physics.recoveryPattern}
+- Common derailers: ${physics.commonDerailers.join(', ')}
+- Watch for: ${physics.warningSignals.join('; ')}`;
+
+  // Character and behavioral instructions belong in your Anthropic Console system prompt.
+  // This function injects only the live dynamic context that changes per-session.
+  // The Console prompt handles: role, tone, briefing format, response constraints, etc.
+  return `Today is ${ctx.date}. Workday ends at ${endTime}.
+
+---
+
+${physicsSection}
 
 ---
 
@@ -153,47 +163,16 @@ ${alreadyCommitted}
 
 ---
 
-## YOUR JOB
+## RESPONSE FORMAT
+- Hard limit: 200 words total. No exceptions.
+- Bullets for lists. Paragraphs max 2 sentences.
+- No preamble ("Great!", "Sure,", "Of course,"). No closing summaries.
+- Lead with signal. Every sentence earns its place or gets cut.`;
+}
 
-Run a morning briefing. This is a conversation, not a report. Patrick uses this to figure out what's actually real today — not just what Asana says.
-
-When the briefing opens, give him a sharp read across five things in this order:
-
-1. **What's on fire** — anything due today, overdue, or with a countdown under 3 days. Name it directly. If a hard calendar block is eating his afternoon, factor that into the real focus window.
-
-2. **What's been lying** — any task marked "(in list Xd — stale?)" sitting more than 7 days without moving. Name it and ask if it's real or if it should die.
-
-3. **Goal balance** — which of his three goals is getting fed today and which is getting nothing. If one goal has zero presence in the commit, say so.
-
-4. **Capacity reality** — how many hours he actually has versus how much the current or proposed commit adds up to. Give him the number. If it doesn't fit, say that before he locks it in.
-
-5. **The one thing** — the single most load-bearing task today. The one where if nothing else happens, that needs to.
-
-Deliver this as a tight opening read — conversational, direct, 150–200 words. No headers. No bullet dumps. Talk to him like you've been tracking his week.
-
-Then he responds. He'll push back, cut things, add things, reframe. Roll with it. This is a negotiation, not a status report.
-
-When you've landed on a real list together, summarize it clearly — one line per task, rough time estimate, which goal it feeds. That's what goes into the app.
-
----
-
-## YOUR CHARACTER
-
-Direct. Pushes back. Not a yes machine.
-
-If a task has been in the list for 11 days with no due date, ask him if it's actually happening. If the commit is overloaded for the available hours, say so before he locks it in. If Screenplay Pages is getting nothing again today, name it. If a hard calendar block wipes out the afternoon and he hasn't accounted for that, flag it.
-
-Not a bureaucrat. No lectures. Make the read and let him respond.
-
-**Never say:** "Great!", "Absolutely!", "Of course!", "That's a good point!" Just respond.
-
-**Never:** produce a final list longer than the available capacity. Never let an overcommitted plan go unaddressed. Never agree just to close the loop.
-
-**Always:** keep responses under 200 words unless he asks for more. Short paragraphs. When listing the final agreed tasks, use a simple dashed list with time estimates.
-
-**Your only function is scheduling and planning.** When Patrick mentions work he needs to do — write a scene, build a feature, draft a proposal — do NOT offer to help do the work. Your only questions are: Is this on the list? Does it fit today? How much time does it need? Which goal does it feed?
-
-Never offer to: write copy, draft content, generate code, brainstorm creative direction, or help execute any task. That is not your job here. Your job is getting the right tasks into the right slots in the right order.`;
+function loadUserPhysics(): UserPhysics {
+  // store.ts defines defaults — safe to cast directly
+  return store.get('userPhysics') as UserPhysics;
 }
 
 export function registerAnthropicHandlers() {
@@ -203,6 +182,12 @@ export function registerAnthropicHandlers() {
       const apiKey = store.get('anthropic.apiKey') as string;
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
+      const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
+      const ctxWithPhysics: BriefingContext = { ...context, userPhysics: loadUserPhysics() };
+
+      // Window the conversation to avoid token bloat in long sessions
+      const windowedMessages = messages.slice(-MAX_HISTORY_TURNS);
+
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
@@ -211,10 +196,10 @@ export function registerAnthropicHandlers() {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1024,
-          system: buildSystemPrompt(context),
-          messages,
+          model,
+          max_tokens: 400,
+          system: buildSystemPrompt(ctxWithPhysics),
+          messages: windowedMessages,
         }),
       });
 
@@ -233,9 +218,19 @@ export function registerAnthropicHandlers() {
   // Streaming variant — pushes tokens to renderer in real time
   ipcMain.handle('ai:stream:start', async (event: IpcMainInvokeEvent, messages: ChatMessage[], context: BriefingContext) => {
     try {
+      console.log('[AI] stream:start handler called');
       const apiKey = store.get('anthropic.apiKey') as string;
+      console.log('[AI] API key present:', !!apiKey, '| length:', apiKey?.length ?? 0);
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
+      const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
+      console.log('[AI] Using model:', model);
+      const ctxWithPhysics: BriefingContext = { ...context, userPhysics: loadUserPhysics() };
+
+      // Window the conversation to avoid token bloat in long sessions
+      const windowedMessages = messages.slice(-MAX_HISTORY_TURNS);
+
+      console.log('[AI] Sending fetch to Anthropic API...');
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
@@ -244,28 +239,36 @@ export function registerAnthropicHandlers() {
           'content-type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1024,
+          model,
+          max_tokens: 400,
           stream: true,
-          system: buildSystemPrompt(context),
-          messages,
+          system: buildSystemPrompt(ctxWithPhysics),
+          messages: windowedMessages,
         }),
       });
 
+      console.log('[AI] Response received. Status:', response.status, '| OK:', response.ok, '| Has body:', !!response.body);
       if (!response.ok || !response.body) {
         const err = await response.text();
         throw new Error(`Anthropic API error ${response.status}: ${err}`);
       }
 
       // Read SSE stream and push tokens to renderer
+      console.log('[AI] Starting SSE stream read...');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      let tokenCount = 0;
+      let chunkCount = 0;
 
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log('[AI] Stream reader done. Chunks read:', chunkCount, '| Tokens sent:', tokenCount);
+          break;
+        }
 
+        chunkCount++;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
 
@@ -280,6 +283,7 @@ export function registerAnthropicHandlers() {
             const parsed = JSON.parse(data);
             if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
               event.sender.send('ai:stream:token', parsed.delta.text);
+              tokenCount++;
             }
           } catch {
             // skip malformed chunks
@@ -287,11 +291,43 @@ export function registerAnthropicHandlers() {
         }
       }
 
+      console.log('[AI] Sending ai:stream:done to renderer');
       event.sender.send('ai:stream:done');
       return { success: true };
     } catch (error) {
+      console.error('[AI] Error in stream:start handler:', (error as Error).message);
       event.sender.send('ai:stream:done');
       return { success: false, error: (error as Error).message };
     }
+  });
+
+  // Read current physics + log
+  ipcMain.handle('physics:get', () => {
+    return {
+      physics: loadUserPhysics(),
+      log: (store.get('physicsLog') as unknown[]) ?? [],
+    };
+  });
+
+  // Patch individual physics fields (e.g. from weekly review)
+  ipcMain.handle('physics:update', (_event, patch: Partial<UserPhysics>) => {
+    const current = loadUserPhysics();
+    const updated = { ...current, ...patch };
+    store.set('userPhysics', updated);
+    return updated;
+  });
+
+  // Append a raw observation to the pattern log
+  ipcMain.handle('physics:log', (_event, entry: {
+    source: 'morning' | 'session' | 'eod' | 'weekly';
+    observation: string;
+    data?: Record<string, unknown>;
+  }) => {
+    const log = (store.get('physicsLog') as Array<Record<string, unknown>>) ?? [];
+    const newEntry = { date: new Date().toISOString().split('T')[0], ...entry };
+    // Keep last 180 entries (~6 months of daily use)
+    const trimmed = [...log, newEntry].slice(-180);
+    store.set('physicsLog', trimmed);
+    return newEntry;
   });
 }

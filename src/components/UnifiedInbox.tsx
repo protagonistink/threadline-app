@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
@@ -212,7 +212,7 @@ function IncomingCard({
               className="shrink-0 p-0.5 rounded text-text-muted hover:text-text-primary transition-colors"
               aria-label="Flip back"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
+              <ChevronLeft className="w-3.5 h-3.5" />
             </button>
             <span className="text-[12px] font-medium text-text-primary truncate leading-snug flex-1">
               {item.title}
@@ -251,7 +251,6 @@ function IncomingCard({
             )}
           >
             Bring Forward
-            <ArrowRight className="w-3 h-3" />
           </button>
         </div>
       </div>
@@ -297,7 +296,12 @@ function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
   });
 
   return (
-    <div
+    <div className="relative mt-2 px-4">
+      {/* Hand-drawn underline vector substituting a rigid 1px border */}
+      <svg className="absolute -top-3 left-0 right-0 w-full h-3 text-border pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 10">
+        <path d="M0 5 Q 25 3, 50 6 T 100 4" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6" strokeLinecap="round" />
+      </svg>
+      <div
       ref={dropRef}
       className={cn(
         'mx-4 mb-3 rounded-xl border border-dashed flex items-center justify-center px-3 py-3 text-[11px] font-medium tracking-[0.08em] uppercase transition-all duration-200',
@@ -309,6 +313,7 @@ function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
       )}
     >
       Return to inbox
+      </div>
     </div>
   );
 }
@@ -316,7 +321,6 @@ function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
 const PAGE_SIZE = 7;
 
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
-  const { isFocus } = useTheme();
   const { activeSource, candidateItems, plannedTasks, selectedInboxId, selectInboxItem, bringForward, releaseTask, lastCommitTimestamp, syncStatus } = useApp();
 
   const [showZen, setShowZen] = useState(false);
@@ -345,11 +349,9 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     ? summarizeSyncIssue(syncStatus.asana || syncStatus.gcal || '')
     : null;
 
-  let title = 'Sources';
   let content: React.ReactNode = <CoverPanel />;
 
   if (activeSource === 'asana') {
-    title = 'Asana';
     const hasCommittedAsanaTasks = plannedTasks.some(
       (t) => t.source === 'asana' && (t.status === 'committed' || t.status === 'scheduled')
     );
@@ -397,26 +399,24 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
           )}
         </div>
         {hasCommittedAsanaTasks && (
-          <ReturnDropZone onDrop={(id) => releaseTask(id)} />
+          <ReturnDropZone onDrop={(id) => { void releaseTask(id); }} />
         )}
       </div>
     );
   }
 
   if (activeSource === 'gcal') {
-    title = 'Google Calendar';
     content = <div className="flex-1 flex items-center justify-center text-text-muted text-[13px] px-6 text-center">Calendar holds the hard edges. This lane can open up next.</div>;
   }
 
   if (activeSource === 'gmail') {
-    title = 'Gmail';
     content = <div className="flex-1 flex items-center justify-center text-text-muted text-[13px] px-6 text-center">Mail can wait until we decide how much of it belongs here.</div>;
   }
 
   return (
     <div
       className={cn(
-        'focus-dim editorial-panel column-divider flex flex-col h-full shrink-0 transition-[width,min-width,opacity,border-width,colors] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] backdrop-blur-xl',
+        'focus-dim bg-bg column-divider flex flex-col h-full shrink-0 transition-[width,min-width,opacity,border-width,colors] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
         collapsed
           ? 'w-0 min-w-0 opacity-0 pointer-events-none overflow-hidden border-r-0'
           : 'w-[clamp(280px,25vw,360px)]'
@@ -424,9 +424,8 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     >
       <div className="workspace-header shrink-0">
         <div className="workspace-header-copy">
-          <div className="workspace-header-kicker">Source Center</div>
-          <h2 className={cn('workspace-header-title transition-all duration-700', isFocus && 'font-display italic font-normal')}>
-            {title}
+          <h2 className="font-sans text-[11px] uppercase tracking-[0.1em] text-text-muted font-medium">
+            Threads
           </h2>
         </div>
         {activeSource === 'asana' && syncStatus.loading && <span className="workspace-header-meta">syncing</span>}

@@ -200,7 +200,7 @@ function BlockCard({
       onMouseDown={beginDrag}
       onClick={handleClick}
       className={cn(
-        'editorial-card animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[8px] p-4 flex flex-col gap-1.5 transition-all duration-300 group/block shadow-[0_14px_36px_rgba(0,0,0,0.18),inset_0_1px_0_rgba(255,255,255,0.04)]',
+        'editorial-card animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[8px] p-4 flex flex-col gap-1.5 transition-all duration-300 group/block shadow-[0_4px_12px_rgba(0,0,0,0.5)]',
         isFocus && block.kind !== 'hard' && 'focus-block-card',
         block.kind === 'hard'
           ? isLight
@@ -217,16 +217,6 @@ function BlockCard({
       )}
       style={{ top: `${top}px`, height: `${height}px` }}
     >
-      <div
-        className={cn(
-          'pointer-events-none absolute inset-0',
-          block.kind === 'hard'
-            ? 'opacity-70 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_42%)]'
-            : isFocus
-              ? 'opacity-55 bg-[linear-gradient(180deg,rgba(250,250,250,0.028),transparent_16%,rgba(0,0,0,0.08)_100%)]'
-              : 'opacity-70 bg-[linear-gradient(180deg,rgba(255,214,170,0.08),transparent_45%)]'
-        )}
-      />
       {!block.readOnly && block.linkedTaskId && (
         <button
           onMouseDown={(event) => {
@@ -281,7 +271,7 @@ function BlockCard({
       <div className="relative z-10 flex items-center gap-2 text-[10px] uppercase tracking-wider text-text-muted/70 focus-fade-meta">
         <span className="flex items-center gap-1.5">
           {block.kind === 'hard' ? (
-            <GCalIcon className="w-4 h-4 shrink-0" />
+            <GCalIcon className="w-4 h-4 shrink-0 text-accent-warm/40" />
           ) : (
             'focus block'
           )}
@@ -372,7 +362,7 @@ function CountdownsStrip() {
         return (
           <div
             key={countdown.id}
-            className={cn('flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-mono', colorClass)}
+            className={cn('flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] uppercase tracking-wider', colorClass)}
           >
             <span className="text-text-muted font-sans">{countdown.title}</span>
             <span className="font-semibold">{days}d</span>
@@ -421,18 +411,27 @@ function AfterHoursVeil({
         <span className={cn('h-1.5 w-1.5 rounded-full', isPastClose ? 'bg-accent-warm' : 'bg-accent-warm/70')} />
         {isPastClose ? `Day closed ${overrunLabel} ago` : `Day closes ${formatTime(workdayEnd.hour, workdayEnd.min)}`}
       </button>
-      <div
-        className={cn(
-          'absolute inset-x-0 top-0 border-t',
-          isLight
-            ? isPastClose
-              ? 'border-amber-400/70'
-              : 'border-stone-300/80'
-            : isPastClose
-              ? 'border-accent-warm/32'
-              : 'border-accent-warm/18'
-        )}
-      />
+      <div className="absolute inset-x-0 top-0 h-0.5 mt-[0px]">
+        <svg className="absolute top-[-5px] left-0 right-0 w-full h-[10px] pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 10">
+          <path 
+            d="M0 5 Q 25 4.5, 50 6 T 100 5" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="0.8" 
+            opacity="0.6" 
+            strokeLinecap="round" 
+            className={cn(
+              isLight
+                ? isPastClose
+                  ? 'text-amber-400'
+                  : 'text-stone-300'
+                : isPastClose
+                  ? 'text-accent-warm'
+                  : 'text-border'
+            )} 
+          />
+        </svg>
+      </div>
       <div
         className={cn(
           'absolute inset-0',
@@ -470,6 +469,9 @@ export function Timeline() {
   } = useApp();
   const { play } = useSound();
   const gridRef = useRef<HTMLDivElement>(null);
+  // Keep a ref so useDrop collect/drop always see the latest blocks (avoids stale closure)
+  const scheduleBlocksRef = useRef(scheduleBlocks);
+  useEffect(() => { scheduleBlocksRef.current = scheduleBlocks; }, [scheduleBlocks]);
   const totalHeight = HOURS.length * HOUR_HEIGHT;
   const [isEditingEnd, setIsEditingEnd] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
@@ -483,9 +485,13 @@ export function Timeline() {
       const endMins = workdayEnd.hour * 60 + workdayEnd.min;
       const remaining = endMins - nowMins;
       if (remaining <= 0) {
+        const overMins = Math.abs(remaining);
+        const overH = Math.floor(overMins / 60);
+        const overM = overMins % 60;
+        const overLabel = overH > 0 ? `${overH}h ${overM}m` : `${overM}m`;
         return {
-          label: `${Math.abs(remaining)}m past close`,
-          pastClose: Math.abs(remaining),
+          label: `${overLabel} past close`,
+          pastClose: overMins,
         };
       }
       const h = Math.floor(remaining / 60);
@@ -539,6 +545,34 @@ export function Timeline() {
     })?.id ?? null;
   })();
 
+  // Returns the end time (in minutes) of the last local focus block, or 0 if none
+  function lastFocusBlockEnd(blocks: ScheduleBlock[]): number {
+    return blocks
+      .filter((b) => b.kind === 'focus' && b.source === 'local')
+      .reduce((maxEnd, b) => Math.max(maxEnd, b.startHour * 60 + b.startMin + b.durationMins), 0);
+  }
+
+  // Resolve drop time: default to after last focus block unless cursor is already past it
+  function resolveDropTime(cursorMinutes: number, blocks: ScheduleBlock[]): number {
+    const queueEnd = lastFocusBlockEnd(blocks);
+    const base = queueEnd > 0 && cursorMinutes < queueEnd ? queueEnd : cursorMinutes;
+    let resolved = clampMinutes(base, 60);
+    let didBump = true;
+    while (didBump) {
+      didBump = false;
+      for (const block of blocks) {
+        const blockStart = block.startHour * 60 + block.startMin;
+        const blockEnd = blockStart + block.durationMins;
+        if (resolved < blockEnd && resolved + 60 > blockStart) {
+          resolved = clampMinutes(blockEnd, 60);
+          didBump = true;
+          break;
+        }
+      }
+    }
+    return resolved;
+  }
+
   const [{ isOver, ghostBlock }, dropRef] = useDrop<DragItem, void, { isOver: boolean; ghostBlock: { startHour: number; startMin: number } | null }>({
     accept: DragTypes.TASK,
     collect: (monitor) => {
@@ -551,12 +585,14 @@ export function Timeline() {
       const scrollTop = gridRef.current.scrollTop;
       const y = offset.y - rect.top + scrollTop;
       const rawMinutes = (y / HOUR_HEIGHT) * 60 + DAY_START_MINS;
-      const snappedMinutes = clampMinutes(snapMinutes(rawMinutes), 60);
+      const cursorMinutes = clampMinutes(snapMinutes(rawMinutes), 60);
+      const resolved = resolveDropTime(cursorMinutes, scheduleBlocksRef.current);
+
       return {
         isOver,
         ghostBlock: {
-          startHour: Math.floor(snappedMinutes / 60),
-          startMin: snappedMinutes % 60,
+          startHour: Math.floor(resolved / 60),
+          startMin: resolved % 60,
         },
       };
     },
@@ -568,18 +604,21 @@ export function Timeline() {
       const scrollTop = gridRef.current.scrollTop;
       const y = offset.y - rect.top + scrollTop;
       const rawMinutes = (y / HOUR_HEIGHT) * 60 + DAY_START_MINS;
-      const snappedMinutes = clampMinutes(snapMinutes(rawMinutes), 60);
+      const cursorMinutes = clampMinutes(snapMinutes(rawMinutes), 60);
+      const resolved = resolveDropTime(cursorMinutes, scheduleBlocksRef.current);
 
-      void scheduleTaskBlock(item.id, Math.floor(snappedMinutes / 60), snappedMinutes % 60, 60);
+      void scheduleTaskBlock(item.id, Math.floor(resolved / 60), resolved % 60, 60);
       play('paper');
     },
   });
 
   return (
-    <div className="focus-spotlight editorial-panel relative flex-1 min-w-[360px] bg-bg flex flex-col h-full transition-colors duration-700">
+    <div className="focus-spotlight stage-bloom relative flex-1 min-w-[360px] bg-[#111111] border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
       <div className="workspace-header shrink-0">
         <div className="workspace-header-copy">
-          <div className="workspace-header-kicker">Day Frame</div>
+          <h2 className="font-sans text-[11px] uppercase tracking-[0.1em] text-text-muted font-medium">
+            Day Frame
+          </h2>
           <div className="workspace-header-subline">Place the work. Protect the hours.</div>
         </div>
 
@@ -608,7 +647,7 @@ export function Timeline() {
                   className="text-right hover:opacity-70 transition-opacity block w-full"
                 >
                   <div className="workspace-header-kicker mb-1">Ends</div>
-                  <div className="text-[14px] font-mono text-text-primary">{formatTime(workdayEnd.hour, workdayEnd.min)}</div>
+                  <div className="text-[17px] font-display italic text-text-emphasis leading-none pt-1 pr-0.5 pb-0.5">{formatTime(workdayEnd.hour, workdayEnd.min)}</div>
                   <div className="text-[10px] text-text-muted">{timeLeft}</div>
                 </button>
                 <div className={cn('text-[10px] text-text-muted mt-1', isFocus && 'focus-fade-meta')}>{formatRoundedHours(focusMinutes, true)} committed</div>
@@ -648,7 +687,7 @@ export function Timeline() {
               className="absolute left-0 right-0 flex border-b border-border-subtle/50"
               style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
             >
-              <div className="w-20 p-2 font-display italic text-[13px] text-text-muted text-right border-r border-border-subtle/50">
+              <div className="w-20 p-2 font-display italic text-[13px] text-text-primary/40 text-right border-r border-border-subtle/50">
                 {formatTime(hour, 0)}
               </div>
               <div className="flex-1 relative">

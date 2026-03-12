@@ -30,7 +30,7 @@ export function DragOverlay() {
   return (
     <div className="pointer-events-none fixed inset-0 z-[120]">
       <div
-        className={cn('absolute transition-transform duration-150 ease-[cubic-bezier(0.34,1.56,0.64,1)]')}
+        className={cn('absolute')}
         style={{
           transform: `translate(${clientOffset.x + 18}px, ${clientOffset.y + 18}px) rotate(-3deg) scale(1.04)`,
         }}

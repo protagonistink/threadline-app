@@ -178,6 +178,35 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
+  // Set up native app menu so Cmd+Q (macOS) / Alt+F4 works
+  const appMenu = Menu.buildFromTemplate([
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { label: 'Quit Threadline', accelerator: 'CmdOrCtrl+Q', click: () => { app.exit(); } },
+      ],
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'undo' },
+        { role: 'redo' },
+        { type: 'separator' },
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' },
+      ],
+    },
+  ]);
+  Menu.setApplicationMenu(appMenu);
+
   registerAsanaHandlers();
   registerGCalHandlers();
   registerStoreHandlers();
@@ -213,6 +242,12 @@ app.whenReady().then(() => {
         fullWindowSize = null;
       }
     }
+  });
+
+  ipcMain.handle('window:show-main', () => {
+    if (!mainWindow) return;
+    mainWindow.show();
+    mainWindow.focus();
   });
 
   createWindow();

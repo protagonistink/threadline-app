@@ -11,6 +11,15 @@ import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
 import type { PlannedTask, WeeklyGoal } from '@/types';
 
+type DeadlineState = 'silent' | 'upcoming' | 'soon' | 'overdue';
+
+function getDeadlineState(daysRemaining: number): DeadlineState {
+  if (daysRemaining < 0) return 'overdue';
+  if (daysRemaining <= 2) return 'soon';
+  if (daysRemaining <= 7) return 'upcoming';
+  return 'silent';
+}
+
 function SubtaskRow({ task, unnestTask }: { task: PlannedTask; unnestTask: (id: string) => void }) {
   const { toggleTask } = useApp();
   return (
@@ -51,6 +60,7 @@ function TaskCard({
   subtasks = [],
   nestTask,
   unnestTask,
+  deadlineInfo,
 }: {
   task: PlannedTask;
   index: number;
@@ -58,6 +68,7 @@ function TaskCard({
   subtasks?: PlannedTask[];
   nestTask: (childId: string, parentId: string) => void;
   unnestTask: (childId: string) => void;
+  deadlineInfo?: { daysRemaining: number; state: DeadlineState };
 }) {
   const { isLight, isFocus, setMode } = useTheme();
   const { toggleTask, setActiveTask, moveForward, releaseTask, updateTaskEstimate } = useApp();
@@ -165,6 +176,9 @@ function TaskCard({
         task.active && 'border-accent-warm/20',
         isDragging && 'opacity-20 scale-95 rotate-[1deg]',
         isNestOver && canNest && 'ring-1 ring-accent-warm/40 ring-inset rounded-lg',
+        deadlineInfo?.state === 'upcoming' && 'border-l-2 border-l-amber-400/40',
+        deadlineInfo?.state === 'soon'     && 'border-l-2 border-l-amber-400/70',
+        deadlineInfo?.state === 'overdue'  && 'border-l-2 border-l-accent-warm',
         staggerClass
       )}
     >
@@ -287,6 +301,12 @@ function TaskCard({
           <span className="text-[11px] text-accent-warm/80 uppercase tracking-wider">Nest here</span>
         </div>
       )}
+
+      {deadlineInfo?.state === 'soon' && (
+        <span className="absolute bottom-1 left-1.5 text-[9px] font-mono text-amber-400/70 pointer-events-none select-none">
+          {deadlineInfo.daysRemaining}d
+        </span>
+      )}
     </div>
   );
 }
@@ -299,6 +319,7 @@ function GoalSection({
   allDaySubtasks,
   nestTask,
   unnestTask,
+  deadlineInfo,
 }: {
   goal: WeeklyGoal;
   tasks: PlannedTask[];
@@ -307,6 +328,7 @@ function GoalSection({
   allDaySubtasks: PlannedTask[];
   nestTask: (childId: string, parentId: string) => void;
   unnestTask: (childId: string) => void;
+  deadlineInfo?: { daysRemaining: number; state: DeadlineState };
 }) {
   const { bringForward, unscheduleTaskBlock } = useApp();
   const finishedCount = tasks.filter((task) => task.status === 'done').length;
@@ -364,6 +386,7 @@ function GoalSection({
               subtasks={subtasksByParent.get(task.id) ?? []}
               nestTask={nestTask}
               unnestTask={unnestTask}
+              deadlineInfo={deadlineInfo}
             />
           ))
         )}
@@ -435,6 +458,22 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
     goal,
     tasks: dayTasks.filter((task) => task.weeklyGoalId === goal.id),
   })), [dayTasks, weeklyGoals]);
+
+  const deadlineByGoalId = useMemo(() => {
+    const map = new Map<string, { daysRemaining: number; state: DeadlineState }>();
+    const today = new Date();
+    for (const goal of weeklyGoals) {
+      if (!goal.countdownId) continue;
+      const cd = countdowns.find((c) => c.id === goal.countdownId);
+      if (!cd) continue;
+      const daysRemaining = differenceInCalendarDays(parseISO(cd.dueDate), today);
+      const state = getDeadlineState(daysRemaining);
+      if (state !== 'silent') {
+        map.set(goal.id, { daysRemaining, state });
+      }
+    }
+    return map;
+  }, [weeklyGoals, countdowns]);
 
   const realismWarning = useMemo(() => {
     if (dayTasks.length === 0) return null;
@@ -698,6 +737,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
                 allDaySubtasks={allCommittedSubtasks}
                 nestTask={nestTask}
                 unnestTask={unnestTask}
+                deadlineInfo={deadlineByGoalId.get(goal.id)}
               />
             );
           })}

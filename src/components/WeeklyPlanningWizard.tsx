@@ -202,14 +202,18 @@ function IntentionCard({
   onRename,
   onUpdateWhy,
   onUpdateColor,
+  onUpdateCountdown,
   onAdd,
+  countdowns,
 }: {
   index: number;
-  goal?: { id: string; title: string; color: string; why?: string };
+  goal?: { id: string; title: string; color: string; why?: string; countdownId?: string };
   onRename: (id: string, title: string) => void;
   onUpdateWhy: (id: string, why: string) => void;
   onUpdateColor: (id: string, color: string) => void;
+  onUpdateCountdown: (id: string, countdownId: string | null) => void;
   onAdd: (title: string, color: string) => void;
+  countdowns: { id: string; title: string; dueDate: string }[];
 }) {
   const [localTitle, setLocalTitle] = useState(goal?.title || '');
   const [localWhy, setLocalWhy] = useState(goal?.why || '');
@@ -292,12 +296,42 @@ function IntentionCard({
         maxLength={160}
         className="bg-bg rounded-md border border-border-subtle px-3 py-2.5 text-[13px] text-text-primary placeholder:text-text-muted resize-none outline-none focus:border-border transition-colors leading-relaxed"
       />
+
+      {goal && countdowns.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            onClick={() => onUpdateCountdown(goal.id, null)}
+            className={cn(
+              'px-2 py-0.5 rounded text-xs transition-colors',
+              !goal.countdownId
+                ? 'bg-amber-400/20 text-amber-300'
+                : 'text-ink/40 hover:text-ink/60'
+            )}
+          >
+            No deadline
+          </button>
+          {countdowns.map((cd) => (
+            <button
+              key={cd.id}
+              onClick={() => onUpdateCountdown(goal.id, cd.id)}
+              className={cn(
+                'px-2 py-0.5 rounded text-xs transition-colors',
+                goal.countdownId === cd.id
+                  ? 'bg-amber-400/20 text-amber-300'
+                  : 'text-ink/40 hover:text-ink/60'
+              )}
+            >
+              {cd.title}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
 function StepIntentions() {
-  const { weeklyGoals, addWeeklyGoal, renameWeeklyGoal, updateGoalWhy, updateGoalColor } = useApp();
+  const { weeklyGoals, addWeeklyGoal, renameWeeklyGoal, updateGoalWhy, updateGoalColor, updateGoalCountdown, countdowns } = useApp();
 
   const slots = [0, 1, 2];
 
@@ -321,7 +355,9 @@ function StepIntentions() {
             onRename={renameWeeklyGoal}
             onUpdateWhy={updateGoalWhy}
             onUpdateColor={updateGoalColor}
+            onUpdateCountdown={updateGoalCountdown}
             onAdd={(title, color) => addWeeklyGoal(title, color)}
+            countdowns={countdowns}
           />
         ))}
       </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { format } from 'date-fns';
-import { ChevronsRight, Send, Loader2, AlertCircle, Check } from 'lucide-react';
+import { ChevronsRight, RotateCcw, Send, Loader2, AlertCircle, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ interface CommitChip {
   selected: boolean;
 }
 
-export function MorningBriefing({ onClose }: { onClose: () => void }) {
+export function MorningBriefing({ onClose, onNewChat, mode = 'briefing' }: { onClose: () => void; onNewChat: () => void; mode?: 'briefing' | 'chat' }) {
   const {
     weeklyGoals,
     candidateItems,
@@ -45,6 +45,16 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
   const streamingRef = useRef('');
   const unsubTokenRef = useRef<(() => void) | null>(null);
   const unsubDoneRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(true);
+  const hasStartedBriefingRef = useRef(false);
+  const closeTimeoutRef = useRef<number | null>(null);
+
+  const cleanupStreamListeners = useCallback(() => {
+    unsubTokenRef.current?.();
+    unsubDoneRef.current?.();
+    unsubTokenRef.current = null;
+    unsubDoneRef.current = null;
+  }, []);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -53,11 +63,15 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
 
   // Cleanup listeners on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      unsubTokenRef.current?.();
-      unsubDoneRef.current?.();
+      isMountedRef.current = false;
+      cleanupStreamListeners();
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
     };
-  }, []);
+  }, [cleanupStreamListeners]);
 
   // Build context from live app state
   const buildContext = useCallback(async (): Promise<BriefingContext> => {
@@ -162,15 +176,16 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
       const context = await buildContext();
 
       // Subscribe to tokens
-      unsubTokenRef.current?.();
-      unsubDoneRef.current?.();
+      cleanupStreamListeners();
 
       unsubTokenRef.current = window.api.ai.onToken((token) => {
+        if (!isMountedRef.current) return;
         streamingRef.current += token;
         setStreamingContent(streamingRef.current);
       });
 
       unsubDoneRef.current = window.api.ai.onDone(() => {
+        if (!isMountedRef.current) return;
         const finalContent = streamingRef.current;
         if (finalContent) {
           setMessages((prev) => [...prev, { role: 'assistant', content: finalContent }]);
@@ -178,8 +193,7 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
         setStreamingContent('');
         streamingRef.current = '';
         setIsStreaming(false);
-        unsubTokenRef.current?.();
-        unsubDoneRef.current?.();
+        cleanupStreamListeners();
       });
 
       const result = await window.api.ai.streamStart(msgs, context);
@@ -187,22 +201,24 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
         throw new Error(result.error || 'Stream failed');
       }
     } catch (err) {
+      if (!isMountedRef.current) return;
       setIsStreaming(false);
       setError((err as Error).message);
-      unsubTokenRef.current?.();
-      unsubDoneRef.current?.();
+      cleanupStreamListeners();
     }
-  }, [buildContext]);
+  }, [buildContext, cleanupStreamListeners]);
 
-  // Auto-fire briefing on mount
+  // Auto-fire briefing on mount (briefing mode only — chat mode starts idle)
   useEffect(() => {
-    if (phase === 'idle') {
-      setPhase('briefing');
-      const initialMsg: ChatMessage = { role: 'user', content: 'Run my morning briefing.' };
-      setMessages([initialMsg]);
-      streamMessage([initialMsg]);
-    }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    if (mode !== 'briefing') return;
+    if (hasStartedBriefingRef.current) return;
+    hasStartedBriefingRef.current = true;
+
+    setPhase('briefing');
+    const initialMsg: ChatMessage = { role: 'user', content: 'Run my morning briefing.' };
+    setMessages([initialMsg]);
+    void streamMessage([initialMsg]);
+  }, [streamMessage, mode]);
 
   // Send a follow-up message
   const sendMessage = useCallback(() => {
@@ -282,7 +298,7 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
     });
 
     setCommitted(true);
-    setTimeout(() => {
+    closeTimeoutRef.current = window.setTimeout(() => {
       onClose();
     }, 1500);
   }, [commitChips, dailyPlan.committedTaskIds, bringForward, addLocalTask, onClose]);
@@ -307,23 +323,38 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
       <div className="drag-region flex items-center justify-between px-5 pt-6 pb-4 border-b border-border-subtle">
         <div>
           <h2 className="font-display italic text-[17px] font-light text-text-emphasis">
-            Morning Briefing
+            Ink
           </h2>
           <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted mt-0.5">
             {format(new Date(), 'EEEE, MMM d')}
           </div>
         </div>
-        <button
-          onClick={onClose}
-          className="no-drag p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors"
-          title="Close briefing"
-        >
-          <ChevronsRight className="w-4 h-4" />
-        </button>
+        <div className="no-drag flex items-center gap-2">
+          <button
+            onClick={onNewChat}
+            className="flex items-center gap-1.5 rounded-md border border-border-subtle px-2.5 py-1.5 text-[10px] uppercase tracking-[0.14em] text-text-muted transition-colors hover:text-text-primary hover:bg-bg-elevated"
+            title="Start a new chat"
+          >
+            <RotateCcw className="w-3 h-3" />
+            New chat
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors"
+            title="Hide"
+          >
+            <ChevronsRight className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 hide-scrollbar">
+      <div className="flex-1 overflow-y-auto px-4 pt-10 pb-4 flex flex-col gap-5 hide-scrollbar">
+        {mode === 'briefing' && (
+          <div className="font-display italic text-[20px] font-light text-text-emphasis leading-snug">
+            Good morning.
+          </div>
+        )}
         {messages.map((msg, i) => (
           <MessageBubble key={i} message={msg} isFirst={i === 0} />
         ))}
@@ -335,7 +366,7 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
               <span className="text-[9px] font-bold text-accent-warm">TF</span>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="prose-briefing text-[13px] leading-relaxed text-text-primary">
+              <div className="prose-briefing text-[15px] leading-relaxed text-text-primary">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{streamingContent}</ReactMarkdown>
                 <span className="inline-block w-[2px] h-[14px] bg-accent-warm animate-pulse ml-0.5 align-text-bottom" />
               </div>
@@ -423,7 +454,7 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
               onClick={showCommitChips}
               className="w-full mb-2 px-3 py-1.5 rounded-md text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-elevated/60 transition-colors border border-dashed border-border-subtle"
             >
-              Ready to commit? Extract tasks from last response
+              Ready to commit? Pull tasks from the last reply
             </button>
           )}
 
@@ -433,10 +464,10 @@ export function MorningBriefing({ onClose }: { onClose: () => void }) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isStreaming ? 'Thinking...' : 'Push back, add, cut...'}
+              placeholder={isStreaming ? 'Thinking...' : 'Push back, add, cut, or re-scope...'}
               rows={1}
               disabled={isStreaming}
-              className="flex-1 resize-none bg-bg-elevated/60 border border-border-subtle rounded-lg px-3 py-2 text-[13px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-warm/40 transition-colors disabled:opacity-50"
+              className="flex-1 resize-none bg-bg-elevated/60 border border-border-subtle rounded-lg px-3 py-2 text-[14px] text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-warm/40 transition-colors disabled:opacity-50"
             />
             <button
               onClick={sendMessage}
@@ -470,7 +501,7 @@ function MessageBubble({ message, isFirst }: { message: ChatMessage; isFirst: bo
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] bg-bg-elevated/80 rounded-xl rounded-br-sm px-3.5 py-2 text-[13px] text-text-primary leading-relaxed">
+        <div className="max-w-[85%] bg-bg-elevated/80 rounded-xl rounded-br-sm px-3.5 py-2 text-[15px] text-text-primary leading-relaxed">
           {message.content}
         </div>
       </div>
@@ -482,7 +513,7 @@ function MessageBubble({ message, isFirst }: { message: ChatMessage; isFirst: bo
       <div className="w-5 h-5 mt-0.5 rounded-full bg-accent-warm/20 flex items-center justify-center shrink-0">
         <span className="text-[9px] font-bold text-accent-warm">TF</span>
       </div>
-      <div className="flex-1 min-w-0 prose-briefing text-[13px] leading-relaxed text-text-primary">
+      <div className="flex-1 min-w-0 prose-briefing text-[15px] leading-relaxed text-text-primary">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
       </div>
     </div>

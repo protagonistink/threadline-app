@@ -29,6 +29,20 @@ const store = new Store({
       plannedTasks: [],
       dailyPlan: { date: '', committedTaskIds: [] },
     },
+    userPhysics: {
+      focusBlockLength: 90,
+      peakEnergyWindow: '9am–12pm',
+      commonDerailers: ['email rabbit holes', 'scope creep mid-task', 'unscheduled client requests'],
+      planningStyle: 'needs explicit time boxes or tasks float; works best with 2–3 deep work anchors per day',
+      recoveryPattern: '30 min context-switch cost between deep work modes; back-to-back meetings kill afternoon output',
+      warningSignals: ['over-scheduling mornings leaving no buffer', 'no creative/writing block before noon', 'committing more than 5h of deep work on a meeting-heavy day'],
+    },
+    physicsLog: [] as Array<{
+      date: string;
+      source: string;
+      observation: string;
+      data?: Record<string, unknown>;
+    }>,
   },
 });
 

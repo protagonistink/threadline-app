@@ -40,6 +40,28 @@ export interface BriefingContext {
   workdayEndMin: number;
 }
 
+export interface UserPhysics {
+  focusBlockLength: number;
+  peakEnergyWindow: string;
+  commonDerailers: string[];
+  planningStyle: string;
+  recoveryPattern: string;
+  warningSignals: string[];
+}
+
+export interface PhysicsLogEntry {
+  date: string;
+  source: 'morning' | 'session' | 'eod' | 'weekly';
+  observation: string;
+  data?: Record<string, unknown>;
+}
+
+interface PhysicsAPI {
+  get: () => Promise<{ physics: UserPhysics; log: PhysicsLogEntry[] }>;
+  update: (patch: Partial<UserPhysics>) => Promise<UserPhysics>;
+  log: (entry: { source: 'morning' | 'session' | 'eod' | 'weekly'; observation: string; data?: Record<string, unknown> }) => Promise<PhysicsLogEntry>;
+}
+
 interface AIAPI {
   chat: (messages: ChatMessage[], context: BriefingContext) => Promise<{ success: boolean; content?: string; error?: string }>;
   streamStart: (messages: ChatMessage[], context: BriefingContext) => Promise<{ success: boolean; error?: string }>;
@@ -89,6 +111,7 @@ interface WindowAPI {
   hidePomodoro: () => Promise<void>;
   activate: () => Promise<void>;
   setFocusSize: (locked: boolean) => Promise<void>;
+  showMain: () => Promise<void>;
 }
 
 declare global {
@@ -101,6 +124,7 @@ declare global {
       store: StoreAPI;
       window: WindowAPI;
       ai: AIAPI;
+      physics: PhysicsAPI;
     };
   }
 }

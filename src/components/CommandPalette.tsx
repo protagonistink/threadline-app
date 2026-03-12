@@ -45,7 +45,7 @@ export function CommandPalette() {
         { id: 'theme-focus', title: 'Quiet Focus', icon: Layout, category: 'Theme', action: () => setMode('focus') },
 
         // Actions
-        { id: 'action-done', title: 'Mark active task done', icon: CheckCircle2, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) toggleTask(active.id); } },
+        { id: 'action-done', title: 'Mark active task done', icon: CheckCircle2, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) void toggleTask(active.id); } },
         { id: 'action-bring-forward', title: 'Bring forward from inbox', icon: ArrowRight, category: 'Action', action: () => { if (selectedInboxId) bringForward(selectedInboxId); } },
         { id: 'action-start-focus', title: 'Start focus block', icon: Play, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) { void window.api.window.showPomodoro(); void window.api.pomodoro.start(active.id, active.title); } } },
     ];
@@ -85,6 +85,13 @@ export function CommandPalette() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (filteredCommands.length === 0) {
+            if (e.key === 'Enter' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+            }
+            return;
+        }
+
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             setSelectedIndex(prev => (prev + 1) % filteredCommands.length);

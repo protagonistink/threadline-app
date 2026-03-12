@@ -1,5 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import Store from 'electron-store';
+import { buildLocalDayWindow } from './gcalDayWindow';
 
 const store = new Store();
 
@@ -87,8 +88,7 @@ function getWriteCalendarId(explicitCalendarId?: string) {
 export function registerGCalHandlers() {
   ipcMain.handle('gcal:get-events', async (_event, date: string) => {
     try {
-      const timeMin = `${date}T00:00:00Z`;
-      const timeMax = `${date}T23:59:59Z`;
+      const { timeMin, timeMax } = buildLocalDayWindow(date);
       const calendarIds = getSelectedCalendarIds();
 
       const results = await Promise.all(

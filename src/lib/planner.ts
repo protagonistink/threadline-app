@@ -63,7 +63,12 @@ export function eventToBlock(event: GCalEvent, tasks: PlannedTask[]): ScheduleBl
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
 
   const start = new Date(event.start.dateTime);
-  const linkedTask = tasks.find((task) => task.scheduledEventId === event.id);
+  const linkedTask = tasks.find((task) => task.scheduledEventId === event.id)
+    ?? (() => {
+      if (!event.description?.includes(FOCUS_EVENT_MARKER)) return undefined;
+      const descTaskId = event.description.split('\n')[1]?.trim();
+      return descTaskId ? tasks.find((task) => task.id === descTaskId) : undefined;
+    })();
   const isFocus = event.description?.includes(FOCUS_EVENT_MARKER) || Boolean(linkedTask);
 
   return {

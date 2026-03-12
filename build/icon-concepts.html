@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  body { 
+    background: #EAE6DB; 
+    display: flex; 
+    flex-wrap: wrap; 
+    gap: 60px; 
+    justify-content: center; 
+    padding: 60px; 
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+  }
+  .concept { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 20px; 
+    width: 240px; 
+  }
+  .concept h3 { 
+    margin: 0; 
+    font-size: 18px; 
+    color: #333; 
+    text-align: center; 
+    font-weight: 600;
+  }
+  .concept p { 
+    margin: 0; 
+    font-size: 14px; 
+    color: #666; 
+    text-align: center; 
+    line-height: 1.5; 
+  }
+  svg.app-icon { 
+    filter: drop-shadow(0 12px 24px rgba(0,0,0,0.15)); 
+    border-radius: 54px; /* matches the internal visual for the shadow */
+  }
+</style>
+</head>
+<body>
+
+<!-- SVG Defs -->
+<svg style="width:0;height:0;position:absolute;">
+  <defs>
+    <filter id="bg-paper" x="0%" y="0%" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.4" numOctaves="3" result="noise" />
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.04 0" in="noise" result="coloredNoise" />
+      <feComposite operator="atop" in="coloredNoise" in2="SourceGraphic" />
+    </filter>
+
+    <filter id="icon-ink-bleed" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="3" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.5" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+      <feGaussianBlur in="displaced" stdDeviation="0.3" result="blurred" />
+      <feComponentTransfer in="blurred">
+        <feFuncA type="discrete" tableValues="0 1" />
+      </feComponentTransfer>
+    </filter>
+
+    <filter id="icon-stamp-texture" x="-20%" y="-20%" width="140%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="4" result="noise" />
+      <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 9 -4" in="noise" result="coloredNoise" />
+      <feComposite operator="in" in="SourceGraphic" in2="coloredNoise" result="textured" />
+      <feTurbulence type="fractalNoise" baseFrequency="0.3" numOctaves="2" result="edgeNoise" />
+      <feDisplacementMap in="textured" in2="edgeNoise" scale="3.5" xChannelSelector="R" yChannelSelector="G" result="final" />
+    </filter>
+    
+    <linearGradient id="mac-inner-stroke" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.8" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.2" />
+    </linearGradient>
+
+    <!-- Base Icon Template (Background + Bracket) -->
+    <g id="base-bg">
+      <rect x="190" y="-18" width="240" height="240" rx="54" fill="#F5F2EB" filter="url(#bg-paper)" />
+      <rect x="190.25" y="-17.75" width="239.5" height="239.5" rx="53.75" fill="none" stroke="url(#mac-inner-stroke)" stroke-width="0.5" />
+    </g>
+    <g id="base-bracket">
+      <path d="M 235 45 C 255 45, 265 65, 260 80 C 255 90, 255 98, 275 102 C 255 106, 255 114, 260 124 C 265 139, 255 159, 235 159 C 248 152, 252 142, 248 132 C 244 122, 248 112, 262 102 C 248 92, 244 82, 248 72 C 252 62, 248 52, 235 45 Z" fill="#1E1E1E" filter="url(#icon-ink-bleed)" />
+    </g>
+    <g id="base-dots-straight">
+      <circle cx="305" cy="102" r="11" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+      <circle cx="338" cy="102" r="11.5" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+      <circle cx="372" cy="102" r="12" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+    </g>
+  </defs>
+</svg>
+
+<!-- Concept 1: Original -->
+<div class="concept">
+  <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="190 -18 240 240">
+    <use href="#base-bg" />
+    <use href="#base-bracket" />
+    <use href="#base-dots-straight" />
+  </svg>
+  <h3>1. Original</h3>
+  <p>The pure, minimal mark you started with.</p>
+</div>
+
+<!-- Concept 2: The Notebook Margin -->
+<div class="concept">
+  <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="190 -18 240 240">
+    <use href="#base-bg" />
+    <!-- Vertical Red Line -->
+    <line x1="220" y1="-18" x2="220" y2="222" stroke="#E2AEAE" stroke-width="2" filter="url(#icon-stamp-texture)" />
+    <use href="#base-bracket" />
+    <use href="#base-dots-straight" />
+  </svg>
+  <h3>2. The Margin</h3>
+  <p>Adds a classic faint red margin line. Instantly anchors the composition as a physical piece of planner paper.</p>
+</div>
+
+<!-- Concept 3: The Time Arc -->
+<div class="concept">
+  <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="190 -18 240 240">
+    <use href="#base-bg" />
+    <use href="#base-bracket" />
+    <!-- Dots in an arc -->
+    <circle cx="305" cy="116" r="11" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+    <circle cx="338" cy="94" r="11.5" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+    <circle cx="372" cy="116" r="12" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+  </svg>
+  <h3>3. The Time Arc</h3>
+  <p>Bends the three dots into an arc—symbolizing the passage of a day (morning, noon, evening sun).</p>
+</div>
+
+<!-- Concept 4: The Threadline -->
+<div class="concept">
+  <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="190 -18 240 240">
+    <use href="#base-bg" />
+    <!-- Horizontal Thread -->
+    <path d="M 285 106 Q 340 98 395 106" fill="none" stroke="#1E1E1E" stroke-width="1.5" opacity="0.25" filter="url(#icon-ink-bleed)" />
+    <use href="#base-bracket" />
+    <use href="#base-dots-straight" />
+  </svg>
+  <h3>4. The Threadline</h3>
+  <p>A faint horizontal line intersecting the dots—a literal interpretation of a timeline or "thread".</p>
+</div>
+
+<!-- Concept 5: The Completed Task -->
+<div class="concept">
+  <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="190 -18 240 240">
+    <use href="#base-bg" />
+    <use href="#base-bracket" />
+    <circle cx="305" cy="102" r="11" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+    <circle cx="338" cy="102" r="11.5" fill="#B43D2F" filter="url(#icon-stamp-texture)" />
+    <!-- Checkmark instead of 3rd dot -->
+    <path d="M 364 100 L 370 108 L 382 92" fill="none" stroke="#B43D2F" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#icon-stamp-texture)" />
+  </svg>
+  <h3>5. The Checkmark</h3>
+  <p>Replaces the final dot with a hand-drawn checkmark, shifting the mood from "abstract" to "productivity."</p>
+</div>
+
+</body>
+</html>

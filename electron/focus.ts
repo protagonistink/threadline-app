@@ -5,6 +5,36 @@ import { store } from './store';
 
 const HOSTS_PATH = '/etc/hosts';
 const HOSTS_MARKER = '# Threadline Focus Mode';
+const STAGE_MANAGER_STORE_KEY = 'focus.stageManagerWasEnabled';
+
+function shellQuote(value: string) {
+  return `'${value.replace(/'/g, `'\\''`)}'`;
+}
+
+async function runPrivilegedShell(command: string) {
+  const script = `do shell script ${JSON.stringify(command)} with administrator privileges`;
+
+  return new Promise<void>((resolve, reject) => {
+    exec(`osascript -e ${shellQuote(script)}`, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+async function readStageManagerEnabled() {
+  return new Promise<boolean>((resolve, reject) => {
+    exec(`defaults read com.apple.WindowManager GloballyEnabled`, (error, stdout) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      const normalized = stdout.trim().toLowerCase();
+      resolve(normalized === '1' || normalized === 'true');
+    });
+  });
+}
 
 async function enableStageManager() {
   return new Promise<void>((resolve, reject) => {
@@ -42,22 +72,14 @@ async function blockSites() {
   const block = [
     '',
     HOSTS_MARKER,
-    ...sites.map((site) => `127.0.0.1 ${site}\n127.0.0.1 www.${site}`),
+    ...sites.flatMap((site) => [`127.0.0.1 ${site}`, `127.0.0.1 www.${site}`]),
     `${HOSTS_MARKER} END`,
     '',
   ].join('\n');
 
-  // This requires sudo — will prompt the user via osascript
-  return new Promise<void>((resolve, reject) => {
-    const escaped = block.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    exec(
-      `osascript -e 'do shell script "echo \\"${escaped}\\" >> ${HOSTS_PATH} && dscacheutil -flushcache && killall -HUP mDNSResponder" with administrator privileges'`,
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
-    );
-  });
+  await runPrivilegedShell(
+    `printf %s ${shellQuote(block)} >> ${shellQuote(HOSTS_PATH)} && dscacheutil -flushcache && killall -HUP mDNSResponder`
+  );
 }
 
 async function unblockSites() {
@@ -65,27 +87,17 @@ async function unblockSites() {
 
   if (!hostsContent.includes(HOSTS_MARKER)) return;
 
-  // Remove everything between markers
-  const cleaned = hostsContent.replace(
-    new RegExp(`\\n?${HOSTS_MARKER}[\\s\\S]*?${HOSTS_MARKER} END\\n?`, 'g'),
-    ''
+  const removalScript = String.raw`\n?\Q# Threadline Focus Mode\E[\s\S]*?\Q# Threadline Focus Mode END\E\n?`;
+  await runPrivilegedShell(
+    `/usr/bin/perl -0pi -e ${shellQuote(`s/${removalScript}//g`)} ${shellQuote(HOSTS_PATH)} && dscacheutil -flushcache && killall -HUP mDNSResponder`
   );
-
-  return new Promise<void>((resolve, reject) => {
-    const escaped = cleaned.replace(/"/g, '\\"').replace(/\n/g, '\\n');
-    exec(
-      `osascript -e 'do shell script "echo \\"${escaped}\\" > ${HOSTS_PATH} && dscacheutil -flushcache && killall -HUP mDNSResponder" with administrator privileges'`,
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
-    );
-  });
 }
 
 export function registerFocusHandlers() {
   ipcMain.handle('focus:enable', async () => {
     try {
+      const wasEnabled = await readStageManagerEnabled();
+      store.set(STAGE_MANAGER_STORE_KEY, wasEnabled);
       await Promise.all([enableStageManager(), blockSites()]);
       return { success: true };
     } catch (error) {
@@ -95,7 +107,12 @@ export function registerFocusHandlers() {
 
   ipcMain.handle('focus:disable', async () => {
     try {
-      await Promise.all([disableStageManager(), unblockSites()]);
+      const shouldRestoreEnabled = (store.get(STAGE_MANAGER_STORE_KEY) as boolean | undefined) ?? false;
+      await Promise.all([
+        shouldRestoreEnabled ? enableStageManager() : disableStageManager(),
+        unblockSites(),
+      ]);
+      store.delete(STAGE_MANAGER_STORE_KEY);
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
