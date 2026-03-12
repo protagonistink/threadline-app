@@ -1,10 +1,12 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
-import type { DailyPlan, PlannedTask, WeeklyGoal } from '@/types';
+import type { DailyPlan, PlannedTask, ScheduleBlock, WeeklyGoal } from '@/types';
 import { currentWeekStart, TODAY } from '@/lib/planner';
 
 interface TaskActionsOptions {
   weeklyGoals: WeeklyGoal[];
+  scheduleBlocks: ScheduleBlock[];
   setPlannedTasks: Dispatch<SetStateAction<PlannedTask[]>>;
+  setScheduleBlocks: Dispatch<SetStateAction<ScheduleBlock[]>>;
   setDailyPlan: Dispatch<SetStateAction<DailyPlan>>;
   setSelectedInboxId: Dispatch<SetStateAction<string | null>>;
   setLastCommitTimestamp: Dispatch<SetStateAction<number>>;
@@ -12,11 +14,27 @@ interface TaskActionsOptions {
 
 export function useTaskActions({
   weeklyGoals,
+  scheduleBlocks,
   setPlannedTasks,
+  setScheduleBlocks,
   setDailyPlan,
   setSelectedInboxId,
   setLastCommitTimestamp,
 }: TaskActionsOptions) {
+  const removeLinkedScheduleBlock = useCallback(async (taskId: string) => {
+    const linkedBlock = scheduleBlocks.find((block) => block.linkedTaskId === taskId);
+    if (!linkedBlock) return;
+
+    if (linkedBlock.eventId) {
+      const result = await window.api.gcal.deleteEvent(linkedBlock.eventId, linkedBlock.calendarId);
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to remove linked calendar event');
+      }
+    }
+
+    setScheduleBlocks((prev) => prev.filter((block) => block.id !== linkedBlock.id));
+  }, [scheduleBlocks, setScheduleBlocks]);
+
   const migrateOldTasks = useCallback((): PlannedTask[] => {
     const weekStart = currentWeekStart();
     const stale: PlannedTask[] = [];
@@ -44,6 +62,51 @@ export function useTaskActions({
   const dropTask = useCallback((taskId: string) => {
     setPlannedTasks((prev) =>
       prev.map((task) => task.id === taskId ? { ...task, status: 'cancelled' } : task)
+    );
+  }, [setPlannedTasks]);
+
+  const nestTask = useCallback((childId: string, parentTaskId: string) => {
+    setPlannedTasks((prev) => {
+      const parent = prev.find((t) => t.id === parentTaskId);
+      if (!parent) return prev;
+      return prev.map((task) => {
+        if (task.id === childId) {
+          return {
+            ...task,
+            parentId: parentTaskId,
+            weeklyGoalId: parent.weeklyGoalId,
+            status: task.status === 'done' ? 'done' : 'committed',
+            lastCommittedDate: TODAY,
+          };
+        }
+        if (
+          task.id === parentTaskId &&
+          task.status !== 'committed' &&
+          task.status !== 'scheduled' &&
+          task.status !== 'done'
+        ) {
+          return { ...task, status: 'committed', lastCommittedDate: TODAY };
+        }
+        return task;
+      });
+    });
+
+    setDailyPlan((prev) => {
+      let ids = prev.committedTaskIds;
+      if (!ids.includes(childId)) ids = [...ids, childId];
+      if (!ids.includes(parentTaskId)) ids = [...ids, parentTaskId];
+      return { ...prev, committedTaskIds: ids };
+    });
+
+    setSelectedInboxId(null);
+    setLastCommitTimestamp(Date.now());
+  }, [setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setSelectedInboxId]);
+
+  const unnestTask = useCallback((childId: string) => {
+    setPlannedTasks((prev) =>
+      prev.map((task) =>
+        task.id === childId ? { ...task, parentId: undefined } : task
+      )
     );
   }, [setPlannedTasks]);
 
@@ -108,37 +171,54 @@ export function useTaskActions({
     );
   }, [setPlannedTasks]);
 
-  const moveForward = useCallback((taskId: string) => {
+  const moveForward = useCallback(async (taskId: string) => {
+    await removeLinkedScheduleBlock(taskId);
+
     setPlannedTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId
-          ? { ...task, status: 'migrated', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined }
-          : task
-      )
+      prev.map((task) => {
+        if (task.id === taskId) {
+          return { ...task, status: 'migrated', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined };
+        }
+        if (task.parentId === taskId) {
+          return { ...task, parentId: undefined };
+        }
+        return task;
+      })
     );
 
     setDailyPlan((prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.filter((id) => id !== taskId),
     }));
-  }, [setDailyPlan, setPlannedTasks]);
+  }, [removeLinkedScheduleBlock, setDailyPlan, setPlannedTasks]);
 
-  const releaseTask = useCallback((taskId: string) => {
+  const releaseTask = useCallback(async (taskId: string) => {
+    await removeLinkedScheduleBlock(taskId);
+
     setPlannedTasks((prev) =>
-      prev.map((task) =>
-        task.id === taskId
-          ? { ...task, status: 'cancelled', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined }
-          : task
-      )
+      prev.map((task) => {
+        if (task.id === taskId) {
+          return { ...task, status: 'cancelled', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined };
+        }
+        if (task.parentId === taskId) {
+          return { ...task, parentId: undefined };
+        }
+        return task;
+      })
     );
 
     setDailyPlan((prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.filter((id) => id !== taskId),
     }));
-  }, [setDailyPlan, setPlannedTasks]);
+  }, [removeLinkedScheduleBlock, setDailyPlan, setPlannedTasks]);
 
-  const toggleTask = useCallback((id: string) => {
+  const toggleTask = useCallback(async (id: string) => {
+    const linkedBlock = scheduleBlocks.find((block) => block.linkedTaskId === id);
+    if (linkedBlock) {
+      await removeLinkedScheduleBlock(id);
+    }
+
     setPlannedTasks((prev) =>
       prev.map((task) => {
         if (task.id !== id) return task;
@@ -150,7 +230,7 @@ export function useTaskActions({
         };
       })
     );
-  }, [setPlannedTasks]);
+  }, [removeLinkedScheduleBlock, scheduleBlocks, setPlannedTasks]);
 
   const setActiveTask = useCallback((id: string) => {
     setPlannedTasks((prev) =>
@@ -170,6 +250,8 @@ export function useTaskActions({
   return {
     migrateOldTasks,
     dropTask,
+    nestTask,
+    unnestTask,
     bringForward,
     addLocalTask,
     assignTaskToGoal,
