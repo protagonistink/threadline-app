@@ -5,6 +5,7 @@ import { useApp } from '@/context/AppContext';
 import type { MonthlyPlan } from '@/types';
 
 const TOTAL_STEPS = 3;
+const STEP_LABELS = ['Reflect', 'Set Intent', 'Lock It In'];
 
 export function MonthlyPlanningWizard() {
   const {
@@ -19,7 +20,6 @@ export function MonthlyPlanningWizard() {
 
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1);
-  const stepLabels = ['Reflect', 'Set Intent', 'Lock It In'];
   const [reflection, setReflection] = useState(monthlyPlan?.reflection ?? '');
   const [oneThing, setOneThing] = useState(monthlyPlan?.oneThing ?? '');
   const [why, setWhy] = useState(monthlyPlan?.why ?? '');
@@ -94,7 +94,7 @@ export function MonthlyPlanningWizard() {
                   ))}
                 </div>
                 <span className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
-                  {stepLabels[step - 1]}
+                  {STEP_LABELS[step - 1]}
                 </span>
               </div>
               <span className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
