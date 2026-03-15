@@ -2,13 +2,21 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
-import type { PlannedTask } from '@/types';
+import type { InboxItem, MonthlyPlan, PlannedTask } from '@/types';
 
 const GOAL_COLORS = [
   { label: 'Warm', value: 'bg-accent-warm' },
   { label: 'Muted', value: 'bg-done' },
   { label: 'Green', value: 'bg-done' },
 ];
+
+// ─── Shared helpers ────────────────────────────────────────────────────────────
+
+function formatMins(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}`.trim() : `${m}m`;
+}
 
 function StepIndicator({ step, total }: { step: number; total: number }) {
   return (
@@ -26,15 +34,19 @@ function StepIndicator({ step, total }: { step: number; total: number }) {
   );
 }
 
-// ─── Step 1: Carry Forward ────────────────────────────────────────────────────
+// ─── Step 1: Review ───────────────────────────────────────────────────────────
 
-function StepCarryForward({
+function StepReview({
   migratedTasks,
   onDrop,
+  candidateItems,
 }: {
   migratedTasks: PlannedTask[];
   onDrop: (id: string) => void;
+  candidateItems: InboxItem[];
 }) {
+  const candidateCount = candidateItems.length;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -43,7 +55,7 @@ function StepCarryForward({
         </h2>
         <p className="text-[13px] text-text-muted mt-2">
           {migratedTasks.length > 0
-            ? 'Keep what still matters. Drop what doesn\'t.'
+            ? "Keep what still matters. Drop what doesn't."
             : 'Nothing left unfinished from last week.'}
         </p>
       </div>
@@ -76,125 +88,43 @@ function StepCarryForward({
           ))}
         </div>
       )}
-    </div>
-  );
-}
 
-// ─── Step 2: Commitments ──────────────────────────────────────────────────────
-
-function StepCommitments() {
-  const { rituals, addRitual, removeRitual, countdowns, addCountdown, removeCountdown } = useApp();
-  const [ritualDraft, setRitualDraft] = useState('');
-  const [countdownTitle, setCountdownTitle] = useState('');
-  const [countdownDate, setCountdownDate] = useState('');
-
-  function handleAddRitual(e: React.FormEvent) {
-    e.preventDefault();
-    if (ritualDraft.trim()) {
-      addRitual(ritualDraft.trim());
-      setRitualDraft('');
-    }
-  }
-
-  function handleAddCountdown(e: React.FormEvent) {
-    e.preventDefault();
-    if (countdownTitle.trim() && countdownDate) {
-      addCountdown(countdownTitle.trim(), countdownDate);
-      setCountdownTitle('');
-      setCountdownDate('');
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-8">
-      <div>
-        <h2 className="font-display italic text-[28px] font-light tracking-wide text-text-primary">
-          What you always do
-        </h2>
-        <p className="text-[13px] text-text-muted mt-2">
-          The recurring work and the hard dates anchoring this week.
-        </p>
+      {/* Asana Inbox Section */}
+      <div className="flex flex-col gap-2">
+        <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
+          In Your Asana Inbox
+        </div>
+        <div className="rounded-md border border-dashed border-border px-4 py-3">
+          <div className="text-[12px] text-text-muted">
+            {candidateCount > 0
+              ? `${candidateCount} tasks waiting`
+              : 'Inbox is clear.'}
+          </div>
+          {candidateItems.slice(0, 3).map((item) => (
+            <div key={item.id} className="text-[11px] text-text-muted mt-1">
+              · {item.title}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Rituals */}
-      <div className="flex flex-col gap-3">
-        <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
-          Daily Rituals
-        </div>
-
-        {rituals.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {rituals.map((ritual) => (
-              <div key={ritual.id} className="flex items-center gap-3 rounded-md border border-border bg-bg-card px-4 py-2.5">
-                <span className="flex-1 text-[13px] text-text-primary">{ritual.title}</span>
-                <button
-                  onClick={() => removeRitual(ritual.id)}
-                  className="text-text-muted hover:text-text-primary transition-colors p-1"
-                  aria-label="Remove ritual"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <form onSubmit={handleAddRitual} className="flex items-center gap-2 rounded-md border border-dashed border-border px-4 py-2.5">
-          <Plus className="w-3.5 h-3.5 text-text-muted shrink-0" />
-          <input
-            value={ritualDraft}
-            onChange={(e) => setRitualDraft(e.target.value)}
-            placeholder="Add a daily ritual..."
-            className="flex-1 bg-transparent border-none outline-none text-[13px] text-text-primary placeholder:text-text-muted"
-          />
-        </form>
-      </div>
-
-      {/* Countdowns */}
-      <div className="flex flex-col gap-3">
-        <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
-          Upcoming Deadlines
-        </div>
-
-        {countdowns.length > 0 && (
-          <div className="flex flex-col gap-2">
-            {countdowns.map((cd) => (
-              <div key={cd.id} className="flex items-center gap-3 rounded-md border border-border bg-bg-card px-4 py-2.5">
-                <span className="flex-1 text-[13px] text-text-primary">{cd.title}</span>
-                <span className="text-[11px] font-mono text-text-muted">{cd.dueDate}</span>
-                <button
-                  onClick={() => removeCountdown(cd.id)}
-                  className="text-text-muted hover:text-text-primary transition-colors p-1"
-                  aria-label="Remove deadline"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <form onSubmit={handleAddCountdown} className="flex items-center gap-2 rounded-md border border-dashed border-border px-4 py-2.5">
-          <Plus className="w-3.5 h-3.5 text-text-muted shrink-0" />
-          <input
-            value={countdownTitle}
-            onChange={(e) => setCountdownTitle(e.target.value)}
-            placeholder="What's due..."
-            className="flex-1 bg-transparent border-none outline-none text-[13px] text-text-primary placeholder:text-text-muted"
-          />
-          <input
-            type="date"
-            value={countdownDate}
-            onChange={(e) => setCountdownDate(e.target.value)}
-            className="bg-transparent border-none outline-none text-[12px] font-mono text-text-muted [color-scheme:dark]"
-          />
-        </form>
+      {/* Asana Cleanup Nudge */}
+      <div className="rounded-md border border-border bg-bg-card px-4 py-3 flex items-center justify-between">
+        <span className="text-[12px] text-text-muted">
+          Before you commit — go clean up Asana.
+        </span>
+        <button
+          onClick={() => void window.api.shell.openExternal('https://app.asana.com')}
+          className="text-[12px] text-accent-warm hover:text-accent-warm/80 transition-colors shrink-0 ml-4"
+        >
+          Open Asana →
+        </button>
       </div>
     </div>
   );
 }
 
-// ─── Step 3: Intentions ───────────────────────────────────────────────────────
+// ─── Step 2: Goals ─────────────────────────────────────────────────────────────
 
 function IntentionCard({
   index,
@@ -330,7 +260,7 @@ function IntentionCard({
   );
 }
 
-function StepIntentions() {
+function StepGoals({ monthlyPlan }: { monthlyPlan: MonthlyPlan | null }) {
   const { weeklyGoals, addWeeklyGoal, renameWeeklyGoal, updateGoalWhy, updateGoalColor, updateGoalCountdown, countdowns } = useApp();
 
   const slots = [0, 1, 2];
@@ -345,6 +275,12 @@ function StepIntentions() {
           Three intentions. What you're building, making, becoming this week.
         </p>
       </div>
+
+      {monthlyPlan?.oneThing && (
+        <p className="font-display italic text-[14px] text-text-muted leading-relaxed">
+          {new Date().toLocaleDateString('en-US', { month: 'long' })}: {monthlyPlan.oneThing}
+        </p>
+      )}
 
       <div className="flex flex-col gap-4">
         {slots.map((i) => (
@@ -365,10 +301,98 @@ function StepIntentions() {
   );
 }
 
+// ─── Step 3: Rituals ──────────────────────────────────────────────────────────
+
+function StepRituals() {
+  const { rituals, addRitual, removeRitual, updateRitualEstimate, workdayEnd } = useApp();
+  const [ritualDraft, setRitualDraft] = useState('');
+
+  const totalRitualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
+  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - (9 * 60);
+  const focusedMins = Math.max(0, workdayMins - totalRitualMins);
+
+  function handleAddRitual(e: React.FormEvent) {
+    e.preventDefault();
+    if (ritualDraft.trim()) {
+      addRitual(ritualDraft.trim());
+      setRitualDraft('');
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h2 className="font-display italic text-[28px] font-light tracking-wide text-text-primary">
+          Account for your rituals.
+        </h2>
+        <p className="text-[13px] text-text-muted mt-2">
+          These take real time. Name them, estimate them, plan around them.
+        </p>
+      </div>
+
+      {/* Ritual list with time estimates */}
+      <div className="flex flex-col gap-2">
+        {rituals.map((ritual) => (
+          <div key={ritual.id} className="flex items-center gap-3 rounded-md border border-border bg-bg-card px-4 py-2.5">
+            <span className="flex-1 text-[13px] text-text-primary">{ritual.title}</span>
+            <input
+              type="number"
+              min={0}
+              step={15}
+              value={ritual.estimateMins ?? 0}
+              onChange={(e) => updateRitualEstimate(ritual.id, parseInt(e.target.value) || 0)}
+              className="w-14 bg-transparent border-b border-border-subtle text-[12px] font-mono text-text-muted text-right outline-none"
+            />
+            <span className="text-[11px] text-text-muted">min</span>
+            <button
+              onClick={() => removeRitual(ritual.id)}
+              className="text-text-muted hover:text-text-primary transition-colors p-1"
+              aria-label="Remove ritual"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Add ritual form */}
+      <form onSubmit={handleAddRitual} className="flex items-center gap-2 rounded-md border border-dashed border-border px-4 py-2.5">
+        <Plus className="w-3.5 h-3.5 text-text-muted shrink-0" />
+        <input
+          type="text"
+          value={ritualDraft}
+          onChange={(e) => setRitualDraft(e.target.value)}
+          placeholder="Add a daily ritual..."
+          className="flex-1 bg-transparent text-[13px] text-text-primary placeholder:text-text-muted outline-none"
+        />
+      </form>
+
+      {/* Capacity summary */}
+      {rituals.length > 0 && (
+        <div className="rounded-lg border border-border bg-bg-card px-4 py-4 flex flex-col gap-1">
+          <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted mb-2">
+            Daily Ritual Load
+          </div>
+          <div className="text-[13px] text-text-primary">
+            {formatMins(totalRitualMins)} committed to rituals
+          </div>
+          <div className={`text-[13px] ${focusedMins < 180 ? 'text-accent-warm' : 'text-text-muted'}`}>
+            ~{formatMins(focusedMins)} available for goal work
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Step 4: Locked In ────────────────────────────────────────────────────────
 
 function StepLockedIn() {
-  const { weeklyGoals } = useApp();
+  const { weeklyGoals, rituals, workdayEnd, monthlyPlan } = useApp();
+
+  const totalRitualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
+  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - (9 * 60);
+  const focusedMins = Math.max(0, workdayMins - totalRitualMins);
 
   return (
     <div className="flex flex-col gap-8">
@@ -378,7 +402,21 @@ function StepLockedIn() {
         </h2>
       </div>
 
+      {monthlyPlan?.oneThing && (
+        <div className="flex flex-col gap-1">
+          <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
+            {new Date().toLocaleDateString('en-US', { month: 'long' })}
+          </div>
+          <div className="font-display italic text-[14px] text-text-muted leading-relaxed">
+            {monthlyPlan.oneThing}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
+        <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
+          This Week
+        </div>
         {weeklyGoals.map((goal) => (
           <div key={goal.id} className="rounded-lg border border-border bg-bg-card p-5">
             <div className="flex items-center gap-3 mb-2">
@@ -392,6 +430,19 @@ function StepLockedIn() {
             )}
           </div>
         ))}
+
+        {totalRitualMins > 0 && (
+          <div className="flex flex-col gap-1 mt-2">
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-mono uppercase tracking-widest text-text-muted">Ritual Load</span>
+              <span className="text-text-muted">{formatMins(totalRitualMins)}/day</span>
+            </div>
+            <div className="flex items-center justify-between text-[11px]">
+              <span className="font-mono uppercase tracking-widest text-text-muted">Focused Time</span>
+              <span className="text-text-muted">~{formatMins(focusedMins)}/day</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <p className="font-display italic text-[16px] text-text-muted text-center">
@@ -404,7 +455,15 @@ function StepLockedIn() {
 // ─── Main Wizard ──────────────────────────────────────────────────────────────
 
 export function WeeklyPlanningWizard() {
-  const { isWeeklyPlanningOpen, closeWeeklyPlanning, completeWeeklyPlanning, migrateOldTasks, dropTask } = useApp();
+  const {
+    isWeeklyPlanningOpen,
+    closeWeeklyPlanning,
+    completeWeeklyPlanning,
+    migrateOldTasks,
+    dropTask,
+    candidateItems,
+    monthlyPlan,
+  } = useApp();
   const [step, setStep] = useState(1);
   const [migratedTasks, setMigratedTasks] = useState<PlannedTask[]>([]);
   const [droppedIds, setDroppedIds] = useState<Set<string>>(new Set());
@@ -443,9 +502,9 @@ export function WeeklyPlanningWizard() {
   }
 
   const stepLabels = [
-    'Carry Forward',
-    'Your Commitments',
-    'Your Intentions',
+    "What's Live",
+    'Your Goals',
+    'Your Rituals',
     'Locked In',
   ];
 
@@ -477,10 +536,14 @@ export function WeeklyPlanningWizard() {
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-7 hide-scrollbar">
           {step === 1 && (
-            <StepCarryForward migratedTasks={visibleMigrated} onDrop={handleDrop} />
+            <StepReview
+              migratedTasks={visibleMigrated}
+              onDrop={handleDrop}
+              candidateItems={candidateItems}
+            />
           )}
-          {step === 2 && <StepCommitments />}
-          {step === 3 && <StepIntentions />}
+          {step === 2 && <StepGoals monthlyPlan={monthlyPlan} />}
+          {step === 3 && <StepRituals />}
           {step === 4 && <StepLockedIn />}
         </div>
 
