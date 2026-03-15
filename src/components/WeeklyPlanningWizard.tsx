@@ -387,7 +387,7 @@ function StepRituals() {
 
 // ─── Step 4: Locked In ────────────────────────────────────────────────────────
 
-function StepLockedIn() {
+function StepLockedIn({ carriedForwardCount }: { carriedForwardCount: number }) {
   const { weeklyGoals, rituals, workdayEnd, monthlyPlan } = useApp();
 
   const totalRitualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
@@ -431,16 +431,26 @@ function StepLockedIn() {
           </div>
         ))}
 
-        {totalRitualMins > 0 && (
+        {(totalRitualMins > 0 || carriedForwardCount > 0) && (
           <div className="flex flex-col gap-1 mt-2">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-mono uppercase tracking-widest text-text-muted">Ritual Load</span>
-              <span className="text-text-muted">{formatMins(totalRitualMins)}/day</span>
-            </div>
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-mono uppercase tracking-widest text-text-muted">Focused Time</span>
-              <span className="text-text-muted">~{formatMins(focusedMins)}/day</span>
-            </div>
+            {carriedForwardCount > 0 && (
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-mono uppercase tracking-widest text-text-muted">Carried Forward</span>
+                <span className="text-[13px] text-text-primary">{carriedForwardCount} {carriedForwardCount === 1 ? 'task' : 'tasks'}</span>
+              </div>
+            )}
+            {totalRitualMins > 0 && (
+              <>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-mono uppercase tracking-widest text-text-muted">Ritual Load</span>
+                  <span className="text-text-muted">{formatMins(totalRitualMins)}/day</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-mono uppercase tracking-widest text-text-muted">Focused Time</span>
+                  <span className="text-text-muted">~{formatMins(focusedMins)}/day</span>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -544,7 +554,7 @@ export function WeeklyPlanningWizard() {
           )}
           {step === 2 && <StepGoals monthlyPlan={monthlyPlan} />}
           {step === 3 && <StepRituals />}
-          {step === 4 && <StepLockedIn />}
+          {step === 4 && <StepLockedIn carriedForwardCount={visibleMigrated.length} />}
         </div>
 
         {/* Footer */}
