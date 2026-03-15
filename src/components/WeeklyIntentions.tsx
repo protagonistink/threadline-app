@@ -8,7 +8,7 @@ import type { PlannedTask, WeeklyGoal } from '@/types';
 const GOAL_COLORS = [
   { label: 'Warm', value: 'bg-accent-warm' },
   { label: 'Muted', value: 'bg-done' },
-  { label: 'Green', value: 'bg-done' },
+  { label: 'Green', value: 'bg-accent-green' },
 ];
 
 function WeekOverview() {

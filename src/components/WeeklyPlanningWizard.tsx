@@ -9,7 +9,7 @@ const WORKDAY_START_MINS = 9 * 60;
 const GOAL_COLORS = [
   { label: 'Warm', value: 'bg-accent-warm' },
   { label: 'Muted', value: 'bg-done' },
-  { label: 'Green', value: 'bg-done' },
+  { label: 'Green', value: 'bg-accent-green' },
 ];
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
