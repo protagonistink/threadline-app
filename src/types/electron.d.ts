@@ -114,6 +114,10 @@ interface WindowAPI {
   showMain: () => Promise<void>;
 }
 
+interface ShellAPI {
+  openExternal: (url: string) => Promise<void>;
+}
+
 declare global {
   interface Window {
     api: {
@@ -125,6 +129,7 @@ declare global {
       window: WindowAPI;
       ai: AIAPI;
       physics: PhysicsAPI;
+      shell: ShellAPI;
     };
   }
 }

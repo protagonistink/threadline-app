@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell, Tray, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import { registerAsanaHandlers } from './asana';
 import { registerGCalHandlers } from './gcal';
@@ -248,6 +248,10 @@ app.whenReady().then(() => {
     if (!mainWindow) return;
     mainWindow.show();
     mainWindow.focus();
+  });
+
+  ipcMain.handle('shell:open-external', (_, url: string) => {
+    void shell.openExternal(url);
   });
 
   createWindow();

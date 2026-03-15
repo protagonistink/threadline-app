@@ -114,6 +114,9 @@ describe('useTaskActions', () => {
         update: vi.fn(),
         log: vi.fn(),
       },
+      shell: {
+        openExternal: vi.fn(),
+      },
     };
   });
 

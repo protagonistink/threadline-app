@@ -70,4 +70,7 @@ contextBridge.exposeInMainWorld('api', {
     setFocusSize: (locked: boolean) => ipcRenderer.invoke('window:set-focus-size', locked),
     showMain: () => ipcRenderer.invoke('window:show-main'),
   },
+  shell: {
+    openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  },
 });
