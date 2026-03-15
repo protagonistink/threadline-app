@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import type { InboxItem, MonthlyPlan, PlannedTask } from '@/types';
 
+const WORKDAY_START_MINS = 9 * 60;
+
 const GOAL_COLORS = [
   { label: 'Warm', value: 'bg-accent-warm' },
   { label: 'Muted', value: 'bg-done' },
@@ -178,6 +180,8 @@ function IntentionCard({
       setIsAdding(false);
     } else if (goal && localTitle.trim()) {
       onRename(goal.id, localTitle);
+    } else if (!goal && isAdding) {
+      setIsAdding(false);
     }
   }
 
@@ -308,7 +312,7 @@ function StepRituals() {
   const [ritualDraft, setRitualDraft] = useState('');
 
   const totalRitualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
-  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - (9 * 60);
+  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - WORKDAY_START_MINS;
   const focusedMins = Math.max(0, workdayMins - totalRitualMins);
 
   function handleAddRitual(e: React.FormEvent) {
@@ -391,7 +395,7 @@ function StepLockedIn({ carriedForwardCount }: { carriedForwardCount: number }) 
   const { weeklyGoals, rituals, workdayEnd, monthlyPlan } = useApp();
 
   const totalRitualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
-  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - (9 * 60);
+  const workdayMins = (workdayEnd.hour * 60 + workdayEnd.min) - WORKDAY_START_MINS;
   const focusedMins = Math.max(0, workdayMins - totalRitualMins);
 
   return (
