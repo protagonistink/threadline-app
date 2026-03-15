@@ -17,7 +17,6 @@ const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 let mainWindow: BrowserWindow | null;
 let pomodoroWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
-let fullWindowSize: [number, number] | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 function createWindow() {
@@ -229,19 +228,15 @@ app.whenReady().then(() => {
     pomodoroWindow?.focus();
   });
 
-  ipcMain.handle('window:set-focus-size', (_event, locked: boolean) => {
-    if (!mainWindow) return;
-    if (locked) {
-      fullWindowSize = mainWindow.getSize() as [number, number];
-      mainWindow.setMinimumSize(400, 600);
-      mainWindow.setSize(520, mainWindow.getSize()[1], true);
-    } else {
-      mainWindow.setMinimumSize(1200, 700);
-      if (fullWindowSize) {
-        mainWindow.setSize(fullWindowSize[0], fullWindowSize[1], true);
-        fullWindowSize = null;
-      }
-    }
+  ipcMain.handle('window:set-focus-size', () => {
+    // Window resize intentionally removed.
+    // Calling setSize() while Chromium's compositor is active triggers a
+    // SharedImageManager mailbox race condition (SIGSEGV exit 11) on macOS
+    // Electron 33 in both GPU and software-rendering paths. There is no
+    // Electron/Chromium API to synchronously flush the compositor pipeline
+    // before resize. Focus mode layout collapse is handled entirely via
+    // React state (sidebar/inbox/TodaysFlow collapse). The window stays at
+    // whatever size the user had it.
   });
 
   ipcMain.handle('window:show-main', () => {

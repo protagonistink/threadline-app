@@ -46,13 +46,76 @@ const store = new Store({
   },
 });
 
+const SAFE_STORE_KEYS = new Set([
+  'plannerState',
+  'dayLocked',
+  'dayLockedDate',
+]);
+
+function isAllowedStoreKey(key: string) {
+  return SAFE_STORE_KEYS.has(key) || key.startsWith('briefing.dismissed.');
+}
+
 export function registerStoreHandlers() {
   ipcMain.handle('store:get', (_event, key: string) => {
+    if (!isAllowedStoreKey(key)) {
+      throw new Error(`Renderer store access denied for key: ${key}`);
+    }
     return store.get(key);
   });
 
   ipcMain.handle('store:set', (_event, key: string, value: unknown) => {
+    if (!isAllowedStoreKey(key)) {
+      throw new Error(`Renderer store access denied for key: ${key}`);
+    }
     store.set(key, value);
+    return true;
+  });
+
+  ipcMain.handle('settings:load', () => {
+    const gcal = (store.get('gcal') as Record<string, unknown> | undefined) ?? {};
+    const pomodoro = (store.get('pomodoro') as Record<string, unknown> | undefined) ?? {};
+    const focus = (store.get('focus') as Record<string, unknown> | undefined) ?? {};
+
+    return {
+      anthropic: {
+        configured: Boolean(store.get('anthropic.apiKey')),
+      },
+      asana: {
+        configured: Boolean(store.get('asana.token')),
+      },
+      gcal: {
+        clientId: String(gcal.clientId ?? ''),
+        clientSecretConfigured: Boolean(gcal.clientSecret),
+        calendarId: String(gcal.calendarId ?? 'primary'),
+        calendarIds: Array.isArray(gcal.calendarIds) ? gcal.calendarIds : ['primary'],
+        writeCalendarId: String(gcal.writeCalendarId ?? gcal.calendarId ?? 'primary'),
+      },
+      pomodoro: {
+        workMins: Number(pomodoro.workMins ?? 25),
+        breakMins: Number(pomodoro.breakMins ?? 5),
+        longBreakMins: Number(pomodoro.longBreakMins ?? 15),
+      },
+      focus: {
+        blockedSites: Array.isArray(focus.blockedSites) ? focus.blockedSites : [],
+      },
+    };
+  });
+
+  ipcMain.handle('settings:save', (_event, payload: Record<string, unknown>) => {
+    if ('anthropicApiKey' in payload) store.set('anthropic.apiKey', payload.anthropicApiKey);
+    if ('asanaToken' in payload) store.set('asana.token', payload.asanaToken);
+    if ('gcalClientId' in payload) store.set('gcal.clientId', payload.gcalClientId);
+    if ('gcalClientSecret' in payload) store.set('gcal.clientSecret', payload.gcalClientSecret);
+    if ('gcalCalendarIds' in payload) store.set('gcal.calendarIds', payload.gcalCalendarIds);
+    if ('gcalWriteCalendarId' in payload) {
+      store.set('gcal.writeCalendarId', payload.gcalWriteCalendarId);
+      store.set('gcal.calendarId', payload.gcalWriteCalendarId);
+    }
+    if ('workMins' in payload) store.set('pomodoro.workMins', payload.workMins);
+    if ('breakMins' in payload) store.set('pomodoro.breakMins', payload.breakMins);
+    if ('longBreakMins' in payload) store.set('pomodoro.longBreakMins', payload.longBreakMins);
+    if ('blockedSites' in payload) store.set('focus.blockedSites', payload.blockedSites);
     return true;
   });
 }

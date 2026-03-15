@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   DailyPlan,
   InboxItem,
@@ -18,24 +18,48 @@ export function usePlannerSelectors({
   scheduleBlocks,
   dailyPlan,
 }: PlannerSelectorsOptions) {
-  const currentBlock = useMemo(() => {
+  const [currentMinute, setCurrentMinute] = useState(() => {
     const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    let intervalId: number | null = null;
+
+    const updateCurrentMinute = () => {
+      const now = new Date();
+      setCurrentMinute(now.getHours() * 60 + now.getMinutes());
+    };
+
+    updateCurrentMinute();
+
+    const timeoutId = window.setTimeout(() => {
+      updateCurrentMinute();
+      intervalId = window.setInterval(updateCurrentMinute, 60_000);
+    }, (60 - new Date().getSeconds()) * 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, []);
+
+  const currentBlock = useMemo(() => {
     return scheduleBlocks.find((block) => {
       const start = block.startHour * 60 + block.startMin;
       const end = start + block.durationMins;
-      return block.kind === 'focus' && currentMins >= start && currentMins < end;
+      return block.kind === 'focus' && currentMinute >= start && currentMinute < end;
     }) || null;
-  }, [scheduleBlocks]);
+  }, [currentMinute, scheduleBlocks]);
 
   const nextBlock = useMemo(() => {
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
     return scheduleBlocks.find((block) => {
       const start = block.startHour * 60 + block.startMin;
-      return block.kind === 'focus' && start > currentMins;
+      return block.kind === 'focus' && start > currentMinute;
     }) || null;
-  }, [scheduleBlocks]);
+  }, [currentMinute, scheduleBlocks]);
 
   const currentTask = useMemo(() => {
     if (currentBlock?.linkedTaskId) {

@@ -1,10 +1,19 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { CalendarEventInput, PomodoroState } from '../src/types';
+import type {
+  AsanaTaskQuery,
+  BriefingContext,
+  ChatMessage,
+  LoadedSettings,
+  PhysicsLogEntry,
+  SettingsUpdate,
+  UserPhysics,
+} from '../src/types/electron';
 
 contextBridge.exposeInMainWorld('api', {
   // Asana
   asana: {
-    getTasks: (options?: unknown) => ipcRenderer.invoke('asana:get-tasks', options),
+    getTasks: (options?: AsanaTaskQuery) => ipcRenderer.invoke('asana:get-tasks', options),
     addComment: (taskId: string, text: string) =>
       ipcRenderer.invoke('asana:add-comment', taskId, text),
   },
@@ -40,17 +49,21 @@ contextBridge.exposeInMainWorld('api', {
     get: (key: string) => ipcRenderer.invoke('store:get', key),
     set: (key: string, value: unknown) => ipcRenderer.invoke('store:set', key, value),
   },
+  settings: {
+    load: () => ipcRenderer.invoke('settings:load') as Promise<LoadedSettings>,
+    save: (payload: SettingsUpdate) => ipcRenderer.invoke('settings:save', payload),
+  },
   // User Physics (working pattern persistence)
   physics: {
     get: () => ipcRenderer.invoke('physics:get'),
-    update: (patch: unknown) => ipcRenderer.invoke('physics:update', patch),
-    log: (entry: unknown) => ipcRenderer.invoke('physics:log', entry),
+    update: (patch: Partial<UserPhysics>) => ipcRenderer.invoke('physics:update', patch),
+    log: (entry: Omit<PhysicsLogEntry, 'date'>) => ipcRenderer.invoke('physics:log', entry),
   },
   // AI (Morning Briefing)
   ai: {
-    chat: (messages: unknown[], context: unknown) =>
+    chat: (messages: ChatMessage[], context: BriefingContext) =>
       ipcRenderer.invoke('ai:chat', messages, context),
-    streamStart: (messages: unknown[], context: unknown) =>
+    streamStart: (messages: ChatMessage[], context: BriefingContext) =>
       ipcRenderer.invoke('ai:stream:start', messages, context),
     onToken: (callback: (token: string) => void) => {
       const handler = (_event: unknown, token: string) => callback(token);

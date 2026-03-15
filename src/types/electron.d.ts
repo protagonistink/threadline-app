@@ -12,6 +12,11 @@ export interface ChatMessage {
   content: string;
 }
 
+export interface AsanaTaskQuery {
+  daysAhead?: number;
+  limit?: number;
+}
+
 export interface GCalEventContext {
   title: string;
   startTime: string;
@@ -77,7 +82,7 @@ declare module '*.png' {
 }
 
 interface AsanaAPI {
-  getTasks: (options?: { daysAhead?: number; limit?: number }) => Promise<ApiResult<AsanaTask[]>>;
+  getTasks: (options?: AsanaTaskQuery) => Promise<ApiResult<AsanaTask[]>>;
   addComment: (taskId: string, text: string) => Promise<ApiResult<null>>;
 }
 
@@ -108,6 +113,48 @@ interface StoreAPI {
   set: (key: string, value: unknown) => Promise<void>;
 }
 
+export interface LoadedSettings {
+  anthropic: {
+    configured: boolean;
+  };
+  asana: {
+    configured: boolean;
+  };
+  gcal: {
+    clientId: string;
+    clientSecretConfigured: boolean;
+    calendarId: string;
+    calendarIds: string[];
+    writeCalendarId: string;
+  };
+  pomodoro: {
+    workMins: number;
+    breakMins: number;
+    longBreakMins: number;
+  };
+  focus: {
+    blockedSites: string[];
+  };
+}
+
+export interface SettingsUpdate {
+  anthropicApiKey?: string;
+  asanaToken?: string;
+  gcalClientId?: string;
+  gcalClientSecret?: string;
+  gcalCalendarIds?: string[];
+  gcalWriteCalendarId?: string;
+  workMins?: number;
+  breakMins?: number;
+  longBreakMins?: number;
+  blockedSites?: string[];
+}
+
+interface SettingsAPI {
+  load: () => Promise<LoadedSettings>;
+  save: (payload: SettingsUpdate) => Promise<void>;
+}
+
 interface WindowAPI {
   showPomodoro: () => Promise<void>;
   hidePomodoro: () => Promise<void>;
@@ -128,6 +175,7 @@ declare global {
       pomodoro: PomodoroAPI;
       focus: FocusAPI;
       store: StoreAPI;
+      settings: SettingsAPI;
       window: WindowAPI;
       ai: AIAPI;
       physics: PhysicsAPI;

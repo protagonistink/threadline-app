@@ -2,7 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { format, startOfWeek } from 'date-fns';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Sparkles } from 'lucide-react';
+import { Lock, Sparkles } from 'lucide-react';
+import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
@@ -62,6 +63,9 @@ function AppLayout() {
     openWeeklyPlanning,
     dailyPlan,
     dayLocked,
+    focusResumePrompt,
+    resumeFocusMode,
+    dismissFocusPrompt,
     setActiveView,
   } = useApp();
   const autoBriefingCheckedRef = useRef(false);
@@ -71,12 +75,12 @@ function AppLayout() {
     if (hour >= 12 || dailyPlan.committedTaskIds.length > 0) return;
 
     const key = `briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`;
-    const [apiKey, dismissed] = await Promise.all([
-      window.api.store.get('anthropic.apiKey'),
+    const [settings, dismissed] = await Promise.all([
+      window.api.settings.load(),
       window.api.store.get(key),
     ]);
 
-    if (!isCancelled() && apiKey && !dismissed) {
+    if (!isCancelled() && settings.anthropic.configured && !dismissed) {
       setBriefingMode('briefing');
       setShowBriefing(true);
     }
@@ -105,7 +109,20 @@ function AppLayout() {
     }
   }, [openWeeklyPlanning, weeklyPlanningLastCompleted]);
 
-  const sidebarIsCollapsed = isFocus || sidebarCollapsed;
+  // Escape key closes Ink overlay
+  useEffect(() => {
+    if (!showBriefing) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setShowBriefing(false);
+        window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showBriefing]);
+
+  const sidebarIsCollapsed = isFocus || sidebarCollapsed || dayLocked || showBriefing;
   const sourcePanelIsCollapsed = isFocus || dayLocked;
 
   return (
@@ -118,26 +135,36 @@ function AppLayout() {
         onSettingsClick={() => setShowSettings(true)}
         onShowBriefing={() => { setBriefingMode('briefing'); setShowBriefing(true); }}
       />
-      <div className="flex flex-1 overflow-hidden">
+      {/* Content area — shrinks when Ink opens via margin-right */}
+      <div
+        className="flex flex-1 overflow-hidden transition-[margin,padding] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
+        style={{ 
+          marginRight: activeView === 'flow' && showBriefing ? 320 : 0
+        }}
+      >
         {activeView === 'flow' && (
           <>
-            <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
-            <TodaysFlow collapsed={dayLocked} />
-            {showBriefing ? (
-              <Suspense fallback={null}>
-                <MorningBriefing
-                  key={briefingSessionId}
-                  mode={briefingMode}
-                  onClose={() => {
-                    setShowBriefing(false);
-                    window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
-                  }}
-                  onNewChat={() => setBriefingSessionId((value) => value + 1)}
-                />
-              </Suspense>
-            ) : (
+            {/* Threads */}
+            <div className={cn(
+              'shrink-0 h-full overflow-hidden transition-[width,opacity] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+              sourcePanelIsCollapsed ? 'w-0 min-w-0 opacity-0 pointer-events-none' : 'w-[264px] opacity-100'
+            )}>
+              <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
+            </div>
+            {/* Today's Plan — slightly narrower than Day Frame */}
+            <div 
+              className={cn(
+                'h-full overflow-hidden transition-[width,flex,opacity,margin] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+                isFocus ? 'w-0 min-w-0 flex-[0_0_0%] opacity-0 pointer-events-none' : 'flex-1 min-w-[280px] opacity-100'
+              )}
+              style={{ flex: isFocus ? '0 0 0%' : '0.9 1 0%' }}
+            >
+              <TodaysFlow collapsed={dayLocked} />
+            </div>
+            {/* Day Frame — slightly wider than Plan */}
+            <div className="flex-1 min-w-[320px] h-full overflow-hidden transition-[flex] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]" style={{ flex: '1.1 1 0%' }}>
               <Timeline />
-            )}
+            </div>
           </>
         )}
         {activeView === 'goals' && (
@@ -149,6 +176,29 @@ function AppLayout() {
           </>
         )}
         {activeView === 'archive' && <ArchiveView />}
+      </div>
+      {/* Ink panel — slides in from right, GPU-composited transform */}
+      <div
+        className={cn(
+          'absolute top-0 right-0 h-full w-[320px] z-20 transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+          showBriefing
+            ? 'translate-x-0 opacity-100'
+            : 'translate-x-full opacity-0 pointer-events-none'
+        )}
+      >
+        {showBriefing && (
+          <Suspense fallback={null}>
+            <MorningBriefing
+              key={briefingSessionId}
+              mode={briefingMode}
+              onClose={() => {
+                setShowBriefing(false);
+                window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
+              }}
+              onNewChat={() => setBriefingSessionId((value) => value + 1)}
+            />
+          </Suspense>
+        )}
       </div>
       {showSettings && (
         <Suspense fallback={null}>
@@ -186,6 +236,32 @@ function AppLayout() {
       <Suspense fallback={null}>
         <CommandPalette />
       </Suspense>
+      {focusResumePrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-6 rounded-lg border border-border bg-bg-card px-10 py-8 shadow-2xl max-w-sm w-full mx-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Lock className="w-5 h-5 text-[#E55547]/70 mb-1" />
+              <p className="font-display text-[22px] text-text-emphasis leading-snug">You left in focus mode.</p>
+              <p className="text-[12px] text-text-muted">Resume where you left off, or start a fresh session.</p>
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={resumeFocusMode}
+                className="w-full px-5 py-2.5 bg-[#E55547]/10 hover:bg-[#E55547] text-[#E55547] hover:text-[#FAFAFA] text-[11px] uppercase tracking-[0.18em] font-medium transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Lock className="w-3 h-3" />
+                Resume Focus Mode
+              </button>
+              <button
+                onClick={dismissFocusPrompt}
+                className="w-full px-5 py-2.5 text-text-muted hover:text-text-primary text-[11px] uppercase tracking-[0.18em] font-medium transition-colors duration-200"
+              >
+                Start Fresh Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

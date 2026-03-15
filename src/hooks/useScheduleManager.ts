@@ -1,10 +1,11 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { DailyPlan, PlannedTask, ScheduleBlock } from '@/types';
-import { buildFocusEventPayload, planFocusCascade, TODAY } from '@/lib/planner';
+import { buildFocusEventPayload, getToday, planFocusCascade } from '@/lib/planner';
 
 interface ScheduleManagerOptions {
   plannedTasks: PlannedTask[];
   scheduleBlocks: ScheduleBlock[];
+  dailyPlan: DailyPlan;
   setPlannedTasks: Dispatch<SetStateAction<PlannedTask[]>>;
   setScheduleBlocks: Dispatch<SetStateAction<ScheduleBlock[]>>;
   setDailyPlan: Dispatch<SetStateAction<DailyPlan>>;
@@ -14,6 +15,7 @@ interface ScheduleManagerOptions {
 export function useScheduleManager({
   plannedTasks,
   scheduleBlocks,
+  dailyPlan,
   setPlannedTasks,
   setScheduleBlocks,
   setDailyPlan,
@@ -22,6 +24,10 @@ export function useScheduleManager({
   const scheduleTaskBlock = useCallback(async (taskId: string, startHour: number, startMin: number, durationMins = 60) => {
     const task = plannedTasks.find((item) => item.id === taskId);
     if (!task) return;
+    const today = getToday();
+    const previousPlannedTasks = plannedTasks;
+    const previousScheduleBlocks = scheduleBlocks;
+    const previousDailyPlan = dailyPlan;
 
     bringForward(taskId);
 
@@ -66,7 +72,7 @@ export function useScheduleManager({
     setPlannedTasks((prev) =>
       prev.map((item) =>
         item.id === taskId
-          ? { ...item, status: 'scheduled', lastCommittedDate: TODAY }
+          ? { ...item, status: 'scheduled', lastCommittedDate: today }
           : item
       )
     );
@@ -122,10 +128,13 @@ export function useScheduleManager({
             })
         );
       }
-    } catch {
-      // Local optimistic state stays in place if calendar sync fails.
+    } catch (error) {
+      console.error('Failed to sync focus block with calendar:', error);
+      setScheduleBlocks(previousScheduleBlocks);
+      setPlannedTasks(previousPlannedTasks);
+      setDailyPlan(previousDailyPlan);
     }
-  }, [bringForward, plannedTasks, scheduleBlocks, setPlannedTasks, setScheduleBlocks]);
+  }, [bringForward, dailyPlan, plannedTasks, scheduleBlocks, setDailyPlan, setPlannedTasks, setScheduleBlocks]);
 
   const removeScheduleBlock = useCallback(async (id: string) => {
     const block = scheduleBlocks.find((item) => item.id === id);
@@ -149,6 +158,7 @@ export function useScheduleManager({
   }, [scheduleBlocks, setPlannedTasks, setScheduleBlocks]);
 
   const unscheduleTaskBlock = useCallback(async (id: string, goalId?: string) => {
+    const today = getToday();
     const block = scheduleBlocks.find((item) => item.id === id);
     if (!block || block.readOnly || !block.linkedTaskId) return;
 
@@ -167,7 +177,7 @@ export function useScheduleManager({
               scheduledEventId: undefined,
               scheduledCalendarId: undefined,
               weeklyGoalId: goalId || task.weeklyGoalId,
-              lastCommittedDate: TODAY,
+              lastCommittedDate: today,
             }
           : task
       )
@@ -187,6 +197,7 @@ export function useScheduleManager({
   }, [scheduleBlocks, scheduleTaskBlock]);
 
   const clearFocusBlocks = useCallback(async () => {
+    const today = getToday();
     const focusBlocks = scheduleBlocks.filter((block) => !block.readOnly && block.kind === 'focus');
     if (focusBlocks.length === 0) return;
 
@@ -211,7 +222,7 @@ export function useScheduleManager({
               status: 'committed',
               scheduledEventId: undefined,
               scheduledCalendarId: undefined,
-              lastCommittedDate: TODAY,
+              lastCommittedDate: today,
             }
           : task
       )

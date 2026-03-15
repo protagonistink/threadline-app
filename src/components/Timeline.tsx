@@ -262,13 +262,13 @@ function BlockCard({
         )}
         <h4 className="text-[13px] font-medium text-text-primary truncate focus-editorial">{block.title}</h4>
       </div>
-      <div className="relative z-10 text-[10px] font-mono text-text-muted focus-fade-meta">
+      <div className="relative z-10 text-[10px] font-mono text-text-muted whitespace-nowrap focus-fade-meta">
         {formatTime(block.startHour, block.startMin)} - {formatTime(
           block.startHour + Math.floor((block.startMin + block.durationMins) / 60),
           (block.startMin + block.durationMins) % 60
         )}
       </div>
-      <div className="relative z-10 flex items-center gap-2 text-[10px] uppercase tracking-wider text-text-muted/70 focus-fade-meta">
+      <div className="relative z-10 flex items-center gap-2 text-[10px] uppercase tracking-wider text-text-muted/70 whitespace-nowrap focus-fade-meta">
         <span className="flex items-center gap-1.5">
           {block.kind === 'hard' ? (
             <GCalIcon className="w-4 h-4 shrink-0 text-accent-warm/40" />
@@ -463,6 +463,7 @@ export function Timeline() {
     scheduleTaskBlock,
     updateScheduleBlock,
     removeScheduleBlock,
+    currentBlock,
     workdayEnd,
     setWorkdayEnd,
     timeLogs,
@@ -536,14 +537,7 @@ export function Timeline() {
       ? Math.max(0, Math.floor((livePomodoro.totalTime - livePomodoro.timeRemaining) / 60))
       : 0;
 
-  const currentBlockId = (() => {
-    const now = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    return scheduleBlocks.find((block) => {
-      const blockStart = block.startHour * 60 + block.startMin;
-      return nowMins >= blockStart && nowMins < blockStart + block.durationMins;
-    })?.id ?? null;
-  })();
+  const currentBlockId = currentBlock?.id ?? null;
 
   // Returns the end time (in minutes) of the last local focus block, or 0 if none
   function lastFocusBlockEnd(blocks: ScheduleBlock[]): number {
@@ -613,7 +607,7 @@ export function Timeline() {
   });
 
   return (
-    <div className="focus-spotlight stage-bloom relative flex-1 min-w-[360px] bg-[#111111] border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
+    <div className="focus-spotlight stage-bloom relative w-full bg-[#111111] border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
       <div className="workspace-header shrink-0">
         <div className="workspace-header-copy">
           <h2 className="font-sans text-[11px] uppercase tracking-[0.1em] text-text-muted font-medium">

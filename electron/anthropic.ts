@@ -5,6 +5,7 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 // Default model — update here or override via store key 'anthropic.model'
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
+const AI_DEBUG = process.env.DEBUG_THREADLINE_AI === '1';
 
 // Max conversation turns to send per request (prevents token bloat in long sessions)
 const MAX_HISTORY_TURNS = 12;
@@ -54,6 +55,11 @@ interface BriefingContext {
   userPhysics?: UserPhysics;
   monthlyOneThing?: string;
   monthlyWhy?: string;
+}
+
+function logAI(message: string, ...args: unknown[]) {
+  if (!AI_DEBUG) return;
+  console.log(message, ...args);
 }
 
 export function buildSystemPrompt(ctx: BriefingContext): string {
@@ -224,19 +230,19 @@ export function registerAnthropicHandlers() {
   // Streaming variant — pushes tokens to renderer in real time
   ipcMain.handle('ai:stream:start', async (event: IpcMainInvokeEvent, messages: ChatMessage[], context: BriefingContext) => {
     try {
-      console.log('[AI] stream:start handler called');
+      logAI('[AI] stream:start handler called');
       const apiKey = store.get('anthropic.apiKey') as string;
-      console.log('[AI] API key present:', !!apiKey, '| length:', apiKey?.length ?? 0);
+      logAI('[AI] API key present:', !!apiKey, '| length:', apiKey?.length ?? 0);
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
       const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
-      console.log('[AI] Using model:', model);
+      logAI('[AI] Using model:', model);
       const ctxWithPhysics: BriefingContext = { ...context, userPhysics: loadUserPhysics() };
 
       // Window the conversation to avoid token bloat in long sessions
       const windowedMessages = messages.slice(-MAX_HISTORY_TURNS);
 
-      console.log('[AI] Sending fetch to Anthropic API...');
+      logAI('[AI] Sending fetch to Anthropic API...');
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
         headers: {
@@ -253,14 +259,14 @@ export function registerAnthropicHandlers() {
         }),
       });
 
-      console.log('[AI] Response received. Status:', response.status, '| OK:', response.ok, '| Has body:', !!response.body);
+      logAI('[AI] Response received. Status:', response.status, '| OK:', response.ok, '| Has body:', !!response.body);
       if (!response.ok || !response.body) {
         const err = await response.text();
         throw new Error(`Anthropic API error ${response.status}: ${err}`);
       }
 
       // Read SSE stream and push tokens to renderer
-      console.log('[AI] Starting SSE stream read...');
+      logAI('[AI] Starting SSE stream read...');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -270,7 +276,7 @@ export function registerAnthropicHandlers() {
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
-          console.log('[AI] Stream reader done. Chunks read:', chunkCount, '| Tokens sent:', tokenCount);
+          logAI('[AI] Stream reader done. Chunks read:', chunkCount, '| Tokens sent:', tokenCount);
           break;
         }
 
@@ -297,7 +303,7 @@ export function registerAnthropicHandlers() {
         }
       }
 
-      console.log('[AI] Sending ai:stream:done to renderer');
+      logAI('[AI] Sending ai:stream:done to renderer');
       event.sender.send('ai:stream:done');
       return { success: true };
     } catch (error) {

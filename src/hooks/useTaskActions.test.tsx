@@ -96,6 +96,10 @@ describe('useTaskActions', () => {
         get: vi.fn(),
         set: vi.fn(),
       },
+      settings: {
+        load: vi.fn(),
+        save: vi.fn(),
+      },
       window: {
         showPomodoro: vi.fn(),
         hidePomodoro: vi.fn(),

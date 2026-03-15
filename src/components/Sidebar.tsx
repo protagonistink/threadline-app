@@ -16,7 +16,6 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
-import { AsanaIcon, GCalIcon, GmailIcon } from './AppIcons';
 import { ThreadlineLogo } from './ThreadlineLogo';
 
 interface NavItemProps {
@@ -36,7 +35,7 @@ function NavItem({ icon: Icon, label, active, collapsed, onClick }: NavItemProps
       title={collapsed ? label : undefined}
       className={cn(
         'no-drag w-full flex items-center rounded-md text-[13px] transition-all duration-300',
-        collapsed ? 'justify-center px-2.5 py-2' : 'gap-3 px-3 py-1.5',
+        collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5',
         active
           ? isLight
             ? 'bg-bg-card shadow-sm text-text-emphasis font-medium shadow-[inset_3px_0_0_var(--color-accent-warm)]'
@@ -46,20 +45,36 @@ function NavItem({ icon: Icon, label, active, collapsed, onClick }: NavItemProps
           : 'text-text-muted/70 hover:text-text-primary hover:bg-bg-card/60'
       )}
     >
-      <Icon className={cn('w-4 h-4 stroke-[1.5]', active ? 'text-accent-warm' : '', collapsed && active && 'scale-110')} />
-      {!collapsed && label}
+      <Icon className={cn('w-4 h-4 stroke-[1.5] shrink-0', active ? 'text-accent-warm' : '', collapsed && active && 'scale-110')} />
+      <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>{label}</span>
     </button>
   );
 }
 
 function ThemeSwitcher({ collapsed }: { collapsed: boolean }) {
   const { mode, setMode } = useTheme();
+  const { lockDay, unlockDay, dayLocked } = useApp();
 
   const modes: { value: ThemeMode; icon: React.ElementType }[] = [
     { value: 'dark', icon: Moon },
     { value: 'light', icon: Sun },
     { value: 'focus', icon: Flame },
   ];
+
+  function handleModeClick(value: ThemeMode) {
+    if (value === 'focus') {
+      if (dayLocked) {
+        unlockDay();
+        setMode('dark');
+      } else {
+        lockDay();
+        setMode('focus');
+      }
+    } else {
+      if (dayLocked) unlockDay();
+      setMode(value);
+    }
+  }
 
   return (
     <div
@@ -71,10 +86,10 @@ function ThemeSwitcher({ collapsed }: { collapsed: boolean }) {
       {modes.map(({ value, icon: Icon }) => (
         <button
           key={value}
-          onClick={() => setMode(value)}
+          onClick={() => handleModeClick(value)}
           className={cn(
             'no-drag p-1.5 rounded-md transition-all duration-300',
-            mode === value
+            (mode === value || (value === 'focus' && dayLocked))
               ? 'bg-bg-elevated text-text-emphasis shadow-sm'
               : 'text-text-muted hover:text-text-primary'
           )}
@@ -131,28 +146,28 @@ function RitualsStrip() {
 
 export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCollapse }: SidebarProps) {
   const { isLight } = useTheme();
-  const { activeView, setActiveView, activeSource, setActiveSource, openWeeklyPlanning } = useApp();
+  const { activeView, setActiveView, openWeeklyPlanning } = useApp();
 
   return (
-    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width,opacity,border-width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] backdrop-blur-xl shadow-[24px_0_60px_rgba(0,0,0,0.22)]', collapsed ? 'w-[84px]' : 'w-[228px]')}>
+    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] backdrop-blur-xl shadow-[24px_0_60px_rgba(0,0,0,0.22)]', collapsed ? 'w-14' : 'w-52')}>
       <div
         className={cn(
           'drag-region shrink-0 transition-all duration-300',
           collapsed
-            ? 'flex min-h-[134px] items-end justify-center px-3 pt-[74px] pb-8'
+            ? 'flex min-h-[134px] items-end justify-center px-1 pt-[74px] pb-8'
             : 'flex min-h-[148px] items-end px-4 pt-[76px] pb-6'
         )}
       >
         <ThreadlineLogo
           collapsed={collapsed}
-          className={collapsed ? 'mx-auto h-[60px] w-[60px] p-1.5' : 'ml-5 w-full max-w-[170px]'}
+          className={collapsed ? 'mx-auto h-[36px] w-[36px] p-0.5' : 'ml-5 w-full max-w-[170px]'}
         />
       </div>
 
       <nav
         className={cn(
           'flex flex-1 flex-col gap-1 overflow-y-auto hide-scrollbar pb-2',
-          collapsed ? 'px-3 pt-28' : 'px-3 pt-40'
+          collapsed ? 'px-1.5 pt-28' : 'px-3 pt-40'
         )}
       >
         <NavItem
@@ -183,38 +198,28 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
             title={collapsed ? 'Morning Briefing' : undefined}
             className={cn(
               'no-drag w-full flex items-center rounded-md text-[12px] text-text-muted hover:text-accent-warm hover:bg-bg-card/60 transition-all border border-dashed border-border-subtle',
-              collapsed ? 'justify-center px-2.5 py-2' : 'gap-3 px-3 py-1.5'
+              collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5'
             )}
           >
             <Sunrise className="w-3.5 h-3.5 shrink-0" />
-            {!collapsed && 'Morning Briefing'}
+            <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Morning Briefing</span>
           </button>
           <button
             onClick={openWeeklyPlanning}
             title={collapsed ? 'Plan Week' : undefined}
             className={cn(
               'no-drag w-full flex items-center rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-card/60 transition-all border border-dashed border-border-subtle',
-              collapsed ? 'justify-center px-2.5 py-2' : 'gap-3 px-3 py-1.5'
+              collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5'
             )}
           >
             <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-            {!collapsed && 'Plan Week'}
+            <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Plan Week</span>
           </button>
         </div>
 
-        {!collapsed && <RitualsStrip />}
-
-        {!collapsed && (
-          <div className="mt-8 mb-2 px-3">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-medium">
-              Sources
-            </span>
-          </div>
-        )}
-
-        <NavItem icon={AsanaIcon} label="Asana" collapsed={collapsed} active={activeSource === 'asana'} onClick={() => setActiveSource(activeSource === 'asana' ? 'cover' : 'asana')} />
-        <NavItem icon={GCalIcon} label="Google Calendar" collapsed={collapsed} active={activeSource === 'gcal'} onClick={() => setActiveSource(activeSource === 'gcal' ? 'cover' : 'gcal')} />
-        <NavItem icon={GmailIcon} label="Gmail" collapsed={collapsed} active={activeSource === 'gmail'} onClick={() => setActiveSource(activeSource === 'gmail' ? 'cover' : 'gmail')} />
+        <div className={cn('transition-opacity duration-150 overflow-hidden', collapsed ? 'opacity-0 h-0' : 'opacity-100')}>
+          <RitualsStrip />
+        </div>
       </nav>
 
       <div className={cn('border-t border-border-subtle flex flex-col gap-2', collapsed ? 'p-3' : 'p-3')}>
@@ -234,8 +239,8 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
                 <div className="text-[12px] font-medium leading-none truncate text-text-primary group-hover:text-text-emphasis transition-colors">
                   Patrick
                 </div>
-                <div className="text-[9px] uppercase tracking-wider text-emerald-500/90 flex items-center gap-1.5 mt-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]" />
+                <div className="text-[9px] uppercase tracking-wider text-accent-warm/80 flex items-center gap-1.5 mt-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-warm/80 shadow-[0_0_8px_rgba(229,85,71,0.4)]" />
                   Connected
                 </div>
               </div>

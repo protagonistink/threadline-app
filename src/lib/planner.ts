@@ -10,14 +10,18 @@ import type {
 import { formatRoundedHours } from '@/lib/utils';
 
 export const FOCUS_EVENT_MARKER = '[Threadline]';
-export const TODAY = format(new Date(), 'yyyy-MM-dd');
+
+export function getToday(date = new Date()): string {
+  return format(date, 'yyyy-MM-dd');
+}
 
 export function asInboxItem(task: PlannedTask): InboxItem {
+  const today = getToday();
   return {
     id: task.id,
     source: task.source === 'asana' ? 'asana' : 'gmail',
     title: task.title || 'Untitled task',
-    time: task.lastCommittedDate === TODAY ? 'Held for today' : formatRoundedHours(task.estimateMins),
+    time: task.lastCommittedDate === today ? 'Held for today' : formatRoundedHours(task.estimateMins),
     priority: task.priority,
   };
 }
@@ -191,19 +195,25 @@ export function buildFocusEventPayload(
   startHour: number,
   startMin: number,
   durationMins: number,
-  date = TODAY
+  date = getToday()
 ): CalendarEventInput {
-  const startDate = `${date}T${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}:00`;
-  const totalMinutes = startHour * 60 + startMin + durationMins;
-  const endHour = Math.floor(totalMinutes / 60);
-  const endMin = totalMinutes % 60;
-  const endDate = `${date}T${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
+  const startDateTime = new Date(`${date}T00:00:00`);
+  startDateTime.setHours(startHour, startMin, 0, 0);
+
+  const endDateTime = new Date(startDateTime);
+  endDateTime.setMinutes(endDateTime.getMinutes() + durationMins);
+
+  const formatLocalDateTime = (value: Date) => (
+    `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+    + `T${String(value.getHours()).padStart(2, '0')}:${String(value.getMinutes()).padStart(2, '0')}:00`
+  );
+
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   return {
     summary: title,
     description: `${FOCUS_EVENT_MARKER}\n${taskId}`,
-    start: { dateTime: startDate, timeZone },
-    end: { dateTime: endDate, timeZone },
+    start: { dateTime: formatLocalDateTime(startDateTime), timeZone },
+    end: { dateTime: formatLocalDateTime(endDateTime), timeZone },
   };
 }

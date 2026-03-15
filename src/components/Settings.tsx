@@ -3,37 +3,21 @@ import { X, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { CalendarListEntry } from '@/types';
 
-interface AsanaSettings {
-  token?: string;
-}
-
-interface GCalSettings {
-  clientId?: string;
-  clientSecret?: string;
-  calendarId?: string;
-  calendarIds?: string[];
-  writeCalendarId?: string;
-}
-
-interface PomodoroSettings {
-  workMins?: number;
-  breakMins?: number;
-  longBreakMins?: number;
-}
-
-interface FocusSettings {
-  blockedSites?: string[];
-}
-
 interface SettingsProps {
   onClose: () => void;
 }
 
 export function Settings({ onClose }: SettingsProps) {
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
+  const [anthropicConfigured, setAnthropicConfigured] = useState(false);
+  const [anthropicDirty, setAnthropicDirty] = useState(false);
   const [asanaToken, setAsanaToken] = useState('');
+  const [asanaConfigured, setAsanaConfigured] = useState(false);
+  const [asanaDirty, setAsanaDirty] = useState(false);
   const [gcalClientId, setGcalClientId] = useState('');
   const [gcalClientSecret, setGcalClientSecret] = useState('');
+  const [gcalClientSecretConfigured, setGcalClientSecretConfigured] = useState(false);
+  const [gcalClientSecretDirty, setGcalClientSecretDirty] = useState(false);
   const [gcalCalendarIds, setGcalCalendarIds] = useState<string[]>(['primary']);
   const [gcalWriteCalendarId, setGcalWriteCalendarId] = useState('primary');
   const [availableCalendars, setAvailableCalendars] = useState<Array<{ id: string; summary: string; primary?: boolean }>>([]);
@@ -73,33 +57,27 @@ export function Settings({ onClose }: SettingsProps) {
 
   useEffect(() => {
     async function load() {
-      const [anthropic, asana, gcal, pomodoro, focus] = await Promise.all([
-        window.api.store.get('anthropic') as Promise<{ apiKey?: string } | undefined>,
-        window.api.store.get('asana') as Promise<AsanaSettings | undefined>,
-        window.api.store.get('gcal') as Promise<GCalSettings | undefined>,
-        window.api.store.get('pomodoro') as Promise<PomodoroSettings | undefined>,
-        window.api.store.get('focus') as Promise<FocusSettings | undefined>,
-      ]);
-      if (anthropic?.apiKey) setAnthropicApiKey(anthropic.apiKey);
-      if (asana?.token) setAsanaToken(asana.token);
-      if (gcal?.clientId) setGcalClientId(gcal.clientId);
-      if (gcal?.clientSecret) setGcalClientSecret(gcal.clientSecret);
-      if (Array.isArray(gcal?.calendarIds) && gcal.calendarIds.length > 0) {
-        setGcalCalendarIds(gcal.calendarIds);
-      } else if (gcal?.calendarId) {
-        setGcalCalendarIds([gcal.calendarId]);
+      const settings = await window.api.settings.load();
+      setAnthropicConfigured(settings.anthropic.configured);
+      setAsanaConfigured(settings.asana.configured);
+      setGcalClientId(settings.gcal.clientId);
+      setGcalClientSecretConfigured(settings.gcal.clientSecretConfigured);
+      if (settings.gcal.calendarIds.length > 0) {
+        setGcalCalendarIds(settings.gcal.calendarIds);
+      } else if (settings.gcal.calendarId) {
+        setGcalCalendarIds([settings.gcal.calendarId]);
       }
-      if (gcal?.writeCalendarId) {
-        setGcalWriteCalendarId(gcal.writeCalendarId);
-      } else if (gcal?.calendarId) {
-        setGcalWriteCalendarId(gcal.calendarId);
+      if (settings.gcal.writeCalendarId) {
+        setGcalWriteCalendarId(settings.gcal.writeCalendarId);
+      } else if (settings.gcal.calendarId) {
+        setGcalWriteCalendarId(settings.gcal.calendarId);
       }
-      if (pomodoro?.workMins) setWorkMins(pomodoro.workMins);
-      if (pomodoro?.breakMins) setBreakMins(pomodoro.breakMins);
-      if (pomodoro?.longBreakMins) setLongBreakMins(pomodoro.longBreakMins);
-      if (focus?.blockedSites) setBlockedSites(focus.blockedSites.join('\n'));
+      if (settings.pomodoro.workMins) setWorkMins(settings.pomodoro.workMins);
+      if (settings.pomodoro.breakMins) setBreakMins(settings.pomodoro.breakMins);
+      if (settings.pomodoro.longBreakMins) setLongBreakMins(settings.pomodoro.longBreakMins);
+      if (settings.focus.blockedSites) setBlockedSites(settings.focus.blockedSites.join('\n'));
 
-      if (gcal?.clientId && gcal?.clientSecret) {
+      if (settings.gcal.clientId && settings.gcal.clientSecretConfigured) {
         await loadCalendars();
       }
     }
@@ -124,10 +102,10 @@ export function Settings({ onClose }: SettingsProps) {
 
   async function handleGoogleAuth() {
     setAuthenticating(true);
-    await Promise.all([
-      window.api.store.set('gcal.clientId', gcalClientId),
-      window.api.store.set('gcal.clientSecret', gcalClientSecret),
-    ]);
+    await window.api.settings.save({
+      gcalClientId,
+      ...(gcalClientSecretDirty ? { gcalClientSecret } : {}),
+    });
     const result = await window.api.gcal.auth();
     if (result.success) {
       await loadCalendars();
@@ -139,25 +117,21 @@ export function Settings({ onClose }: SettingsProps) {
     setSaving(true);
     const calendarIds = gcalCalendarIds.length > 0 ? gcalCalendarIds : ['primary'];
     const writeCalendarId = gcalWriteCalendarId || calendarIds[0] || 'primary';
-    await Promise.all([
-      window.api.store.set('anthropic.apiKey', anthropicApiKey),
-      window.api.store.set('asana.token', asanaToken),
-      window.api.store.set('gcal.clientId', gcalClientId),
-      window.api.store.set('gcal.clientSecret', gcalClientSecret),
-      window.api.store.set('gcal.calendarId', writeCalendarId),
-      window.api.store.set('gcal.calendarIds', calendarIds),
-      window.api.store.set('gcal.writeCalendarId', writeCalendarId),
-      window.api.store.set('pomodoro.workMins', workMins),
-      window.api.store.set('pomodoro.breakMins', breakMins),
-      window.api.store.set('pomodoro.longBreakMins', longBreakMins),
-      window.api.store.set(
-        'focus.blockedSites',
-        blockedSites
-          .split('\n')
-          .map((s) => s.trim())
-          .filter(Boolean)
-      ),
-    ]);
+    await window.api.settings.save({
+      ...(anthropicDirty ? { anthropicApiKey } : {}),
+      ...(asanaDirty ? { asanaToken } : {}),
+      gcalClientId,
+      ...(gcalClientSecretDirty ? { gcalClientSecret } : {}),
+      gcalCalendarIds: calendarIds,
+      gcalWriteCalendarId: writeCalendarId,
+      workMins,
+      breakMins,
+      longBreakMins,
+      blockedSites: blockedSites
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    });
     setSaving(false);
     onClose();
   }
@@ -184,8 +158,11 @@ export function Settings({ onClose }: SettingsProps) {
               <input
                 type="password"
                 value={anthropicApiKey}
-                onChange={(e) => setAnthropicApiKey(e.target.value)}
-                placeholder="sk-ant-..."
+                onChange={(e) => {
+                  setAnthropicApiKey(e.target.value);
+                  setAnthropicDirty(true);
+                }}
+                placeholder={anthropicConfigured ? 'Saved key' : 'sk-ant-...'}
                 className="input-field"
               />
               <span className="text-[11px] text-text-muted">
@@ -201,8 +178,11 @@ export function Settings({ onClose }: SettingsProps) {
               <input
                 type="password"
                 value={asanaToken}
-                onChange={(e) => setAsanaToken(e.target.value)}
-                placeholder="0/abc123..."
+                onChange={(e) => {
+                  setAsanaToken(e.target.value);
+                  setAsanaDirty(true);
+                }}
+                placeholder={asanaConfigured ? 'Saved token' : '0/abc123...'}
                 className="input-field"
               />
             </Field>
@@ -222,17 +202,21 @@ export function Settings({ onClose }: SettingsProps) {
               <input
                 type="password"
                 value={gcalClientSecret}
-                onChange={(e) => setGcalClientSecret(e.target.value)}
+                onChange={(e) => {
+                  setGcalClientSecret(e.target.value);
+                  setGcalClientSecretDirty(true);
+                }}
+                placeholder={gcalClientSecretConfigured ? 'Saved secret' : ''}
                 className="input-field"
               />
             </Field>
             <div className="flex items-center gap-3">
               <button
                 onClick={handleGoogleAuth}
-                disabled={!gcalClientId || !gcalClientSecret || authenticating}
+                disabled={!gcalClientId || (!gcalClientSecret && !gcalClientSecretConfigured) || authenticating}
                 className={cn(
                   'px-3 py-2 rounded-md text-[12px] font-medium transition-colors',
-                  !gcalClientId || !gcalClientSecret || authenticating
+                  !gcalClientId || (!gcalClientSecret && !gcalClientSecretConfigured) || authenticating
                     ? 'bg-bg-elevated text-text-muted cursor-not-allowed'
                     : 'bg-bg-elevated text-text-primary hover:bg-border/30'
                 )}

@@ -5,18 +5,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
-import type { ChatMessage, BriefingContext } from '@/types/electron';
-
-const TODAY = format(new Date(), 'yyyy-MM-dd');
+import type { ChatMessage } from '@/types/electron';
+import { useBriefingStream } from '@/hooks/useBriefingStream';
+import { buildBriefingContext, parseCommitChips, type CommitChip } from './morningBriefingUtils';
 
 type Phase = 'idle' | 'briefing' | 'conversation' | 'committing';
-
-interface CommitChip {
-  title: string;
-  matchedTaskId: string | null;
-  matchedGoalId: string | null;
-  selected: boolean;
-}
 
 export function MorningBriefing({ onClose, onNewChat, mode = 'briefing' }: { onClose: () => void; onNewChat: () => void; mode?: 'briefing' | 'chat' }) {
   const {
@@ -33,183 +26,48 @@ export function MorningBriefing({ onClose, onNewChat, mode = 'briefing' }: { onC
   } = useApp();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [streamingContent, setStreamingContent] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
-  const [error, setError] = useState<string | null>(null);
   const [commitChips, setCommitChips] = useState<CommitChip[]>([]);
   const [committed, setCommitted] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const streamingRef = useRef('');
-  const unsubTokenRef = useRef<(() => void) | null>(null);
-  const unsubDoneRef = useRef<(() => void) | null>(null);
-  const isMountedRef = useRef(true);
   const hasStartedBriefingRef = useRef(false);
   const closeTimeoutRef = useRef<number | null>(null);
 
-  const cleanupStreamListeners = useCallback(() => {
-    unsubTokenRef.current?.();
-    unsubDoneRef.current?.();
-    unsubTokenRef.current = null;
-    unsubDoneRef.current = null;
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
   }, []);
+
+  const buildContext = useCallback(() => buildBriefingContext({
+    weeklyGoals,
+    committedTasks,
+    workdayEnd,
+    scheduleBlocks,
+    monthlyPlan,
+  }), [weeklyGoals, committedTasks, workdayEnd, scheduleBlocks, monthlyPlan]);
+
+  const {
+    streamingContent,
+    isStreaming,
+    error,
+    streamMessage,
+  } = useBriefingStream({
+    buildContext,
+    onAssistantMessage: (content) => {
+      setMessages((prev) => [...prev, { role: 'assistant', content }]);
+    },
+  });
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
-
-  // Cleanup listeners on unmount
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      cleanupStreamListeners();
-      if (closeTimeoutRef.current) {
-        window.clearTimeout(closeTimeoutRef.current);
-      }
-    };
-  }, [cleanupStreamListeners]);
-
-  // Build context from live app state
-  const buildContext = useCallback(async (): Promise<BriefingContext> => {
-    // Fetch fresh Asana tasks
-    let asanaTasks: BriefingContext['asanaTasks'] = [];
-    try {
-      const result = await window.api.asana.getTasks({ daysAhead: 14, limit: 30 });
-      if (result.success && result.data) {
-        asanaTasks = result.data.map((t) => {
-          // Extract priority from custom_fields if available
-          const priorityField = t.custom_fields?.find(
-            (cf) => cf.name.toLowerCase() === 'priority'
-          );
-          const priority = priorityField?.display_value || undefined;
-          const project = t.projects?.[0]?.name || undefined;
-
-          return {
-            title: t.name,
-            dueOn: t.due_on,
-            priority,
-            project,
-            notes: t.notes || undefined,
-            tags: t.tags?.map((tag: { name: string }) => tag.name),
-          };
-        });
-      }
-    } catch {
-      // Asana unavailable — proceed without
-    }
-
-    // Fetch today's GCal events
-    let gcalEvents: BriefingContext['gcalEvents'] = [];
-    try {
-      const result = await window.api.gcal.getEvents(TODAY);
-      if (result.success && result.data) {
-        gcalEvents = result.data.map((e) => {
-          const isAllDay = !e.start?.dateTime;
-          const startTime = e.start?.dateTime
-            ? format(new Date(e.start.dateTime), 'h:mm a')
-            : '';
-          const endTime = e.end?.dateTime
-            ? format(new Date(e.end.dateTime), 'h:mm a')
-            : '';
-          return {
-            title: e.summary || '(No title)',
-            startTime,
-            endTime,
-            isAllDay,
-          };
-        });
-      }
-    } catch {
-      // GCal unavailable — proceed without
-    }
-
-    // Calculate available focus time
-    const now = new Date();
-    const endOfDay = new Date();
-    endOfDay.setHours(workdayEnd.hour, workdayEnd.min, 0, 0);
-    const remainingMins = Math.max(0, Math.floor((endOfDay.getTime() - now.getTime()) / 60000));
-
-    // Calculate scheduled minutes from schedule blocks
-    const scheduledMinutes = scheduleBlocks
-      .filter((b) => !b.readOnly)
-      .reduce((sum, b) => sum + b.durationMins, 0);
-
-    // Get committed tasks for context
-    const committed = committedTasks.map((t) => {
-      const goal = t.weeklyGoalId ? weeklyGoals.find((g) => g.id === t.weeklyGoalId) : null;
-      return {
-        title: t.title,
-        estimateMins: t.estimateMins || 45,
-        weeklyGoal: goal?.title || 'Unassigned',
-      };
-    });
-
-    // Build countdowns from app context (simplified — goals with due dates could be countdowns)
-    const countdowns: BriefingContext['countdowns'] = [];
-
-    return {
-      date: format(new Date(), 'EEEE, MMMM d, yyyy'),
-      weeklyGoals: weeklyGoals.map((g) => ({ title: g.title, why: g.why })),
-      asanaTasks,
-      gcalEvents,
-      availableFocusMinutes: remainingMins - scheduledMinutes,
-      scheduledMinutes,
-      committedTasks: committed,
-      countdowns,
-      workdayEndHour: workdayEnd.hour,
-      workdayEndMin: workdayEnd.min,
-      monthlyOneThing: monthlyPlan?.oneThing,
-      monthlyWhy: monthlyPlan?.why,
-    };
-  }, [weeklyGoals, committedTasks, workdayEnd, scheduleBlocks, monthlyPlan]);
-
-  // Stream a message
-  const streamMessage = useCallback(async (msgs: ChatMessage[]) => {
-    setIsStreaming(true);
-    setError(null);
-    streamingRef.current = '';
-    setStreamingContent('');
-
-    try {
-      const context = await buildContext();
-
-      // Subscribe to tokens
-      cleanupStreamListeners();
-
-      unsubTokenRef.current = window.api.ai.onToken((token) => {
-        if (!isMountedRef.current) return;
-        streamingRef.current += token;
-        setStreamingContent(streamingRef.current);
-      });
-
-      unsubDoneRef.current = window.api.ai.onDone(() => {
-        if (!isMountedRef.current) return;
-        const finalContent = streamingRef.current;
-        if (finalContent) {
-          setMessages((prev) => [...prev, { role: 'assistant', content: finalContent }]);
-        }
-        setStreamingContent('');
-        streamingRef.current = '';
-        setIsStreaming(false);
-        cleanupStreamListeners();
-      });
-
-      const result = await window.api.ai.streamStart(msgs, context);
-      if (!result.success) {
-        throw new Error(result.error || 'Stream failed');
-      }
-    } catch (err) {
-      if (!isMountedRef.current) return;
-      setIsStreaming(false);
-      setError((err as Error).message);
-      cleanupStreamListeners();
-    }
-  }, [buildContext, cleanupStreamListeners]);
 
   // Auto-fire briefing on mount (briefing mode only — chat mode starts idle)
   useEffect(() => {
@@ -237,39 +95,7 @@ export function MorningBriefing({ onClose, onNewChat, mode = 'briefing' }: { onC
 
   // Parse tasks from the last assistant message for commit chips
   const parseTasksFromMessage = useCallback((content: string): CommitChip[] => {
-    const lines = content.split('\n');
-    const taskLines = lines.filter((line) => /^[-–•]\s+\S/.test(line.trim()));
-
-    return taskLines.map((line) => {
-      const title = line.trim().replace(/^[-–•]\s+/, '').replace(/\s*\(.*?\)\s*$/, '').trim();
-
-      // Try to match against candidates + planned tasks
-      const allTasks = [...plannedTasks, ...candidateItems.map((c) => ({ id: c.id, title: c.title, weeklyGoalId: null }))];
-      const normalizeStr = (s: string) => s.toLowerCase().replace(/\s+/g, ' ').trim();
-
-      const exactMatch = allTasks.find((t) => normalizeStr(t.title) === normalizeStr(title));
-      const fuzzyMatch = !exactMatch
-        ? allTasks.find((t) =>
-            normalizeStr(t.title).includes(normalizeStr(title)) ||
-            normalizeStr(title).includes(normalizeStr(t.title))
-          )
-        : null;
-
-      const matched = exactMatch || fuzzyMatch;
-
-      // Try to match goal from context
-      let matchedGoalId: string | null = null;
-      if (matched && 'weeklyGoalId' in matched) {
-        matchedGoalId = matched.weeklyGoalId || null;
-      }
-
-      return {
-        title,
-        matchedTaskId: matched?.id || null,
-        matchedGoalId,
-        selected: true,
-      };
-    });
+    return parseCommitChips(content, plannedTasks, candidateItems);
   }, [plannedTasks, candidateItems]);
 
   // Show commit chips when user signals readiness
@@ -321,7 +147,7 @@ export function MorningBriefing({ onClose, onNewChat, mode = 'briefing' }: { onC
   };
 
   return (
-    <div className="column-divider flex flex-col h-full w-[380px] shrink-0 bg-bg-card/95 backdrop-blur-xl animate-slide-in-right">
+    <div className="flex flex-col h-full w-full min-w-[280px] bg-bg-card/95 backdrop-blur-xl border-l border-border-subtle">
       {/* Header */}
       <div className="drag-region flex items-center justify-between px-5 pt-6 pb-4 border-b border-border-subtle">
         <div>

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ChevronLeft, MoreHorizontal } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn } from '@/lib/utils';
@@ -172,7 +172,7 @@ function IncomingCard({
             )}
           </div>
 
-          <h4 className={cn('text-[14px] leading-snug font-medium transition-colors line-clamp-2', selected ? 'text-text-emphasis' : 'text-text-primary')}>
+          <h4 className={cn('text-[14px] leading-snug font-medium transition-colors whitespace-nowrap overflow-hidden text-ellipsis', selected ? 'text-text-emphasis' : 'text-text-primary')}>
             {item.title}
           </h4>
 
@@ -318,6 +318,132 @@ function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
   );
 }
 
+type SourceKey = 'asana' | 'gcal' | 'gmail';
+
+interface SourceMeta {
+  key: SourceKey;
+  label: string;
+  icon: React.ElementType;
+}
+
+const SOURCES: SourceMeta[] = [
+  { key: 'asana', label: 'Asana', icon: AsanaIcon },
+  { key: 'gcal', label: 'Calendar', icon: GCalIcon },
+  { key: 'gmail', label: 'Gmail', icon: GmailIcon },
+];
+
+function SourcePopover({ source, onClose }: { source: SourceMeta; onClose: () => void }) {
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [connected, setConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function check() {
+      if (source.key === 'asana') {
+        const settings = await window.api.settings.load();
+        setConnected(settings.asana.configured);
+      } else if (source.key === 'gcal') {
+        const settings = await window.api.settings.load();
+        setConnected(settings.gcal.clientId !== '' && settings.gcal.clientSecretConfigured);
+      } else {
+        setConnected(false);
+      }
+    }
+    void check();
+  }, [source.key]);
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [onClose]);
+
+  const Icon = source.icon;
+
+  return (
+    <div
+      ref={popoverRef}
+      className="absolute top-full left-0 mt-1.5 z-50 w-[200px] rounded-lg border border-border bg-bg-card shadow-[0_12px_32px_rgba(0,0,0,0.3)] p-3 flex flex-col gap-2.5"
+    >
+      <div className="flex items-center gap-2">
+        <Icon className="w-3.5 h-3.5 text-text-muted" />
+        <span className="text-[12px] font-medium text-text-primary">{source.label}</span>
+      </div>
+      <div className="text-[10px] text-text-muted">
+        {connected === null
+          ? 'Checking…'
+          : connected
+            ? 'Connected'
+            : 'Not configured'}
+      </div>
+      <div className="text-[10px] text-text-muted/60">
+        Manage in Settings
+      </div>
+    </div>
+  );
+}
+
+function SourcePills() {
+  const { activeSource, setActiveSource } = useApp();
+  const [popoverSource, setPopoverSource] = useState<SourceMeta | null>(null);
+  const [hoveredPill, setHoveredPill] = useState<SourceKey | null>(null);
+
+  const handlePopoverClose = useCallback(() => setPopoverSource(null), []);
+
+  return (
+    <div className="flex items-center gap-1.5 px-5 pb-3">
+      {SOURCES.map((source) => {
+        const Icon = source.icon;
+        const isActive = activeSource === source.key;
+        const isHovered = hoveredPill === source.key;
+
+        return (
+          <div key={source.key} className="relative">
+            <button
+              onClick={() => setActiveSource(activeSource === source.key ? 'cover' : source.key)}
+              onMouseEnter={() => setHoveredPill(source.key)}
+              onMouseLeave={() => setHoveredPill(null)}
+              className={cn(
+                'no-drag flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium tracking-[0.04em] transition-all duration-200 relative',
+                isActive
+                  ? 'bg-white/10 text-text-primary'
+                  : 'bg-white/[0.04] text-text-muted/60 hover:text-text-muted hover:bg-white/[0.06]'
+              )}
+            >
+              <Icon className="w-3 h-3" />
+              <span>{source.label}</span>
+              {isHovered && (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPopoverSource(popoverSource?.key === source.key ? null : source);
+                  }}
+                  className="ml-0.5 p-0.5 rounded hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  <MoreHorizontal className="w-3 h-3" />
+                </span>
+              )}
+            </button>
+            {popoverSource?.key === source.key && (
+              <SourcePopover source={source} onClose={handlePopoverClose} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 const PAGE_SIZE = 7;
 
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
@@ -416,19 +542,20 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div
       className={cn(
-        'focus-dim bg-bg column-divider flex flex-col h-full shrink-0 transition-[width,min-width,opacity,border-width,colors] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)]',
-        collapsed
-          ? 'w-0 min-w-0 opacity-0 pointer-events-none overflow-hidden border-r-0'
-          : 'w-[clamp(280px,25vw,360px)]'
+        'focus-dim bg-bg column-divider flex flex-col h-full w-full transition-[opacity,border-width] duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+        collapsed && 'opacity-0 pointer-events-none overflow-hidden border-r-0'
       )}
     >
-      <div className="workspace-header shrink-0">
-        <div className="workspace-header-copy">
-          <h2 className="font-sans text-[11px] uppercase tracking-[0.1em] text-text-muted font-medium">
-            Threads
-          </h2>
+      <div className="shrink-0">
+        <div className="workspace-header">
+          <div className="workspace-header-copy">
+            <h2 className="font-sans text-[11px] uppercase tracking-[0.1em] text-text-muted font-medium">
+              Threads
+            </h2>
+          </div>
+          {activeSource === 'asana' && syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
         </div>
-        {activeSource === 'asana' && syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
+        <SourcePills />
       </div>
 
       {activeSource === 'asana' && syncIssue && (

@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { AsanaTask, GCalEvent, PlannedTask, ScheduleBlock } from '@/types';
-import { asPlannedTask, eventToBlock, isDueSoon, TODAY } from '@/lib/planner';
+import { asPlannedTask, eventToBlock, getToday, isDueSoon } from '@/lib/planner';
 
 interface SyncStatus {
   asana: string | null;
@@ -32,7 +32,7 @@ export function useExternalPlannerSync({
 
     const [asanaResult, gcalResult] = await Promise.allSettled([
       window.api.asana.getTasks({ daysAhead: 7, limit: 50 }),
-      window.api.gcal.getEvents(TODAY),
+      window.api.gcal.getEvents(getToday()),
     ]);
 
     setPlannedTasks((prev) => {
