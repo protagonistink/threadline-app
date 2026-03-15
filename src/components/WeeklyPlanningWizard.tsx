@@ -22,18 +22,25 @@ function formatMins(mins: number): string {
   return h > 0 ? `${h}h ${m > 0 ? m + 'm' : ''}`.trim() : `${m}m`;
 }
 
-function StepIndicator({ step, total }: { step: number; total: number }) {
+function StepIndicator({ step, total, label }: { step: number; total: number; label?: string }) {
   return (
-    <div className="flex items-center gap-2">
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          className={cn(
-            'w-1.5 h-1.5 rounded-full transition-all duration-300',
-            i < step ? 'bg-text-primary' : 'bg-border'
-          )}
-        />
-      ))}
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: total }).map((_, i) => (
+          <div
+            key={i}
+            className={cn(
+              'w-2 h-2 rounded-full transition-all duration-300',
+              i < step ? 'bg-accent-warm' : 'bg-border'
+            )}
+          />
+        ))}
+      </div>
+      {label && (
+        <span className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
+          {label}
+        </span>
+      )}
     </div>
   );
 }
@@ -93,36 +100,32 @@ function StepReview({
         </div>
       )}
 
-      {/* Asana Inbox Section */}
-      <div className="flex flex-col gap-2">
+      {/* Asana Inbox & Cleanup */}
+      <div className="editorial-inset rounded-2xl px-5 py-4 flex flex-col gap-3 opacity-75">
         <div className="text-[11px] font-mono uppercase tracking-widest text-text-muted">
           In Your Asana Inbox
         </div>
-        <div className="rounded-md border border-dashed border-border px-4 py-3">
-          <div className="text-[12px] text-text-muted">
-            {candidateCount > 0
-              ? `${candidateCount} tasks waiting`
-              : 'Inbox is clear.'}
-          </div>
-          {candidateItems.slice(0, 3).map((item) => (
-            <div key={item.id} className="text-[11px] text-text-muted mt-1">
-              · {item.title}
-            </div>
-          ))}
+        <div className="text-[12px] text-text-muted">
+          {candidateCount > 0
+            ? `${candidateCount} tasks waiting`
+            : 'Inbox is clear.'}
         </div>
-      </div>
-
-      {/* Asana Cleanup Nudge */}
-      <div className="rounded-md border border-border bg-bg-card px-4 py-3 flex items-center justify-between">
-        <span className="text-[12px] text-text-muted">
-          Before you commit — go clean up Asana.
-        </span>
-        <button
-          onClick={() => void window.api.shell.openExternal('https://app.asana.com')}
-          className="text-[12px] text-accent-warm hover:text-accent-warm/80 transition-colors shrink-0 ml-4"
-        >
-          Open Asana →
-        </button>
+        {candidateItems.slice(0, 3).map((item) => (
+          <div key={item.id} className="text-[11px] text-text-muted">
+            · {item.title}
+          </div>
+        ))}
+        <div className="flex items-center justify-between pt-2 border-t border-border-subtle">
+          <span className="text-[12px] text-text-muted">
+            Before you commit — go clean up Asana.
+          </span>
+          <button
+            onClick={() => void window.api.shell.openExternal('https://app.asana.com')}
+            className="shrink-0 ml-4 px-3 py-1 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
+          >
+            Open Asana
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -227,10 +230,10 @@ function IntentionCard({
         value={localWhy}
         onChange={(e) => setLocalWhy(e.target.value)}
         onBlur={handleWhyBlur}
-        placeholder="What will this give you?"
+        placeholder="Why this thread, this week?"
         rows={2}
         maxLength={160}
-        className="bg-bg rounded-md border border-border-subtle px-3 py-2.5 text-[13px] text-text-primary placeholder:text-text-muted resize-none outline-none focus:border-border transition-colors leading-relaxed"
+        className="editorial-inset w-full rounded-2xl px-3 py-3 text-[13px] text-text-primary placeholder:text-text-muted resize-none outline-none transition-colors leading-relaxed focus:border-border"
       />
 
       {goal && countdowns.length > 0 && (
@@ -283,19 +286,34 @@ function StepGoals({ monthlyPlan }: { monthlyPlan: MonthlyPlan | null }) {
       </div>
 
       {monthlyPlan?.oneThing ? (
-        <p className="font-display italic text-[14px] text-text-muted leading-relaxed">
-          {new Date().toLocaleDateString('en-US', { month: 'long' })}: {monthlyPlan.oneThing}
-        </p>
+        <div className="editorial-inset rounded-2xl px-5 py-4">
+          <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
+            {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </div>
+          <p className="mt-2 font-display italic text-[18px] font-light text-text-primary leading-snug">
+            {monthlyPlan.oneThing}
+          </p>
+          {monthlyPlan.why && (
+            <p className="mt-1 text-[12px] text-text-muted italic leading-relaxed">
+              {monthlyPlan.why}
+            </p>
+          )}
+        </div>
       ) : (
-        <p className="text-[13px] text-text-muted">
-          No monthly aim set.{' '}
+        <div className="editorial-inset rounded-2xl px-5 py-4 border-dashed flex items-center justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
+              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </div>
+            <p className="mt-1 text-[13px] text-text-muted">No monthly aim set yet.</p>
+          </div>
           <button
             onClick={openMonthlyPlanning}
-            className="text-accent-warm hover:text-accent-warm/80 transition-colors underline-offset-2 hover:underline"
+            className="shrink-0 px-3 py-1.5 rounded-md bg-accent-warm/10 border border-accent-warm/20 text-[12px] text-accent-warm hover:bg-accent-warm/15 transition-colors"
           >
-            Set one first →
+            Set aim →
           </button>
-        </p>
+        </div>
       )}
 
       <div className="flex flex-col gap-4">
@@ -481,10 +499,10 @@ function StepLockedIn({ carriedForwardCount }: { carriedForwardCount: number }) 
         {weeklyGoals.map((goal, index) => (
           <motion.div
             key={goal.id}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25, delay: index * 0.08, ease: 'easeOut' }}
-            className="rounded-lg border border-border bg-bg-card p-5"
+            transition={{ duration: 0.3, delay: index * 0.12, ease: 'easeOut' }}
+            className="editorial-card rounded-2xl p-5"
           >
             <div className="flex items-center gap-3 mb-2">
               <div className={cn('w-2.5 h-2.5 rounded-full shrink-0', goal.color)} />
@@ -522,9 +540,12 @@ function StepLockedIn({ carriedForwardCount }: { carriedForwardCount: number }) 
         </div>
       )}
 
-      <p className="font-display italic text-[16px] text-text-muted text-center">
-        Three things. Seven days. Make it count.
-      </p>
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 border-t border-accent-warm/30" />
+        <p className="font-display italic text-[20px] text-text-primary/80 text-center leading-snug">
+          Three things. Seven days. Make it count.
+        </p>
+      </div>
     </div>
   );
 }
@@ -602,17 +623,14 @@ export function WeeklyPlanningWizard() {
       <motion.div
         layout
         className={cn(
-          'relative z-10 w-full mx-6 bg-bg-elevated border border-border rounded-xl shadow-2xl flex flex-col max-h-[85vh]',
+          'relative z-10 w-full mx-6 editorial-card paper-texture rounded-2xl flex flex-col max-h-[85vh]',
           step === 4 ? 'max-w-2xl' : 'max-w-xl'
         )}
         transition={{ layout: { duration: 0.3, ease: 'easeOut' } }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-8 pt-7 pb-0 shrink-0">
-          <StepIndicator step={step} total={TOTAL_STEPS} />
-          <div className="text-[11px] font-mono text-text-muted">
-            {stepLabels[step - 1]}
-          </div>
+          <StepIndicator step={step} total={TOTAL_STEPS} label={stepLabels[step - 1]} />
           <button
             onClick={closeWeeklyPlanning}
             className="text-text-muted hover:text-text-primary transition-colors p-1"
@@ -675,7 +693,7 @@ export function WeeklyPlanningWizard() {
           ) : (
             <button
               onClick={handleNext}
-              className="px-5 py-2 rounded-md bg-bg-card border border-border text-[13px] font-medium text-text-primary hover:bg-bg hover:border-border-hover transition-colors"
+              className="px-5 py-2 rounded-md bg-accent-warm/10 border border-accent-warm/20 text-[13px] font-medium text-accent-warm hover:bg-accent-warm/15 transition-colors"
             >
               Next →
             </button>
