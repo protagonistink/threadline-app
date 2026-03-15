@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
@@ -479,6 +480,7 @@ export function WeeklyPlanningWizard() {
     monthlyPlan,
   } = useApp();
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1);
   const [migratedTasks, setMigratedTasks] = useState<PlannedTask[]>([]);
   const [droppedIds, setDroppedIds] = useState<Set<string>>(new Set());
 
@@ -505,6 +507,7 @@ export function WeeklyPlanningWizard() {
 
   function handleNext() {
     if (step < TOTAL_STEPS) {
+      setDirection(1);
       setStep((s) => s + 1);
     } else {
       completeWeeklyPlanning();
@@ -512,7 +515,10 @@ export function WeeklyPlanningWizard() {
   }
 
   function handleBack() {
-    if (step > 1) setStep((s) => s - 1);
+    if (step > 1) {
+      setDirection(-1);
+      setStep((s) => s - 1);
+    }
   }
 
   const stepLabels = [
@@ -549,16 +555,32 @@ export function WeeklyPlanningWizard() {
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-8 py-7 hide-scrollbar">
-          {step === 1 && (
-            <StepReview
-              migratedTasks={visibleMigrated}
-              onDrop={handleDrop}
-              candidateItems={candidateItems}
-            />
-          )}
-          {step === 2 && <StepGoals monthlyPlan={monthlyPlan} />}
-          {step === 3 && <StepRituals />}
-          {step === 4 && <StepLockedIn carriedForwardCount={visibleMigrated.length} />}
+          <AnimatePresence mode="wait" custom={direction}>
+            <motion.div
+              key={step}
+              custom={direction}
+              variants={{
+                initial: (d: number) => ({ x: d * 16, opacity: 0 }),
+                animate: { x: 0, opacity: 1 },
+                exit: (d: number) => ({ x: d * -16, opacity: 0 }),
+              }}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+            >
+              {step === 1 && (
+                <StepReview
+                  migratedTasks={visibleMigrated}
+                  onDrop={handleDrop}
+                  candidateItems={candidateItems}
+                />
+              )}
+              {step === 2 && <StepGoals monthlyPlan={monthlyPlan} />}
+              {step === 3 && <StepRituals />}
+              {step === 4 && <StepLockedIn carriedForwardCount={visibleMigrated.length} />}
+            </motion.div>
+          </AnimatePresence>
         </div>
 
         {/* Footer */}
