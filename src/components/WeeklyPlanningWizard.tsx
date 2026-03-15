@@ -238,8 +238,8 @@ function IntentionCard({
             className={cn(
               'px-2 py-0.5 rounded text-xs transition-colors',
               !goal.countdownId
-                ? 'bg-amber-400/20 text-amber-300'
-                : 'text-ink/40 hover:text-ink/60'
+                ? 'bg-accent-warm/15 text-accent-warm'
+                : 'text-text-muted hover:text-text-primary'
             )}
           >
             No deadline
@@ -251,8 +251,8 @@ function IntentionCard({
               className={cn(
                 'px-2 py-0.5 rounded text-xs transition-colors',
                 goal.countdownId === cd.id
-                  ? 'bg-amber-400/20 text-amber-300'
-                  : 'text-ink/40 hover:text-ink/60'
+                  ? 'bg-accent-warm/15 text-accent-warm'
+                  : 'text-text-muted hover:text-text-primary'
               )}
             >
               {cd.title}
