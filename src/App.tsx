@@ -18,6 +18,7 @@ const Settings = lazy(() => import('./components/Settings').then((module) => ({ 
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((module) => ({ default: module.CommandPalette })));
 const WeeklyIntentions = lazy(() => import('./components/WeeklyIntentions').then((module) => ({ default: module.WeeklyIntentions })));
 const WeeklyPlanningWizard = lazy(() => import('./components/WeeklyPlanningWizard').then((module) => ({ default: module.WeeklyPlanningWizard })));
+const MonthlyPlanningWizard = lazy(() => import('./components/MonthlyPlanningWizard').then((module) => ({ default: module.MonthlyPlanningWizard })));
 const InkThread = lazy(() => import('./components/Thread').then((module) => ({ default: module.InkThread })));
 const MorningBriefing = lazy(() => import('./components/MorningBriefing').then((module) => ({ default: module.MorningBriefing })));
 
@@ -156,6 +157,9 @@ function AppLayout() {
       )}
       <Suspense fallback={null}>
         <WeeklyPlanningWizard />
+      </Suspense>
+      <Suspense fallback={null}>
+        <MonthlyPlanningWizard />
       </Suspense>
       <DragOverlay />
       <Suspense fallback={null}>
