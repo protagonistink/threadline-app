@@ -33,6 +33,7 @@ import { usePlannerSelectors } from '@/hooks/usePlannerSelectors';
 import {
   createPlannerFieldSetter,
   initialPlannerState,
+  MAX_WEEKLY_GOALS,
   plannerReducer,
   storedPlannerStateToPlannerState,
 } from './plannerState';
@@ -121,6 +122,8 @@ interface AppContextValue {
   updateRitualEstimate: (id: string, mins: number) => void;
   dayEntries: DayEntry[];
   saveDayEntry: (date: string, text: string) => void;
+  showEndOfDayPrompt: boolean;
+  dismissEndOfDayPrompt: () => void;
 }
 
 const AppContext = createContext<AppContextValue>(null!);
@@ -139,6 +142,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [monthlyPlanPrompt, setMonthlyPlanPrompt] = useState(false);
   const [isMonthlyPlanningOpen, setIsMonthlyPlanningOpen] = useState(false);
   const [focusResumePrompt, setFocusResumePrompt] = useState(false);
+  const [showEndOfDayPrompt, setShowEndOfDayPrompt] = useState(false);
+  const hasShownEndOfDayRef = useRef(false);
   const focusBridgeReadyRef = useRef(false);
   const [syncStatus, setSyncStatus] = useState<{ asana: string | null; gcal: string | null; loading: boolean }>({
     asana: null,
@@ -248,6 +253,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [isInitialized, monthlyPlan]);
 
+  // End-of-day prompt: fire once when current time first crosses workdayEnd
+  useEffect(() => {
+    if (!isInitialized) return;
+    hasShownEndOfDayRef.current = false; // reset when workdayEnd changes
+
+    const check = () => {
+      if (hasShownEndOfDayRef.current) return;
+      const now = new Date();
+      const endMinutes = workdayEnd.hour * 60 + workdayEnd.min;
+      const nowMinutes = now.getHours() * 60 + now.getMinutes();
+      if (nowMinutes >= endMinutes) {
+        hasShownEndOfDayRef.current = true;
+        setShowEndOfDayPrompt(true);
+        void window.api.window.showMain();
+      }
+    };
+
+    check(); // run immediately in case we're already past end time
+    const id = setInterval(check, 60 * 1000);
+    return () => clearInterval(id);
+  }, [isInitialized, workdayEnd]);
+
   usePlannerPersistence({
     isInitialized,
     state: {
@@ -286,7 +313,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useAutoRefresh({
     enabled: isInitialized,
-    intervalMs: 5 * 60 * 1000,
+    intervalMs: 2 * 60 * 1000,
     refresh: refreshExternalData,
   });
 
@@ -296,7 +323,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [isInitialized, rituals, setScheduleBlocks, workdayStart]);
 
   const addWeeklyGoal = useCallback((title: string, color = 'bg-text-muted') => {
-    if (!title.trim() || weeklyGoals.length >= 3) return false;
+    if (!title.trim() || weeklyGoals.length >= MAX_WEEKLY_GOALS) return false;
     setWeeklyGoals((prev) => [
       ...prev,
       { id: `goal-${Date.now()}`, title: title.trim(), color },
@@ -535,6 +562,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [setDayEntries]);
 
+  const dismissEndOfDayPrompt = useCallback(() => setShowEndOfDayPrompt(false), []);
+
   const resetDay = useCallback(async () => {
     const focusBlocks = scheduleBlocks.filter((block) => !block.readOnly && block.kind === 'focus');
     await Promise.allSettled(
@@ -646,6 +675,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         dayEntries,
         saveDayEntry,
         isInitialized,
+        showEndOfDayPrompt,
+        dismissEndOfDayPrompt,
       }}
     >
       {children}

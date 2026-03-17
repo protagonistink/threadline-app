@@ -1,126 +1,285 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { addDays, format, isSameDay, startOfWeek } from 'date-fns';
-import { CalendarRange, Plus } from 'lucide-react';
+import { addDays, format, isBefore, isSameDay, parseISO, startOfDay } from 'date-fns';
+import { Plus } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
-import type { PlannedTask, WeeklyGoal } from '@/types';
+import { MAX_WEEKLY_GOALS } from '@/context/plannerState';
+import {
+  useWeeklyMode,
+  useAttentionBalance,
+  formatActivityLine,
+  type GoalAttention,
+} from '@/hooks/useWeeklyMode';
+import { getPlanningWeekStart } from '@/lib/planner';
+import type { WeeklyGoal } from '@/types';
 
-const GOAL_COLORS = [
-  { label: 'Warm', value: 'bg-accent-warm' },
-  { label: 'Muted', value: 'bg-done' },
-  { label: 'Green', value: 'bg-accent-green' },
-];
+const THREAD_COLORS = ['bg-accent-warm', 'bg-done', 'bg-accent-green'];
+const THREAD_HEX: Record<string, string> = {
+  'bg-accent-warm': '#E55547',
+  'bg-done': '#828282',
+  'bg-accent-green': '#5B8A5E',
+};
 
-function WeekOverview() {
-  const { countdowns, committedTasks, scheduleBlocks } = useApp();
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const today = new Date();
-  const todayFocusMins = scheduleBlocks
-    .filter((block) => block.kind === 'focus')
-    .reduce((sum, block) => sum + block.durationMins, 0);
+const modeTransition = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const },
+};
 
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const day = addDays(weekStart, index);
-    const dayKey = format(day, 'yyyy-MM-dd');
-    const deadlines = countdowns.filter((countdown) => countdown.dueDate === dayKey);
-    const isToday = isSameDay(day, today);
+// ---------------------------------------------------------------------------
+// Mode 1: Month Not Set
+// ---------------------------------------------------------------------------
 
-    return {
-      day,
-      dayKey,
-      deadlines,
-      isToday,
-      summary: isToday
-        ? todayFocusMins > 0
-          ? `${todayFocusMins}m in focus blocks`
-          : `${committedTasks.length} tasks held`
-        : index === 0
-          ? 'Weekly planning window'
-          : deadlines.length > 0
-            ? `${deadlines.length} deadline${deadlines.length === 1 ? '' : 's'}`
-            : 'Protect the thread',
-    };
-  });
+function MonthNotSetPrompt() {
+  const { openMonthlyPlanning } = useApp();
+  const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
+  const monthYear = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
-    <section className="editorial-card rounded-[24px] px-7 py-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Week View</div>
-          <h3 className="mt-2 text-[16px] font-medium text-text-primary">The week at a glance</h3>
-          <p className="mt-1 text-[12px] text-text-muted">Monday frames it. The rest of the week protects it.</p>
+    <div className="flex flex-1 items-center justify-center px-8">
+      <div className="editorial-card rounded-[24px] px-10 py-12 text-center max-w-md">
+        <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
+          {monthYear}
         </div>
-        <div className="rounded-full bg-bg-elevated/70 p-3 text-text-muted">
-          <CalendarRange className="w-4 h-4" />
-        </div>
+        <h3 className="mt-5 font-display italic text-[26px] font-light text-text-primary leading-snug">
+          What needs to move this month?
+        </h3>
+        <p className="mt-3 text-[13px] text-text-muted leading-relaxed">
+          The monthly aim frames everything. Set it first, plan the week second.
+        </p>
+        <button
+          onClick={openMonthlyPlanning}
+          className="mt-7 px-5 py-2.5 rounded-md bg-accent-warm text-bg text-[13px] font-medium hover:bg-accent-warm/90 transition-colors"
+        >
+          Plan {monthName} now
+        </button>
       </div>
-
-      <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-7">
-        {days.map(({ day, dayKey, deadlines, isToday, summary }, index) => (
-          <div
-            key={dayKey}
-            className={cn(
-              'rounded-2xl border px-3 py-3 min-h-[132px] transition-all duration-300',
-              isToday
-                ? 'border-accent-warm/28 bg-accent-warm/[0.05] shadow-[0_0_24px_rgba(200,60,47,0.08)]'
-                : 'editorial-inset'
-            )}
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">
-                  {format(day, 'EEE')}
-                </div>
-                <div className="mt-1 text-[14px] font-medium text-text-primary">{format(day, 'd')}</div>
-              </div>
-              {index === 0 && (
-                <span className="rounded-full border border-border-subtle px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-text-muted">
-                  Plan
-                </span>
-              )}
-              {isToday && (
-                <span className="rounded-full border border-accent-warm/30 px-2 py-1 text-[9px] uppercase tracking-[0.14em] text-accent-warm">
-                  Today
-                </span>
-              )}
-            </div>
-
-            <div className="mt-4 text-[12px] leading-relaxed text-text-primary">{summary}</div>
-
-            <div className="mt-3 flex flex-col gap-1.5">
-              {deadlines.slice(0, 2).map((deadline) => (
-                <div key={deadline.id} className="editorial-inset rounded-xl px-2.5 py-2 text-[11px] text-text-muted">
-                  <span className="block truncate text-text-primary">{deadline.title}</span>
-                  <span className="mt-1 block uppercase tracking-[0.14em] text-[9px]">Deadline</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
+    </div>
   );
 }
 
-function EmptyIntentionCard({
+// ---------------------------------------------------------------------------
+// Mode 2: Week Not Planned
+// ---------------------------------------------------------------------------
+
+function WeekNotPlannedPrompt() {
+  const { monthlyPlan, openMonthlyPlanning, openWeeklyPlanning, weeklyGoals } = useApp();
+  const hasStaleGoals = weeklyGoals.length > 0;
+
+  return (
+    <div className="flex flex-col gap-8 px-8 py-8">
+      {monthlyPlan && (
+        <div className="editorial-card rounded-[24px] px-7 py-5 flex items-start justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
+              {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </div>
+            <p className="mt-2 font-display italic text-[20px] font-light text-text-primary leading-snug">
+              {monthlyPlan.oneThing}
+            </p>
+          </div>
+          <button
+            onClick={openMonthlyPlanning}
+            className="shrink-0 mt-1 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
+          >
+            Edit
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-1 items-center justify-center">
+        <div className="editorial-card rounded-[24px] px-10 py-12 text-center max-w-md">
+          <h3 className="font-display italic text-[26px] font-light text-text-primary leading-snug">
+            Three threads for this week.
+          </h3>
+          <p className="mt-3 text-[13px] text-text-muted leading-relaxed">
+            Which intentions will hold your attention?
+          </p>
+          {hasStaleGoals && (
+            <p className="mt-2 text-[12px] text-text-muted italic">
+              You have intentions from last week — the planning wizard will help you review them.
+            </p>
+          )}
+          <button
+            onClick={openWeeklyPlanning}
+            className="mt-7 px-5 py-2.5 rounded-md bg-accent-warm text-bg text-[13px] font-medium hover:bg-accent-warm/90 transition-colors"
+          >
+            Plan this week
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Thread Entry — left-bordered card for each intention
+// ---------------------------------------------------------------------------
+
+function ThreadEntry({
+  goal,
+  attention,
+}: {
+  goal: WeeklyGoal;
+  attention: GoalAttention;
+}) {
+  const { renameWeeklyGoal, updateGoalWhy, removeWeeklyGoal, countdowns } = useApp();
+  const [title, setTitle] = useState(goal.title);
+  const [why, setWhy] = useState(goal.why || '');
+  const [editingField, setEditingField] = useState<'title' | 'why' | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
+  const whyRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    setTitle(goal.title);
+    setWhy(goal.why || '');
+  }, [goal]);
+
+  useEffect(() => {
+    if (editingField === 'title') titleRef.current?.focus();
+    if (editingField === 'why') whyRef.current?.focus();
+  }, [editingField]);
+
+  const hex = THREAD_HEX[goal.color] || '#E55547';
+  const linkedDeadline = goal.countdownId
+    ? countdowns.find((c) => c.id === goal.countdownId)
+    : null;
+
+  const deadlinePillText = (() => {
+    if (!linkedDeadline || attention.deadlineDaysLeft === null) return null;
+    if (attention.deadlineDaysLeft <= 0) return 'Due today';
+    if (attention.deadlineDaysLeft === 1) return 'Due tomorrow';
+    if (attention.deadlineDaysLeft <= 5) {
+      return `Due ${format(parseISO(linkedDeadline.dueDate), 'EEE')}`;
+    }
+    return `${attention.deadlineDaysLeft}d left`;
+  })();
+
+  return (
+    <div
+      className="group rounded-r-lg bg-bg-card/30 pl-4 pr-4 py-3 border-l-[3px] transition-all"
+      style={{ borderLeftColor: hex }}
+    >
+      {/* Title row */}
+      <div className="flex items-center gap-2">
+        {editingField === 'title' ? (
+          <input
+            ref={titleRef}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => {
+              renameWeeklyGoal(goal.id, title);
+              setEditingField(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                renameWeeklyGoal(goal.id, title);
+                setEditingField(null);
+              }
+            }}
+            className="flex-1 bg-transparent border-none outline-none text-[18px] font-medium text-text-primary leading-snug"
+          />
+        ) : (
+          <h4
+            onClick={() => setEditingField('title')}
+            className="flex-1 text-[18px] font-medium text-text-primary leading-snug cursor-text"
+          >
+            {title}
+          </h4>
+        )}
+        {deadlinePillText && (
+          <span
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded-full shrink-0"
+            style={{ backgroundColor: hex + '15', color: hex }}
+          >
+            {deadlinePillText}
+          </span>
+        )}
+        <button
+          onClick={() => removeWeeklyGoal(goal.id)}
+          className="opacity-0 group-hover:opacity-100 text-text-muted/40 hover:text-accent-warm transition-all text-[11px] shrink-0"
+        >
+          remove
+        </button>
+      </div>
+
+      {/* Why */}
+      {editingField === 'why' ? (
+        <textarea
+          ref={whyRef}
+          value={why}
+          onChange={(e) => setWhy(e.target.value)}
+          onBlur={() => {
+            updateGoalWhy(goal.id, why);
+            setEditingField(null);
+          }}
+          rows={1}
+          placeholder="Why this holds."
+          className="mt-0.5 w-full resize-none bg-transparent border-none outline-none text-[13px] leading-relaxed text-text-muted placeholder:text-text-muted/30 focus:text-text-primary transition-colors"
+        />
+      ) : (
+        why ? (
+          <p
+            onClick={() => setEditingField('why')}
+            className="mt-0.5 text-[13px] leading-relaxed text-text-muted italic cursor-text"
+          >
+            {why}
+          </p>
+        ) : (
+          <button
+            onClick={() => setEditingField('why')}
+            className="mt-0.5 text-[12px] leading-relaxed text-text-muted/55 italic cursor-text hover:text-text-primary transition-colors"
+          >
+            Add why
+          </button>
+        )
+      )}
+
+      {/* Nudge + Activity — only when tasks are committed */}
+      {attention.tasksThisWeek > 0 && (
+        <div className="mt-1.5 flex items-center gap-3 text-[11px]">
+          <span
+            className={cn(
+              'italic',
+              attention.nudgeUrgent ? 'text-accent-warm' : 'text-text-muted/60'
+            )}
+          >
+            {attention.nudgeLine}
+          </span>
+          <span className="text-text-muted/15">·</span>
+          <span className="font-mono text-text-muted/35">
+            {formatActivityLine(attention)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Add Thread — inline input at the bottom of the thread list
+// ---------------------------------------------------------------------------
+
+function AddThreadInput({
   index,
   onAdd,
 }: {
   index: number;
-  onAdd: (title: string, color: string) => void;
+  onAdd: (title: string) => void;
 }) {
   const [title, setTitle] = useState('');
-  const [color, setColor] = useState(GOAL_COLORS[index % GOAL_COLORS.length].value);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  const placeholders = ["What's the first thread?", "What's the second thread?", "What's the third thread?"];
 
   return (
-    <div className="editorial-card rounded-[24px] border-dashed p-6">
-      <div className="flex items-center gap-3">
-        <Plus className="w-4 h-4 text-text-muted" />
+    <div className="relative pl-7 pt-3">
+      {/* Outlined dot (empty slot) */}
+      <div className="absolute left-0 top-[18px] w-[11px] h-[11px] rounded-full -translate-x-1/2 border border-border" />
+
+      <div className="flex items-center gap-2">
+        <Plus className="w-3.5 h-3.5 text-text-muted/25 shrink-0" />
         <input
           ref={inputRef}
           value={title}
@@ -128,214 +287,283 @@ function EmptyIntentionCard({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && title.trim()) {
               e.preventDefault();
-              onAdd(title.trim(), color);
+              onAdd(title.trim());
+              setTitle('');
             }
           }}
-          placeholder={`Add intention ${index + 1}...`}
-          className="flex-1 bg-transparent border-none outline-none text-[15px] text-text-primary placeholder:text-text-muted"
+          placeholder={placeholders[index] || 'Add a thread'}
+          className="flex-1 bg-transparent border-none outline-none text-[14px] text-text-primary placeholder:text-text-muted/25"
         />
       </div>
+    </div>
+  );
+}
 
-      <div className="mt-4 flex items-center gap-2">
-        {GOAL_COLORS.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => setColor(option.value)}
+// ---------------------------------------------------------------------------
+// Committed Week Map — the hero calendar showing the week at a glance
+// ---------------------------------------------------------------------------
+
+function CommittedWeekMap() {
+  const { countdowns, weeklyGoals } = useApp();
+  const weekStart = getPlanningWeekStart();
+  const weekEnd = addDays(weekStart, 6);
+  const today = startOfDay(new Date());
+
+  const countdownColorMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    weeklyGoals.forEach((g) => {
+      if (g.countdownId) map[g.countdownId] = THREAD_HEX[g.color] || '#E55547';
+    });
+    return map;
+  }, [weeklyGoals]);
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const day = addDays(weekStart, i);
+    const dayKey = format(day, 'yyyy-MM-dd');
+    const deadlines = countdowns.filter((c) => c.dueDate === dayKey);
+    const isToday = isSameDay(day, today);
+    const isPast = isBefore(day, today) && !isToday;
+    return { day, dayKey, deadlines, isToday, isPast };
+  });
+
+  // Deadlines beyond this week
+  const upcomingDeadlines = countdowns.filter((c) => {
+    const d = startOfDay(parseISO(c.dueDate));
+    return isBefore(weekEnd, d);
+  });
+
+  return (
+    <div className="mt-5 border-t border-border-subtle/50 pt-4">
+      <div className="grid grid-cols-7 gap-1">
+        {days.map(({ day, dayKey, deadlines, isToday, isPast }) => (
+          <div
+            key={dayKey}
             className={cn(
-              'w-4 h-4 rounded-full transition-all',
-              option.value,
-              color === option.value ? 'ring-2 ring-offset-2 ring-text-muted ring-offset-bg-card' : 'opacity-50 hover:opacity-80'
+              'flex flex-col items-center gap-1.5 py-2.5 px-1 rounded-lg min-h-[80px]',
+              isToday && 'bg-accent-warm/[0.08]',
+              isPast && 'opacity-40'
             )}
-            aria-label={option.label}
-          />
+          >
+            <span
+              className={cn(
+                'text-[10px] font-mono uppercase tracking-[0.12em]',
+                isToday ? 'text-accent-warm' : 'text-text-muted/40'
+              )}
+            >
+              {format(day, 'EEE')}
+            </span>
+            <span
+              className={cn(
+                'text-[18px] font-medium',
+                isToday ? 'text-accent-warm' : 'text-text-primary/60'
+              )}
+            >
+              {format(day, 'd')}
+            </span>
+            {deadlines.map((d) => {
+              const color = countdownColorMap[d.id] || '#E55547';
+              return (
+                <span
+                  key={d.id}
+                  className="text-[11px] font-medium leading-tight truncate max-w-full text-center px-1.5 py-0.5 rounded"
+                  style={{ backgroundColor: color + '18', color }}
+                >
+                  {d.title}
+                </span>
+              );
+            })}
+          </div>
         ))}
       </div>
+
+      {/* Upcoming deadlines beyond this week */}
+      {upcomingDeadlines.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="text-text-muted/40 font-mono uppercase tracking-[0.1em]">
+            Ahead:
+          </span>
+          {upcomingDeadlines.map((d) => {
+            const color = countdownColorMap[d.id] || '#E55547';
+            return (
+              <span
+                key={d.id}
+                className="font-medium px-2 py-0.5 rounded"
+                style={{ backgroundColor: color + '15', color }}
+              >
+                {d.title} · {format(parseISO(d.dueDate), 'EEE MMM d')}
+              </span>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
-function IntentionCard({
-  goal,
-  tasks,
-  index,
-}: {
-  goal: WeeklyGoal;
-  tasks: PlannedTask[];
-  index: number;
-}) {
-  const { renameWeeklyGoal, updateGoalWhy, updateGoalColor } = useApp();
-  const [title, setTitle] = useState(goal.title);
-  const [why, setWhy] = useState(goal.why || '');
+// ---------------------------------------------------------------------------
+// Mode 3: Active Week — the thread narrative
+// ---------------------------------------------------------------------------
 
-  useEffect(() => {
-    setTitle(goal.title);
-    setWhy(goal.why || '');
-  }, [goal]);
-
-  const doneCount = tasks.filter((task) => task.status === 'done').length;
-
-  return (
-    <div className="editorial-card rounded-[24px] p-6">
-      <div className="flex items-start gap-3">
-        <div className="mt-1 flex flex-col gap-2">
-          {GOAL_COLORS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => updateGoalColor(goal.id, option.value)}
-              className={cn(
-                'w-3.5 h-3.5 rounded-full transition-all',
-                option.value,
-                goal.color === option.value ? 'ring-2 ring-offset-2 ring-text-muted ring-offset-bg-card' : 'opacity-45 hover:opacity-80'
-              )}
-              aria-label={option.label}
-            />
-          ))}
-        </div>
-
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => renameWeeklyGoal(goal.id, title)}
-              className="flex-1 bg-transparent border-none outline-none text-[18px] font-medium text-text-primary"
-            />
-            <div className="text-[11px] font-mono text-text-muted">
-              {doneCount}/{tasks.length || 0}
-            </div>
-          </div>
-
-          <textarea
-            value={why}
-            onChange={(e) => setWhy(e.target.value)}
-            onBlur={() => updateGoalWhy(goal.id, why)}
-            rows={2}
-            placeholder="Why this must hold this week."
-            className="editorial-inset mt-3 w-full resize-none rounded-2xl px-3 py-3 text-[13px] leading-relaxed text-text-primary outline-none transition-colors placeholder:text-text-muted focus:border-border"
-          />
-        </div>
-      </div>
-
-      <div className="editorial-inset mt-4 rounded-2xl px-3 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-[11px] uppercase tracking-[0.18em] text-text-muted">Held inside this lane</div>
-          <div className="text-[11px] text-text-muted">Intention {index + 1}</div>
-        </div>
-
-        <div className="mt-3 flex flex-col gap-2">
-          {tasks.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border-subtle px-3 py-4 text-[12px] text-text-muted">
-              Nothing assigned here yet.
-            </div>
-          ) : (
-            tasks.map((task) => (
-              <div key={task.id} className="editorial-card rounded-xl px-3 py-2.5">
-                <div className="text-[13px] leading-snug text-text-primary">{task.title}</div>
-                <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-text-muted">
-                  {task.status === 'scheduled' ? 'on calendar' : task.status}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-    </div>
-  );
+function formatMins(m: number): string {
+  if (m >= 60) {
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    return r ? `${h}h ${r}m` : `${h}h`;
+  }
+  return `${m}m`;
 }
 
-export function WeeklyIntentions() {
-  const { weeklyGoals, plannedTasks, addWeeklyGoal, monthlyPlan, openMonthlyPlanning } = useApp();
+function ActiveWeekContent() {
+  const {
+    weeklyGoals,
+    monthlyPlan,
+    openMonthlyPlanning,
+    addWeeklyGoal,
+    weeklyPlanningLastCompleted,
+    rituals,
+    workdayStart,
+    workdayEnd,
+    setActiveView,
+  } = useApp();
+  const attentionData = useAttentionBalance();
 
-  const groupedGoals = useMemo(
-    () => weeklyGoals.map((goal) => ({
-      goal,
-      tasks: plannedTasks.filter(
-        (task) =>
-          task.weeklyGoalId === goal.id &&
-          task.status !== 'candidate' &&
-          task.status !== 'cancelled'
-      ),
-    })),
-    [plannedTasks, weeklyGoals]
-  );
+  const ritualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
+  const totalWorkMins = (workdayEnd.hour * 60 + workdayEnd.min) - (workdayStart.hour * 60 + workdayStart.min);
+  const focusMins = Math.max(0, totalWorkMins - ritualMins);
 
   return (
-    <div className="editorial-panel flex-1 glass paper-texture flex flex-col h-full">
-      <div className="h-16 px-8 border-b border-border-subtle flex items-center justify-between shrink-0">
-        <div>
-          <h2 className="font-display italic text-[24px] font-light tracking-wide text-text-emphasis transition-all duration-700">
-            Weekly Intentions
-          </h2>
-          <p className="text-[12px] text-text-muted mt-1">
-            Set the week upstairs. Edit it here when the week changes shape.
-          </p>
-        </div>
-        <div className="text-[11px] font-mono text-text-muted">
-          {weeklyGoals.length}/3 held
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-8 py-8 flex flex-col gap-8 hide-scrollbar">
-        <WeekOverview />
-
-        {monthlyPlan ? (
-          <div className="editorial-card rounded-[24px] px-7 py-5 flex items-start justify-between gap-4">
-            <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
+    <div className="flex-1 overflow-y-auto flex flex-col hide-scrollbar">
+      <div className="max-w-2xl mx-auto w-full px-10 py-10">
+        {/* North star: Monthly aim */}
+        {monthlyPlan && (
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted/60">
                 {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </div>
-              <p className="mt-2 font-display italic text-[20px] font-light text-text-primary leading-snug">
-                {monthlyPlan.oneThing}
-              </p>
+              </span>
+              <button
+                onClick={openMonthlyPlanning}
+                className="text-[11px] text-text-muted/40 hover:text-text-primary transition-colors"
+              >
+                edit aim
+              </button>
             </div>
-            <button
-              onClick={openMonthlyPlanning}
-              className="shrink-0 mt-1 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
-            >
-              Edit
-            </button>
-          </div>
-        ) : (
-          <div className="editorial-card rounded-[24px] px-7 py-5 border-dashed flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
-                {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </div>
-              <p className="mt-1 text-[14px] text-text-muted">
-                No monthly aim set yet.
-              </p>
-            </div>
-            <button
-              onClick={openMonthlyPlanning}
-              className="shrink-0 px-4 py-2 rounded-md bg-accent-warm text-bg text-[13px] font-medium hover:bg-accent-warm/90 transition-colors"
-            >
-              Set aim for {new Date().toLocaleDateString('en-US', { month: 'long' })} →
-            </button>
+            <h3 className="mt-2 font-display italic text-[26px] font-light text-text-primary leading-snug">
+              {monthlyPlan.oneThing}
+            </h3>
           </div>
         )}
 
-        <section className="editorial-card rounded-[24px] px-7 py-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-[0.2em] text-text-muted">Intentions</div>
-              <h3 className="mt-2 text-[16px] font-display italic font-light text-text-primary">The three threads you keep returning to</h3>
-            </div>
-          </div>
+        {/* Week map — the hero: see your week at a glance */}
+        <CommittedWeekMap />
 
-          <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-3">
-            {groupedGoals.map(({ goal, tasks }, index) => (
-              <IntentionCard key={goal.id} goal={goal} tasks={tasks} index={index} />
-            ))}
-
-            {weeklyGoals.length < 3 && (
-              <EmptyIntentionCard
-                index={weeklyGoals.length}
-                onAdd={(title, color) => addWeeklyGoal(title, color)}
+        {/* Thread cards */}
+        <div className="flex flex-col gap-3 mt-5">
+          {weeklyGoals.map((goal) => {
+            const attention = attentionData.find((a) => a.goalId === goal.id);
+            if (!attention) return null;
+            return (
+              <ThreadEntry
+                key={goal.id}
+                goal={goal}
+                attention={attention}
               />
-            )}
+            );
+          })}
+
+          {weeklyGoals.length < MAX_WEEKLY_GOALS && (
+            <AddThreadInput
+              index={weeklyGoals.length}
+              onAdd={(title) =>
+                addWeeklyGoal(title, THREAD_COLORS[weeklyGoals.length % THREAD_COLORS.length])
+              }
+            />
+          )}
+        </div>
+
+        {/* Daily practices */}
+        {rituals.length > 0 && (
+          <div className="mt-4 text-[13px] text-text-muted">
+            <span className="font-mono uppercase tracking-widest text-[11px] text-text-muted/40">
+              Daily:{' '}
+            </span>
+            {rituals.map((r, i) => (
+              <span key={r.id}>
+                {r.title}
+                {r.estimateMins ? ` ${formatMins(r.estimateMins)}` : ''}
+                {i < rituals.length - 1 ? ' · ' : ''}
+              </span>
+            ))}
+            <span className="text-text-muted/40">
+              {' '}— ~{formatMins(focusMins)}/day for goals
+            </span>
           </div>
-        </section>
+        )}
+
+        {/* Plan your day CTA — only on the day planning was completed */}
+        {weeklyPlanningLastCompleted === format(new Date(), 'yyyy-MM-dd') && (
+          <div className="mt-6 text-center">
+            <p className="font-display italic text-[14px] text-text-muted/50 mb-3">
+              Looks right?
+            </p>
+            <button
+              onClick={() => setActiveView('flow')}
+              className="px-5 py-2 rounded-md bg-accent-warm/10 border border-accent-warm/20 text-[13px] font-medium text-accent-warm hover:bg-accent-warm/15 transition-colors"
+            >
+              Plan your day →
+            </button>
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main Component
+// ---------------------------------------------------------------------------
+
+const MODE_SUBTITLES: Record<string, string> = {
+  'month-not-set': 'Start here.',
+  'week-not-planned': 'Your month has direction. Now plan the week.',
+};
+
+export function WeeklyIntentions() {
+  const { openWeeklyPlanning } = useApp();
+  const mode = useWeeklyMode();
+
+  return (
+    <div className="editorial-panel flex-1 glass paper-texture flex flex-col h-full">
+      <div className="h-14 px-8 border-b border-border-subtle flex items-center justify-between shrink-0">
+        <div>
+          <h2 className="font-display italic text-[22px] font-light tracking-wide text-text-emphasis">
+            Weekly Intentions
+          </h2>
+          {mode !== 'active-week' && MODE_SUBTITLES[mode] && (
+            <p className="text-[12px] text-text-muted mt-0.5">{MODE_SUBTITLES[mode]}</p>
+          )}
+        </div>
+        {mode === 'active-week' && (
+          <button
+            onClick={openWeeklyPlanning}
+            className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
+          >
+            Replan
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={mode}
+          className="flex flex-1 flex-col min-h-0"
+          {...modeTransition}
+        >
+          {mode === 'month-not-set' && <MonthNotSetPrompt />}
+          {mode === 'week-not-planned' && <WeekNotPlannedPrompt />}
+          {mode === 'active-week' && <ActiveWeekContent />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }
