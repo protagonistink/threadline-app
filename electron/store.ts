@@ -43,6 +43,10 @@ const store = new Store({
       observation: string;
       data?: Record<string, unknown>;
     }>,
+    inkContext: {
+      journalEntries: [] as Array<Record<string, unknown>>,
+      lastUpdated: new Date().toISOString(),
+    },
   },
 });
 

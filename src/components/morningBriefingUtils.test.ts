@@ -61,6 +61,11 @@ describe('buildBriefingContext', () => {
       shell: {
         openExternal: vi.fn(),
       },
+      ink: {
+        readContext: vi.fn(),
+        writeContext: vi.fn(),
+        appendJournal: vi.fn(),
+      },
     };
   });
 

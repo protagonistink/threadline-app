@@ -9,6 +9,7 @@ import type {
   SettingsUpdate,
   UserPhysics,
 } from '../src/types/electron';
+import type { InkContext, InkJournalEntry } from '../src/types';
 
 contextBridge.exposeInMainWorld('api', {
   // Asana
@@ -82,6 +83,14 @@ contextBridge.exposeInMainWorld('api', {
     activate: () => ipcRenderer.invoke('window:activate'),
     setFocusSize: (locked: boolean) => ipcRenderer.invoke('window:set-focus-size', locked),
     showMain: () => ipcRenderer.invoke('window:show-main'),
+  },
+  // Ink Context (persistent AI memory)
+  ink: {
+    readContext: (): Promise<InkContext> => ipcRenderer.invoke('ink:read-context'),
+    writeContext: (data: Partial<InkContext>): Promise<InkContext> =>
+      ipcRenderer.invoke('ink:write-context', data),
+    appendJournal: (entry: InkJournalEntry): Promise<InkJournalEntry[]> =>
+      ipcRenderer.invoke('ink:append-journal', entry),
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),

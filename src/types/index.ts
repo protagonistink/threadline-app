@@ -136,6 +136,13 @@ export interface MonthlyPlan {
   completedAt?: string;
 }
 
+export interface DayEntry {
+  date: string;          // YYYY-MM-DD — unique key per calendar day
+  journalText: string;
+  chapterNumber: number; // 1-indexed running count across all entries
+  savedAt?: string;      // ISO timestamp of last save
+}
+
 export interface TimeLogEntry {
   id: string;
   objectiveId: string | null;
@@ -146,4 +153,44 @@ export interface TimeLogEntry {
   endedAt: string;
   durationMins: number;
   kind: 'focus';
+}
+
+// ---------------------------------------------------------------------------
+// Ink Context — persistent AI memory layer
+// ---------------------------------------------------------------------------
+
+export type InkMode = 'morning' | 'midday' | 'evening' | 'sunday-interview';
+
+export interface InkJournalEntry {
+  date: string;                    // YYYY-MM-DD
+  excites: string;                 // "What excites you today?"
+  needleMovers: Array<{            // "One thing that moves [Goal] forward"
+    goalTitle: string;             // From weekly intentions (Three Threads)
+    action: string;                // User's answer
+  }>;
+  artistDate: string;              // "What's just for you?"
+  eveningReflection?: string;      // Filled by evening close (Sprint 6)
+  createdAt: string;               // ISO timestamp
+}
+
+export interface InkContext {
+  // Weekly context (written by Sunday Interview)
+  weeklyContext?: string;
+  hierarchy?: string;              // "writing > client work > infrastructure"
+  musts?: string;
+  currentPriority?: string;
+  protectedBlocks?: string;
+  tells?: string;
+  artistDate?: string;
+  honestAudit?: string;
+  weekUpdatedAt?: string;
+
+  // Three Threads snapshot
+  threadsRaw?: string;
+
+  // Journal entries (rolling 7-day window)
+  journalEntries: InkJournalEntry[];
+
+  // Metadata
+  lastUpdated: string;
 }

@@ -121,6 +121,11 @@ describe('useTaskActions', () => {
       shell: {
         openExternal: vi.fn(),
       },
+      ink: {
+        readContext: vi.fn(),
+        writeContext: vi.fn(),
+        appendJournal: vi.fn(),
+      },
     };
   });
 
@@ -145,20 +150,41 @@ describe('useTaskActions', () => {
     });
   });
 
-  it('toggleTask clears the linked calendar block when completing a scheduled task', async () => {
+  it('toggleTask keeps the linked calendar block when completing a scheduled task', async () => {
     const { result } = renderHook(() => useHarness());
 
     await act(async () => {
       await result.current.toggleTask('task-1');
     });
 
-    expect(window.api.gcal.deleteEvent).toHaveBeenCalledWith('event-1', 'primary');
+    expect(window.api.gcal.deleteEvent).not.toHaveBeenCalled();
 
     await waitFor(() => {
-      expect(result.current.scheduleBlocks).toHaveLength(0);
+      expect(result.current.scheduleBlocks).toHaveLength(1);
       expect(result.current.plannedTasks[0]).toMatchObject({
         status: 'done',
         active: false,
+        scheduledEventId: 'event-1',
+        scheduledCalendarId: 'primary',
+      });
+    });
+  });
+
+  it('toggleTask restores scheduled state when reopening a completed scheduled task', async () => {
+    const { result } = renderHook(() => useHarness());
+
+    await act(async () => {
+      await result.current.toggleTask('task-1');
+      await result.current.toggleTask('task-1');
+    });
+
+    await waitFor(() => {
+      expect(result.current.scheduleBlocks).toHaveLength(1);
+      expect(result.current.plannedTasks[0]).toMatchObject({
+        status: 'scheduled',
+        active: false,
+        scheduledEventId: 'event-1',
+        scheduledCalendarId: 'primary',
       });
     });
   });

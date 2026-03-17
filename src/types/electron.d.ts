@@ -4,6 +4,8 @@ import type {
   CalendarEventInput,
   CalendarListEntry,
   GCalEvent,
+  InkContext,
+  InkJournalEntry,
   PomodoroState,
 } from './index';
 
@@ -104,8 +106,8 @@ interface PomodoroAPI {
 }
 
 interface FocusAPI {
-  enable: () => Promise<void>;
-  disable: () => Promise<void>;
+  enable: () => Promise<ApiResult<null>>;
+  disable: () => Promise<ApiResult<null>>;
 }
 
 interface StoreAPI {
@@ -167,6 +169,12 @@ interface ShellAPI {
   openExternal: (url: string) => Promise<void>;
 }
 
+interface InkAPI {
+  readContext: () => Promise<InkContext>;
+  writeContext: (data: Partial<InkContext>) => Promise<InkContext>;
+  appendJournal: (entry: InkJournalEntry) => Promise<InkJournalEntry[]>;
+}
+
 declare global {
   interface Window {
     api: {
@@ -180,6 +188,7 @@ declare global {
       ai: AIAPI;
       physics: PhysicsAPI;
       shell: ShellAPI;
+      ink: InkAPI;
     };
   }
 }

@@ -6,6 +6,7 @@ import { registerStoreHandlers } from './store';
 import { registerTimerHandlers, setTrayUpdater, startLastUsedPomodoro } from './timer';
 import { registerFocusHandlers } from './focus';
 import { registerAnthropicHandlers } from './anthropic';
+import { registerInkContextHandlers } from './ink-context';
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
@@ -72,11 +73,11 @@ function createTray() {
   icon.setTemplateImage(true);
 
   tray = new Tray(icon);
-  tray.setToolTip('Threadline');
+  tray.setToolTip('Inked');
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show Threadline',
+      label: 'Show Inked',
       click: () => {
         mainWindow?.show();
         mainWindow?.focus();
@@ -188,7 +189,7 @@ app.whenReady().then(() => {
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { label: 'Quit Threadline', accelerator: 'CmdOrCtrl+Q', click: () => { app.exit(); } },
+        { label: 'Quit Inked', accelerator: 'CmdOrCtrl+Q', click: () => { app.exit(); } },
       ],
     },
     {
@@ -212,6 +213,7 @@ app.whenReady().then(() => {
   registerTimerHandlers();
   registerFocusHandlers();
   registerAnthropicHandlers();
+  registerInkContextHandlers();
 
   ipcMain.handle('window:show-pomodoro', () => {
     if (!pomodoroWindow) createPomodoroWindow();
