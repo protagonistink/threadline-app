@@ -101,6 +101,61 @@ export async function buildBriefingContext({
   };
 }
 
+export interface ScheduleChip {
+  title: string;
+  startHour: number;
+  startMin: number;
+  durationMins: number;
+  matchedTaskId: string | null;
+  matchedGoalId: string | null;
+  selected: boolean;
+}
+
+export function parseScheduleProposal(
+  content: string,
+  plannedTasks: PlannedTask[],
+  candidateItems: InboxItem[]
+): ScheduleChip[] {
+  const match = content.match(/```schedule\s*\n([\s\S]*?)\n```/);
+  if (!match) return [];
+  try {
+    const parsed = JSON.parse(match[1]);
+    if (!Array.isArray(parsed)) return [];
+
+    const matchableTasks = [
+      ...plannedTasks.map((task) => ({ id: task.id, title: task.title, weeklyGoalId: task.weeklyGoalId })),
+      ...candidateItems.map((item) => ({ id: item.id, title: item.title, weeklyGoalId: null as string | null })),
+    ];
+
+    return parsed
+      .filter((item: Record<string, unknown>) => item.title && typeof item.startHour === 'number')
+      .map((item: Record<string, unknown>) => {
+        const title = String(item.title);
+        const normalized = normalizeTaskTitle(title);
+        const exactMatch = matchableTasks.find((t) => normalizeTaskTitle(t.title) === normalized);
+        const fuzzyMatch = exactMatch
+          ? null
+          : matchableTasks.find((t) => {
+              const nt = normalizeTaskTitle(t.title);
+              return nt.includes(normalized) || normalized.includes(nt);
+            });
+        const matched = exactMatch || fuzzyMatch;
+
+        return {
+          title,
+          startHour: Number(item.startHour),
+          startMin: Number(item.startMin) || 0,
+          durationMins: Number(item.durationMins) || 60,
+          matchedTaskId: matched?.id || null,
+          matchedGoalId: matched?.weeklyGoalId || null,
+          selected: true,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
 export function parseCommitChips(
   content: string,
   plannedTasks: PlannedTask[],

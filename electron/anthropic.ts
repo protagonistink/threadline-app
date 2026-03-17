@@ -325,7 +325,25 @@ ${alreadyCommitted}
 - Remaining open capacity: ${remainingHours}h
 
 ---
+${ctx.inkMode === 'morning' ? `
+## SCHEDULE PROPOSAL
+After your briefing analysis, if there are committed tasks or tasks you are recommending, propose a concrete schedule for today. Output a fenced code block with the language tag "schedule":
 
+\`\`\`schedule
+[
+  {"title": "Exact task title", "startHour": 9, "startMin": 30, "durationMins": 90},
+  {"title": "Another task", "startHour": 11, "startMin": 0, "durationMins": 45}
+]
+\`\`\`
+
+Rules:
+- Use exact task titles from the committed or Asana task lists
+- Respect existing calendar events — never double-book
+- Honor peak energy window (${ctx.userPhysics?.peakEnergyWindow ?? 'morning'}) for deep work
+- Use the ideal focus block length (${ctx.userPhysics?.focusBlockLength ?? 45}min) as default duration
+- The schedule block doesn't count against the word limit
+- If the user asks to replan or move items, output a new schedule block with the updated times
+` : ''}
 ## RESPONSE FORMAT
 - Hard limit: ${ctx.inkMode === 'midday' ? '120' : ctx.inkMode === 'evening' ? '180' : '200'} words total. No exceptions.
 - Bullets for lists. Paragraphs max 2 sentences.

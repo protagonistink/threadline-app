@@ -6,6 +6,7 @@ import {
   CalendarClock,
   Check,
   ChevronsRight,
+  Clock,
   Loader2,
   MoonStar,
   RotateCcw,
@@ -22,7 +23,7 @@ import type { ChatMessage } from '@/types/electron';
 import { useBriefingStream } from '@/hooks/useBriefingStream';
 import { detectInkMode } from '@/lib/ink-mode';
 import type { InkMode } from '@/types';
-import { buildBriefingContext, parseCommitChips, type CommitChip } from './morningBriefingUtils';
+import { buildBriefingContext, parseCommitChips, parseScheduleProposal, type CommitChip, type ScheduleChip } from './morningBriefingUtils';
 
 type Phase = 'idle' | 'interview' | 'journal' | 'briefing' | 'conversation' | 'committing';
 type InkMoment = 'morning' | 'midday' | 'evening';
@@ -228,12 +229,14 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
     scheduleBlocks,
     plannedTasks,
     monthlyPlan,
+    scheduleTaskBlock,
   } = useApp();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [commitChips, setCommitChips] = useState<CommitChip[]>([]);
+  const [scheduleChips, setScheduleChips] = useState<ScheduleChip[]>([]);
   const [committed, setCommitted] = useState(false);
 
   // Journal state
@@ -303,6 +306,7 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
             ...contextJson,
             weekUpdatedAt: new Date().toISOString(),
           }).then(() => {
+            setResolvedInkMode('morning');
             // Transition: interview → journal (morning + goals) or briefing
             if (inkMoment === 'morning' && weeklyGoals.length > 0) {
               setMessages([]);
@@ -314,6 +318,15 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
               void streamMessage([msg]);
             }
           });
+        }
+      }
+
+      // Detect schedule proposal — AI outputs schedule code block
+      if (phaseRef.current === 'briefing' || phaseRef.current === 'conversation') {
+        const chips = parseScheduleProposal(content, plannedTasks, candidateItems);
+        if (chips.length > 0) {
+          setScheduleChips(chips);
+          setPhase('committing');
         }
       }
     },
@@ -457,6 +470,31 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
       prev.map((chip, i) => (i === index ? { ...chip, selected: !chip.selected } : chip))
     );
   };
+
+  const toggleScheduleChip = (index: number) => {
+    setScheduleChips((prev) =>
+      prev.map((chip, i) => (i === index ? { ...chip, selected: !chip.selected } : chip))
+    );
+  };
+
+  // Execute schedule proposal — commit + place tasks on timeline
+  const executeSchedule = useCallback(async () => {
+    const toSchedule = scheduleChips.filter((chip) => chip.selected);
+
+    for (const chip of toSchedule) {
+      if (chip.matchedTaskId) {
+        await scheduleTaskBlock(chip.matchedTaskId, chip.startHour, chip.startMin, chip.durationMins);
+      } else {
+        // Unmatched: create local task (no scheduling — addLocalTask doesn't return an ID)
+        addLocalTask(chip.title, chip.matchedGoalId || undefined);
+      }
+    }
+
+    setCommitted(true);
+    closeTimeoutRef.current = window.setTimeout(() => {
+      onClose();
+    }, 1500);
+  }, [scheduleChips, scheduleTaskBlock, addLocalTask, onClose]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -631,8 +669,58 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
           </div>
         )}
 
-        {/* Commit chips */}
-        {phase === 'committing' && commitChips.length > 0 && !committed && (
+        {/* Schedule chips (AI-proposed time placements) */}
+        {phase === 'committing' && scheduleChips.length > 0 && !committed && (
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-medium px-1">
+              Proposed schedule
+            </div>
+            {scheduleChips.map((chip, i) => {
+              const timeLabel = `${chip.startHour}:${String(chip.startMin).padStart(2, '0')}`;
+              const endMin = chip.startHour * 60 + chip.startMin + chip.durationMins;
+              const endLabel = `${Math.floor(endMin / 60)}:${String(endMin % 60).padStart(2, '0')}`;
+              return (
+                <button
+                  key={i}
+                  onClick={() => toggleScheduleChip(i)}
+                  className={cn(
+                    'flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all text-[13px]',
+                    chip.selected
+                      ? 'bg-accent-warm/15 text-text-primary border border-accent-warm/30'
+                      : 'bg-bg-elevated/50 text-text-muted border border-transparent hover:border-border-subtle'
+                  )}
+                >
+                  <div className={cn(
+                    'w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors',
+                    chip.selected ? 'border-accent-warm bg-accent-warm' : 'border-text-muted/40'
+                  )}>
+                    {chip.selected && <Check className="w-2.5 h-2.5 text-white" />}
+                  </div>
+                  <span className="flex-1 min-w-0 truncate">{chip.title}</span>
+                  <span className="flex items-center gap-1 text-[10px] text-text-muted/70 shrink-0">
+                    <Clock className="w-3 h-3" />
+                    {timeLabel}–{endLabel}
+                  </span>
+                </button>
+              );
+            })}
+            <button
+              onClick={() => void executeSchedule()}
+              disabled={scheduleChips.every((c) => !c.selected)}
+              className={cn(
+                'mt-2 px-4 py-2 rounded-lg text-[13px] font-medium transition-all',
+                scheduleChips.some((c) => c.selected)
+                  ? 'bg-accent-warm text-white hover:bg-accent-warm/90'
+                  : 'bg-bg-elevated text-text-muted cursor-not-allowed'
+              )}
+            >
+              Lock it in
+            </button>
+          </div>
+        )}
+
+        {/* Commit chips (manual, no time placement) */}
+        {phase === 'committing' && commitChips.length > 0 && scheduleChips.length === 0 && !committed && (
           <div className="flex flex-col gap-2 mt-2">
             <div className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-medium px-1">
               Commit to today
