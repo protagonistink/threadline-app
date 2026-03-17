@@ -45,22 +45,6 @@ function createWindow() {
     mainWindow?.hide();
   });
 
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('[main] did-finish-load', mainWindow?.webContents.getURL());
-  });
-
-  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription, validatedURL) => {
-    console.error('[main] did-fail-load', { errorCode, errorDescription, validatedURL });
-  });
-
-  mainWindow.webContents.on('render-process-gone', (_event, details) => {
-    console.error('[main] render-process-gone', details);
-  });
-
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    console.log('[renderer]', { level, message, line, sourceId });
-  });
-
   if (VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(VITE_DEV_SERVER_URL);
   } else {
