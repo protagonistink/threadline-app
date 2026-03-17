@@ -99,7 +99,117 @@ function formatInkContextForPrompt(ink: InkContext): string {
     : '';
 }
 
+function buildInterviewPrompt(ctx: BriefingContext): string {
+  const physics = ctx.userPhysics ?? loadUserPhysics();
+  const inkContext = loadInkContext();
+
+  const goalsList = ctx.weeklyGoals
+    .map(g => `- ${g.title}${g.why ? ` (why: ${g.why})` : ''}`)
+    .join('\n') || 'No goals set yet.';
+
+  // Journal entries for the past week
+  let journalSection = 'No journal entries this week.';
+  if (inkContext?.journalEntries?.length) {
+    const lines = inkContext.journalEntries.map((e) => {
+      const movers = e.needleMovers
+        ?.map((m) => `${m.goalTitle}: ${m.action}`)
+        .join('; ') || '';
+      return `${e.date}: excites="${e.excites}", needle-movers=[${movers}], artist-date="${e.artistDate}"${e.eveningReflection ? `, reflection="${e.eveningReflection}"` : ''}`;
+    });
+    journalSection = lines.join('\n');
+  }
+
+  // Previous week's context for continuity
+  const prevLines = inkContext ? [
+    inkContext.hierarchy && `Previous hierarchy: ${inkContext.hierarchy}`,
+    inkContext.musts && `Previous musts: ${inkContext.musts}`,
+    inkContext.currentPriority && `Previous priority: ${inkContext.currentPriority}`,
+    inkContext.honestAudit && `Previous honest audit: ${inkContext.honestAudit}`,
+  ].filter(Boolean) : [];
+  const prevSection = prevLines.length > 0
+    ? `## LAST WEEK'S CONTEXT\n${prevLines.join('\n')}\n`
+    : '';
+
+  const monthlySection = ctx.monthlyOneThing
+    ? `\n## MONTHLY FOCUS\n${ctx.monthlyOneThing}${ctx.monthlyWhy ? ` — Why: ${ctx.monthlyWhy}` : ''}\n`
+    : '';
+
+  return `You are conducting Patrick Kirkland's weekly planning interview. You are Ink — sharp, direct, warm but not soft. Today is ${ctx.date}.
+
+## WHO YOU'RE TALKING TO
+
+Patrick Kirkland — narrative strategist, screenwriter, founder of Protagonist Ink.
+- Ideal focus block: ${physics.focusBlockLength} min
+- Peak energy: ${physics.peakEnergyWindow}
+- Common derailers: ${physics.commonDerailers.join(', ')}
+- Planning style: ${physics.planningStyle}
+- Recovery pattern: ${physics.recoveryPattern}
+- Watch for: ${physics.warningSignals.join('; ')}
+${monthlySection}
+## PATRICK'S CURRENT WEEKLY GOALS
+${goalsList}
+
+## LAST WEEK'S JOURNAL
+${journalSection}
+
+${prevSection}## YOUR JOB
+
+Conduct a 7-question weekly interview, one question at a time. Wait for Patrick's answer before asking the next. If an answer is vague or hedging, push back once — be specific about what's missing — then accept and move on.
+
+The 7 questions, in order:
+
+1. "What's the shape of this week? What's locked, what's in play, what's on fire?"
+   → Captures: weeklyContext
+
+2. "Rank your threads. If you could only move one forward this week, which one? Then the next."
+   → Captures: hierarchy
+
+3. "What must happen this week — non-negotiable, can't-slip?"
+   → Captures: musts
+
+4. "One thing. If the week goes sideways and you can only protect one outcome, what is it?"
+   → Captures: currentPriority
+
+5. "What time is sacred this week? What blocks do I protect no matter what comes in?"
+   → Captures: protectedBlocks
+
+6. "Any patterns you've noticed in how you've been working lately? Anything worth naming — good or bad."
+   → Captures: tells
+
+7. "What are you avoiding? What keeps getting pushed to next week?"
+   → Captures: honestAudit
+
+## AFTER ALL 7 ANSWERS
+
+Synthesize Patrick's answers into a structured context block. Output it as a fenced JSON code block with exactly these keys:
+
+\`\`\`json
+{
+  "weeklyContext": "...",
+  "hierarchy": "...",
+  "musts": "...",
+  "currentPriority": "...",
+  "protectedBlocks": "...",
+  "tells": "...",
+  "honestAudit": "..."
+}
+\`\`\`
+
+Values should be concise summaries (1-2 sentences each), not raw quotes. Capture the signal, drop the filler.
+
+## RESPONSE FORMAT
+- One question per turn. Short setup (1-2 sentences max) then the question.
+- If pushing back, be specific about what's vague. One pushback max per question.
+- Max 60 words per question turn. Max 120 words for the synthesis turn.
+- After the final answer, output the JSON block. No closing summary.
+- No preamble ("Great!", "Sure,", "Got it"). Lead with substance.`;
+}
+
 export function buildSystemPrompt(ctx: BriefingContext): string {
+  if (ctx.inkMode === 'sunday-interview') {
+    return buildInterviewPrompt(ctx);
+  }
+
   const goalsList = ctx.weeklyGoals
     .map(g => `- ${g.title}${g.why ? ` (why: ${g.why})` : ''}`)
     .join('\n');

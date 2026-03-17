@@ -21,9 +21,10 @@ import { useApp } from '@/context/AppContext';
 import type { ChatMessage } from '@/types/electron';
 import { useBriefingStream } from '@/hooks/useBriefingStream';
 import { detectInkMode } from '@/lib/ink-mode';
+import type { InkMode } from '@/types';
 import { buildBriefingContext, parseCommitChips, type CommitChip } from './morningBriefingUtils';
 
-type Phase = 'idle' | 'journal' | 'briefing' | 'conversation' | 'committing';
+type Phase = 'idle' | 'interview' | 'journal' | 'briefing' | 'conversation' | 'committing';
 type InkMoment = 'morning' | 'midday' | 'evening';
 
 interface JournalQuestion {
@@ -49,6 +50,24 @@ function buildJournalQuestions(goals: Array<{ id: string; title: string }>): Jou
     subtext: 'Something that has nothing to do with the work.',
   });
   return questions;
+}
+
+function extractInterviewContext(content: string): Record<string, string> | null {
+  const jsonMatch = content.match(/```json\s*\n([\s\S]*?)\n```/);
+  if (!jsonMatch) return null;
+  try {
+    const parsed = JSON.parse(jsonMatch[1]);
+    if (typeof parsed !== 'object' || !parsed) return null;
+
+    const fields = ['weeklyContext', 'hierarchy', 'musts', 'currentPriority', 'protectedBlocks', 'tells', 'honestAudit'] as const;
+    const result: Record<string, string> = {};
+    for (const key of fields) {
+      if (parsed[key]) result[key] = String(parsed[key]);
+    }
+    return Object.keys(result).length > 0 ? result : null;
+  } catch {
+    return null;
+  }
 }
 
 interface StarterAction {
@@ -228,8 +247,21 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
   const journalInputRef = useRef<HTMLTextAreaElement>(null);
   const hasStartedBriefingRef = useRef(false);
   const closeTimeoutRef = useRef<number | null>(null);
+  const phaseRef = useRef<Phase>('idle');
   const inkMoment = getInkMoment();
   const introState = getIntroState(inkMoment);
+
+  // Resolved ink mode (async — needs weekUpdatedAt from store)
+  const [resolvedInkMode, setResolvedInkMode] = useState<InkMode | null>(null);
+
+  useEffect(() => {
+    void window.api.ink.readContext().then((ctx) => {
+      setResolvedInkMode(detectInkMode(new Date(), ctx.weekUpdatedAt));
+    });
+  }, []);
+
+  // Keep phaseRef in sync
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   useEffect(() => {
     return () => {
@@ -239,15 +271,19 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
     };
   }, []);
 
-  const currentInkMode = detectInkMode();
+  // During interview phase → use interview prompt; otherwise daily mode
+  const promptInkMode: InkMode = phase === 'interview'
+    ? 'sunday-interview'
+    : (resolvedInkMode && resolvedInkMode !== 'sunday-interview' ? resolvedInkMode : detectInkMode());
+
   const buildContext = useCallback(() => buildBriefingContext({
     weeklyGoals,
     committedTasks,
     workdayEnd,
     scheduleBlocks,
     monthlyPlan,
-    inkMode: currentInkMode,
-  }), [weeklyGoals, committedTasks, workdayEnd, scheduleBlocks, monthlyPlan, currentInkMode]);
+    inkMode: promptInkMode,
+  }), [weeklyGoals, committedTasks, workdayEnd, scheduleBlocks, monthlyPlan, promptInkMode]);
 
   const {
     streamingContent,
@@ -258,6 +294,28 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
     buildContext,
     onAssistantMessage: (content) => {
       setMessages((prev) => [...prev, { role: 'assistant', content }]);
+
+      // Detect interview completion — AI outputs JSON context block
+      if (phaseRef.current === 'interview') {
+        const contextJson = extractInterviewContext(content);
+        if (contextJson) {
+          void window.api.ink.writeContext({
+            ...contextJson,
+            weekUpdatedAt: new Date().toISOString(),
+          }).then(() => {
+            // Transition: interview → journal (morning + goals) or briefing
+            if (inkMoment === 'morning' && weeklyGoals.length > 0) {
+              setMessages([]);
+              setPhase('journal');
+            } else {
+              const msg: ChatMessage = { role: 'user', content: 'Run my morning briefing.' };
+              setMessages([msg]);
+              setPhase('briefing');
+              void streamMessage([msg]);
+            }
+          });
+        }
+      }
     },
   });
   const showIntro = mode === 'chat' && messages.length === 0 && !streamingContent && !isStreaming && !error;
@@ -315,14 +373,19 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, streamingContent]);
 
-  // Auto-fire briefing on mount (briefing mode only - chat mode starts idle)
-  // Morning: journal beat first, then briefing. Other times: straight to briefing.
+  // Auto-fire on mount (briefing mode only - chat mode starts idle)
+  // Sunday/Monday interview → journal → briefing. Morning → journal → briefing. Other → straight briefing.
   useEffect(() => {
-    if (mode !== 'briefing') return;
+    if (mode !== 'briefing' || resolvedInkMode === null) return;
     if (hasStartedBriefingRef.current) return;
     hasStartedBriefingRef.current = true;
 
-    if (inkMoment === 'morning' && weeklyGoals.length > 0) {
+    if (resolvedInkMode === 'sunday-interview') {
+      setPhase('interview');
+      const initialMsg: ChatMessage = { role: 'user', content: 'Start the weekly interview.' };
+      setMessages([initialMsg]);
+      void streamMessage([initialMsg]);
+    } else if (inkMoment === 'morning' && weeklyGoals.length > 0) {
       setPhase('journal');
     } else {
       setPhase('briefing');
@@ -330,7 +393,7 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
       setMessages([initialMsg]);
       void streamMessage([initialMsg]);
     }
-  }, [streamMessage, mode, inkMoment, weeklyGoals.length]);
+  }, [streamMessage, mode, inkMoment, weeklyGoals.length, resolvedInkMode]);
 
   const startConversation = useCallback((prompt: string) => {
     if (!prompt.trim() || isStreaming) return;
@@ -521,6 +584,16 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
           />
         )}
 
+        {phase === 'interview' && messages.length <= 1 && !streamingContent && (
+          <div className="max-w-[280px] border-b border-border-subtle/60 pb-5">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-accent-warm/80">
+              Weekly interview
+            </div>
+            <div className="mt-3 font-display italic text-[24px] font-light text-text-emphasis leading-snug">
+              Let&apos;s see the week.
+            </div>
+          </div>
+        )}
         {mode === 'briefing' && phase === 'briefing' && (
           <div className="max-w-[280px] border-b border-border-subtle/60 pb-5">
             <div className="text-[10px] uppercase tracking-[0.18em] text-accent-warm/80">
@@ -626,7 +699,7 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
       {phase !== 'journal' && phase !== 'committing' && !committed && (
         <div className="px-6 pb-5 pt-3 border-t border-border-subtle">
           {/* Commit trigger */}
-          {messages.length > 2 && !isStreaming && (
+          {messages.length > 2 && !isStreaming && phase !== 'interview' && (
             <button
               onClick={showCommitChips}
               className="w-full mb-2 px-3 py-1.5 rounded-md text-[11px] text-text-muted hover:text-text-primary hover:bg-bg-elevated/60 transition-colors border border-dashed border-border-subtle"
@@ -641,7 +714,7 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder={isStreaming ? 'Thinking...' : showIntro ? introState.inputPlaceholder : 'Push back, add, cut, or re-scope...'}
+              placeholder={isStreaming ? 'Thinking...' : phase === 'interview' ? 'Answer honestly...' : showIntro ? introState.inputPlaceholder : 'Push back, add, cut, or re-scope...'}
               rows={1}
               disabled={isStreaming}
               className="min-h-[44px] flex-1 resize-none bg-bg-elevated/60 border border-border-subtle rounded-lg px-4 py-3 text-[14px] leading-relaxed text-text-primary placeholder:text-text-muted/50 focus:outline-none focus:border-accent-warm/40 transition-colors disabled:opacity-50"
