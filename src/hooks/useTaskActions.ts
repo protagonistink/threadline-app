@@ -175,13 +175,13 @@ export function useTaskActions({
     );
   }, [setPlannedTasks]);
 
-  const moveForward = useCallback(async (taskId: string) => {
+  const detachTask = useCallback(async (taskId: string, targetStatus: 'migrated' | 'cancelled') => {
     await removeLinkedScheduleBlock(taskId);
 
     setPlannedTasks((prev) =>
       prev.map((task) => {
         if (task.id === taskId) {
-          return { ...task, status: 'migrated', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined };
+          return { ...task, status: targetStatus, active: false, scheduledEventId: undefined, scheduledCalendarId: undefined };
         }
         if (task.parentId === taskId) {
           return { ...task, parentId: undefined };
@@ -196,32 +196,11 @@ export function useTaskActions({
     }));
   }, [removeLinkedScheduleBlock, setDailyPlan, setPlannedTasks]);
 
-  const releaseTask = useCallback(async (taskId: string) => {
-    await removeLinkedScheduleBlock(taskId);
-
-    setPlannedTasks((prev) =>
-      prev.map((task) => {
-        if (task.id === taskId) {
-          return { ...task, status: 'cancelled', active: false, scheduledEventId: undefined, scheduledCalendarId: undefined };
-        }
-        if (task.parentId === taskId) {
-          return { ...task, parentId: undefined };
-        }
-        return task;
-      })
-    );
-
-    setDailyPlan((prev) => ({
-      ...prev,
-      committedTaskIds: prev.committedTaskIds.filter((id) => id !== taskId),
-    }));
-  }, [removeLinkedScheduleBlock, setDailyPlan, setPlannedTasks]);
+  const moveForward = useCallback((taskId: string) => detachTask(taskId, 'migrated'), [detachTask]);
+  const releaseTask = useCallback((taskId: string) => detachTask(taskId, 'cancelled'), [detachTask]);
 
   const toggleTask = useCallback(async (id: string) => {
     const linkedBlock = scheduleBlocks.find((block) => block.linkedTaskId === id);
-    if (linkedBlock) {
-      await removeLinkedScheduleBlock(id);
-    }
 
     setPlannedTasks((prev) =>
       prev.map((task) => {
@@ -229,12 +208,12 @@ export function useTaskActions({
         const nextDone = task.status !== 'done';
         return {
           ...task,
-          status: nextDone ? 'done' : 'committed',
+          status: nextDone ? 'done' : linkedBlock ? 'scheduled' : 'committed',
           active: false,
         };
       })
     );
-  }, [removeLinkedScheduleBlock, scheduleBlocks, setPlannedTasks]);
+  }, [scheduleBlocks, setPlannedTasks]);
 
   const setActiveTask = useCallback((id: string) => {
     setPlannedTasks((prev) =>
