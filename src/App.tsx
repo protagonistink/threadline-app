@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { DndProvider } from 'react-dnd';
+import { DndProvider, useDragLayer } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Lock, Sparkles } from 'lucide-react';
+import { Lock, Moon, Sparkles } from 'lucide-react';
 import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
@@ -46,7 +46,13 @@ function AppLayout() {
     dismissFocusPrompt,
     setActiveView,
     isInitialized,
+    unlockDay,
+    showEndOfDayPrompt,
+    dismissEndOfDayPrompt,
+    resetDay,
   } = useApp();
+
+  const { isDragging } = useDragLayer((monitor) => ({ isDragging: monitor.isDragging() }));
   const autoBriefingCheckedRef = useRef(false);
 
   const checkAutoBriefing = useCallback(async (isCancelled: () => boolean) => {
@@ -88,19 +94,21 @@ function AppLayout() {
     window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
   }, []);
 
-  // Escape key closes Ink overlay
+  // Escape key: close Ink overlay or exit focus lock
   useEffect(() => {
-    if (!showBriefing) return;
+    if (!showBriefing && !dayLocked) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeBriefing();
+      if (e.key !== 'Escape') return;
+      if (showBriefing) closeBriefing();
+      else if (dayLocked) unlockDay();
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showBriefing, closeBriefing]);
+  }, [showBriefing, dayLocked, closeBriefing, unlockDay]);
 
   const isOpening = layoutPhase === 'opening' && showBriefing;
   const sidebarIsCollapsed = isFocus || sidebarCollapsed || dayLocked || showBriefing;
-  const sourcePanelIsCollapsed = isFocus || dayLocked;
+  const sourcePanelIsCollapsed = isFocus || dayLocked || isDragging;
 
   return (
     <div
@@ -119,7 +127,7 @@ function AppLayout() {
           {/* Collapsed sidebar — icon strip only */}
           <Sidebar
             collapsed
-            onToggleCollapse={() => {}}
+            onToggleCollapse={closeBriefing}
             onSettingsClick={() => setShowSettings(true)}
             onShowBriefing={() => {}}
           />
@@ -283,6 +291,32 @@ function AppLayout() {
                 className="w-full px-5 py-2.5 text-text-muted hover:text-text-primary text-[11px] uppercase tracking-[0.18em] font-medium transition-colors duration-200"
               >
                 Start Fresh Session
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showEndOfDayPrompt && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-6 rounded-lg border border-border bg-bg-card px-10 py-8 shadow-2xl max-w-sm w-full mx-6">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <Moon className="w-5 h-5 text-accent-warm/70 mb-1" />
+              <p className="font-display text-[22px] text-text-emphasis leading-snug">That's a wrap.</p>
+              <p className="text-[12px] text-text-muted">Your workday end time has arrived. Time to close out or keep going.</p>
+            </div>
+            <div className="flex flex-col gap-2 w-full">
+              <button
+                onClick={() => { void resetDay(); dismissEndOfDayPrompt(); }}
+                className="w-full px-5 py-2.5 bg-accent-warm/10 hover:bg-accent-warm text-accent-warm hover:text-[#FAFAFA] text-[11px] uppercase tracking-[0.18em] font-medium transition-all duration-200 flex items-center justify-center gap-2"
+              >
+                <Moon className="w-3 h-3" />
+                End the Day
+              </button>
+              <button
+                onClick={dismissEndOfDayPrompt}
+                className="w-full px-5 py-2.5 text-text-muted hover:text-text-primary text-[11px] uppercase tracking-[0.18em] font-medium transition-colors duration-200"
+              >
+                Keep Going
               </button>
             </div>
           </div>
