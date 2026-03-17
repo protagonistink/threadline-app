@@ -13,6 +13,7 @@ export interface CommitChip {
 interface BuildBriefingContextOptions {
   weeklyGoals: WeeklyGoal[];
   committedTasks: PlannedTask[];
+  doneTasks: PlannedTask[];
   workdayEnd: { hour: number; min: number };
   scheduleBlocks: ScheduleBlock[];
   monthlyPlan?: MonthlyPlan | null;
@@ -26,6 +27,7 @@ function normalizeTaskTitle(value: string) {
 export async function buildBriefingContext({
   weeklyGoals,
   committedTasks,
+  doneTasks,
   workdayEnd,
   scheduleBlocks,
   monthlyPlan,
@@ -85,6 +87,14 @@ export async function buildBriefingContext({
     availableFocusMinutes: remainingMins,
     scheduledMinutes,
     committedTasks: committedTasks.map((task) => {
+      const goal = task.weeklyGoalId ? weeklyGoals.find((item) => item.id === task.weeklyGoalId) : null;
+      return {
+        title: task.title,
+        estimateMins: task.estimateMins || 45,
+        weeklyGoal: goal?.title || 'Unassigned',
+      };
+    }),
+    doneTasks: doneTasks.map((task) => {
       const goal = task.weeklyGoalId ? weeklyGoals.find((item) => item.id === task.weeklyGoalId) : null;
       return {
         title: task.title,

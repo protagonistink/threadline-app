@@ -7,7 +7,7 @@ const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 
 // Default model — update here or override via store key 'anthropic.model'
 const DEFAULT_MODEL = 'claude-sonnet-4-6';
-const AI_DEBUG = process.env.DEBUG_THREADLINE_AI === '1';
+const AI_DEBUG = process.env.DEBUG_INKED_AI === '1';
 
 // Max conversation turns to send per request (prevents token bloat in long sessions)
 const MAX_HISTORY_TURNS = 12;
@@ -51,6 +51,7 @@ interface BriefingContext {
   availableFocusMinutes: number;
   scheduledMinutes: number;
   committedTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
+  doneTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   countdowns: Array<{ title: string; daysUntil: number }>;
   workdayEndHour: number;
   workdayEndMin: number;
@@ -291,6 +292,60 @@ Patrick Kirkland — narrative strategist, screenwriter, and founder of Protagon
   const inkContext = loadInkContext();
   const inkSection = inkContext ? formatInkContextForPrompt(inkContext) : '';
 
+  // Today's journal entry — mode-specific framing
+  const todayStr = today.toISOString().split('T')[0];
+  const todayJournal = inkContext?.journalEntries?.find((e) => e.date === todayStr);
+  let journalMemorySection = '';
+
+  if (todayJournal && (ctx.inkMode === 'midday' || ctx.inkMode === 'evening')) {
+    const movers = todayJournal.needleMovers
+      ?.map((m) => `- ${m.goalTitle}: "${m.action}"`)
+      .join('\n') || 'None recorded.';
+
+    if (ctx.inkMode === 'midday') {
+      journalMemorySection = `## THIS MORNING'S JOURNAL
+
+Patrick said this morning:
+- **What excites him today:** "${todayJournal.excites}"
+- **Needle movers he committed to:**
+${movers}
+- **Just for him:** "${todayJournal.artistDate}"
+
+Reference these naturally. If he's drifting from what he said mattered, name it. If he's on track, acknowledge it briefly. Don't recite the journal back — weave it into your read of the day.
+
+`;
+    }
+
+    if (ctx.inkMode === 'evening') {
+      // Compare said vs happened
+      const doneList = ctx.doneTasks.length > 0
+        ? ctx.doneTasks.map((t) => `- ✓ ${t.title} (${t.estimateMins}m, ${t.weeklyGoal})`).join('\n')
+        : 'Nothing marked done.';
+      const stillOpen = ctx.committedTasks.length > 0
+        ? ctx.committedTasks.map((t) => `- ○ ${t.title} (${t.estimateMins}m, ${t.weeklyGoal})`).join('\n')
+        : 'All tasks completed or cleared.';
+
+      journalMemorySection = `## SAID VS HAPPENED
+
+**This morning Patrick said:**
+- Excited about: "${todayJournal.excites}"
+- Needle movers:
+${movers}
+- Just for him: "${todayJournal.artistDate}"
+
+**What actually happened:**
+Done:
+${doneList}
+
+Still open:
+${stillOpen}
+
+Compare the morning intention against the evening reality. Name what landed. Name what slipped. Be honest but not harsh — the goal is awareness, not guilt. If he did the artist date thing, celebrate it. If a needle mover got done, call it out. If something slipped, ask whether it was a real loss or a smart trade.
+
+`;
+    }
+  }
+
   // Character and behavioral instructions belong in your Anthropic Console system prompt.
   // This function injects only the live dynamic context that changes per-session.
   // The Console prompt handles: role, tone, briefing format, response constraints, etc.
@@ -302,7 +357,7 @@ ${physicsSection}
 
 ---
 
-${inkSection}## LIVE CONTEXT
+${inkSection}${journalMemorySection}## LIVE CONTEXT
 
 ${monthlySection ? monthlySection + '\n\n' : ''}### Patrick's Weekly Goals
 ${goalsList}

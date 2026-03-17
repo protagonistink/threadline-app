@@ -5,6 +5,9 @@ import electron from 'vite-plugin-electron/simple';
 import path from 'node:path';
 
 export default defineConfig({
+  test: {
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.worktrees/**'],
+  },
   plugins: [
     react(),
     tailwindcss(),

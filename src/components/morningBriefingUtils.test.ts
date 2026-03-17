@@ -73,6 +73,7 @@ describe('buildBriefingContext', () => {
     const context = await buildBriefingContext({
       weeklyGoals: [],
       committedTasks: [],
+      doneTasks: [],
       workdayEnd: { hour: 17, min: 0 },
       scheduleBlocks: [
         {

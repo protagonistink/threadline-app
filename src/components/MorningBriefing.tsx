@@ -279,14 +279,20 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
     ? 'sunday-interview'
     : (resolvedInkMode && resolvedInkMode !== 'sunday-interview' ? resolvedInkMode : detectInkMode());
 
+  // Done tasks: today's committed tasks that are marked done
+  const doneTasks = plannedTasks.filter(
+    (t) => t.status === 'done' && dailyPlan.committedTaskIds.includes(t.id)
+  );
+
   const buildContext = useCallback(() => buildBriefingContext({
     weeklyGoals,
     committedTasks,
+    doneTasks,
     workdayEnd,
     scheduleBlocks,
     monthlyPlan,
     inkMode: promptInkMode,
-  }), [weeklyGoals, committedTasks, workdayEnd, scheduleBlocks, monthlyPlan, promptInkMode]);
+  }), [weeklyGoals, committedTasks, doneTasks, workdayEnd, scheduleBlocks, monthlyPlan, promptInkMode]);
 
   const {
     streamingContent,
@@ -650,7 +656,7 @@ export function MorningBriefing({ onClose, onNewChat, onStreamingChange, mode = 
         {streamingContent && (
           <div className="flex gap-4">
             <div className="w-5 h-5 mt-0.5 rounded-full bg-accent-warm/20 flex items-center justify-center shrink-0">
-              <span className="text-[9px] font-bold text-accent-warm">TF</span>
+              <span className="text-[9px] font-bold text-accent-warm">Ink</span>
             </div>
             <div className="flex-1 min-w-0 pr-2">
               <div className="prose-briefing text-[15px] leading-relaxed text-text-primary">
@@ -942,7 +948,7 @@ function MessageBubble({ message, isFirst }: { message: ChatMessage; isFirst: bo
   return (
     <div className="flex gap-4 animate-fade-in">
       <div className="w-5 h-5 mt-0.5 rounded-full bg-accent-warm/20 flex items-center justify-center shrink-0">
-        <span className="text-[9px] font-bold text-accent-warm">TF</span>
+        <span className="text-[9px] font-bold text-accent-warm">Ink</span>
       </div>
       <div className="flex-1 min-w-0 pr-2 prose-briefing text-[15px] leading-[1.8] text-text-primary">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>

@@ -43,6 +43,7 @@ export interface BriefingContext {
   availableFocusMinutes: number;
   scheduledMinutes: number;
   committedTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
+  doneTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   countdowns: Array<{ title: string; daysUntil: number }>;
   workdayEndHour: number;
   workdayEndMin: number;
