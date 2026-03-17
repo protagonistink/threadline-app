@@ -533,9 +533,11 @@ export function registerAnthropicHandlers() {
       event.sender.send('ai:stream:done');
       return { success: true };
     } catch (error) {
-      console.error('[AI] Error in stream:start handler:', (error as Error).message);
+      const message = (error as Error).message;
+      console.error('[AI] Error in stream:start handler:', message);
+      event.sender.send('ai:stream:error', message);
       event.sender.send('ai:stream:done');
-      return { success: false, error: (error as Error).message };
+      return { success: false, error: message };
     }
   });
 

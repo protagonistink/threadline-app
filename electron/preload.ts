@@ -76,6 +76,11 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.once('ai:stream:done', handler);
       return () => ipcRenderer.removeListener('ai:stream:done', handler);
     },
+    onError: (callback: (error: string) => void) => {
+      const handler = (_event: unknown, error: string) => callback(error);
+      ipcRenderer.on('ai:stream:error', handler);
+      return () => ipcRenderer.removeListener('ai:stream:error', handler);
+    },
   },
   window: {
     showPomodoro: () => ipcRenderer.invoke('window:show-pomodoro'),

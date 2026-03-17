@@ -79,6 +79,7 @@ interface AIAPI {
   streamStart: (messages: ChatMessage[], context: BriefingContext) => Promise<{ success: boolean; error?: string }>;
   onToken: (callback: (token: string) => void) => () => void;
   onDone: (callback: () => void) => () => void;
+  onError: (callback: (error: string) => void) => () => void;
 }
 
 declare module '*.png' {

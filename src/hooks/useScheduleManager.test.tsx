@@ -102,6 +102,7 @@ describe('useScheduleManager', () => {
         streamStart: vi.fn(),
         onToken: vi.fn(),
         onDone: vi.fn(),
+        onError: vi.fn(),
       },
       physics: {
         get: vi.fn(),
