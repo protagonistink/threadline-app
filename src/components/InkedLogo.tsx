@@ -3,17 +3,17 @@ import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
 
-interface ThreadlineLogoProps {
+interface InkedLogoProps {
   collapsed?: boolean;
   className?: string;
 }
 
 /**
- * ThreadlineLogo — vector SVG logo with ink/stamp filter effects.
+ * InkedLogo — vector SVG logo with ink/stamp filter effects.
  * Collapsed: shows only the bracket + dots mark (square crop).
  * Expanded: shows full wordmark + bracket + dots.
  */
-export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoProps) {
+export function InkedLogo({ collapsed = false, className }: InkedLogoProps) {
   const { isLight } = useTheme();
   const filterId = useId();
   const inkFilterId = `${filterId}-ink`;
@@ -88,7 +88,7 @@ export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoP
   return (
     <div className={cn('flex items-center opacity-90', className)}>
       <svg
-        viewBox="-8 42 390 122"
+        viewBox="-8 42 300 122"
         preserveAspectRatio="xMinYMid meet"
         fill="none"
         className="block h-auto w-full overflow-visible"
@@ -113,12 +113,12 @@ export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoP
         </defs>
 
         <motion.text
-          x="220" y="115"
-          textAnchor="end"
+          x="0" y="115"
+          textAnchor="start"
           fill={wordmarkFill}
           style={{
             fontFamily: '"Cormorant Garamond", serif',
-            fontSize: '56px',
+            fontSize: '58px',
             fontWeight: 400,
             letterSpacing: '0.02em',
           }}
@@ -127,19 +127,21 @@ export function ThreadlineLogo({ collapsed = false, className }: ThreadlineLogoP
           transition={{ duration: 1.2, ease: 'easeOut' }}
           filter={`url(#${inkFilterId})`}
         >
-          threadline
+          inked
         </motion.text>
 
-        <motion.path
-          d="M 235 45 C 255 45, 265 65, 260 80 C 255 90, 255 98, 275 102 C 255 106, 255 114, 260 124 C 265 139, 255 159, 235 159 C 248 152, 252 142, 248 132 C 244 122, 248 112, 262 102 C 248 92, 244 82, 248 72 C 252 62, 248 52, 235 45 Z"
-          fill={bracketFill}
-          filter={`url(#${inkFilterId})`}
-          initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'center' }}
-          animate={{ opacity: 1, scaleY: 1 }}
-          transition={{ delay: 0.6, duration: 0.8, ease: 'easeOut' }}
-        />
+        <g transform="translate(-100, 0)">
+          <motion.path
+            d="M 235 45 C 255 45, 265 65, 260 80 C 255 90, 255 98, 275 102 C 255 106, 255 114, 260 124 C 265 139, 255 159, 235 159 C 248 152, 252 142, 248 132 C 244 122, 248 112, 262 102 C 248 92, 244 82, 248 72 C 252 62, 248 52, 235 45 Z"
+            fill={bracketFill}
+            filter={`url(#${inkFilterId})`}
+            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'center' }}
+            animate={{ opacity: 1, scaleY: 1 }}
+            transition={{ delay: 0.6, duration: 0.8, ease: 'easeOut' }}
+          />
+        </g>
 
-        <g transform="translate(10, -2)">
+        <g transform="translate(-90, -2)">
           <motion.circle cx="295" cy="104" r="11" fill="#E55547" filter={`url(#${stampFilterId})`}
             initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.0, duration: 0.5, type: "spring" }} />
           <motion.circle cx="326" cy="105" r="10.5" fill="#E55547" filter={`url(#${stampFilterId})`}

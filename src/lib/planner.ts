@@ -1,6 +1,7 @@
-import { format, startOfWeek } from 'date-fns';
+import { addDays, format, parseISO, startOfWeek } from 'date-fns';
 import type {
   AsanaTask,
+  DailyRitual,
   GCalEvent,
   InboxItem,
   PlannedTask,
@@ -9,7 +10,8 @@ import type {
 } from '@/types';
 import { formatRoundedHours } from '@/lib/utils';
 
-export const FOCUS_EVENT_MARKER = '[Threadline]';
+export const FOCUS_EVENT_MARKER = '[Inked]';
+export const CALENDAR_GRID_SNAP_MINS = 15;
 
 export function getToday(date = new Date()): string {
   return format(date, 'yyyy-MM-dd');
@@ -32,7 +34,7 @@ export function getPriority(task: AsanaTask): string | undefined {
 
 export function isDueSoon(task: AsanaTask): boolean {
   if (!task.due_on) return false;
-  const due = new Date(task.due_on);
+  const due = parseISO(task.due_on);
   const now = new Date();
   const diffDays = Math.floor((due.getTime() - now.getTime()) / 86400000);
   return diffDays <= 7;
@@ -98,8 +100,50 @@ export function blockEndMinutes(block: ScheduleBlock): number {
   return blockStartMinutes(block) + block.durationMins;
 }
 
+export function snapToCalendarGrid(totalMinutes: number, snapMins = CALENDAR_GRID_SNAP_MINS): number {
+  return Math.round(totalMinutes / snapMins) * snapMins;
+}
+
+export function getPlanningWeekStart(today = new Date()): Date {
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+  return today.getDay() === 0 ? addDays(weekStart, 7) : weekStart;
+}
+
 export function currentWeekStart(): string {
-  return format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  return format(getPlanningWeekStart(new Date()), 'yyyy-MM-dd');
+}
+
+export function buildRitualBlocks(
+  rituals: DailyRitual[],
+  workdayStart: { hour: number; min: number }
+): ScheduleBlock[] {
+  let cursorMinutes = workdayStart.hour * 60 + workdayStart.min;
+
+  return rituals.map((ritual) => {
+    const durationMins = ritual.estimateMins ?? 30;
+    const block: ScheduleBlock = {
+      id: `ritual-${ritual.id}`,
+      title: ritual.title,
+      startHour: Math.floor(cursorMinutes / 60),
+      startMin: cursorMinutes % 60,
+      durationMins,
+      kind: 'break',
+      readOnly: true,
+      source: 'local',
+    };
+
+    cursorMinutes += durationMins;
+    return block;
+  });
+}
+
+export function mergeScheduleBlocksWithRituals(
+  blocks: ScheduleBlock[],
+  rituals: DailyRitual[],
+  workdayStart: { hour: number; min: number }
+): ScheduleBlock[] {
+  const nonRitualBlocks = blocks.filter((block) => !block.id.startsWith('ritual-'));
+  return [...nonRitualBlocks, ...buildRitualBlocks(rituals, workdayStart)].sort(sortBlocksByStart);
 }
 
 function overlapsWindow(start: number, durationMins: number, block: ScheduleBlock): boolean {

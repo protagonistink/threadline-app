@@ -7,8 +7,7 @@ import {
   Sun,
   Flame,
   CalendarClock,
-  CheckCircle2,
-  Circle,
+  CalendarDays,
   ChevronsLeft,
   ChevronsRight,
   Sunrise,
@@ -16,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
-import { ThreadlineLogo } from './ThreadlineLogo';
+import { InkedLogo } from './InkedLogo';
 
 interface NavItemProps {
   icon: React.ElementType;
@@ -27,8 +26,6 @@ interface NavItemProps {
 }
 
 function NavItem({ icon: Icon, label, active, collapsed, onClick }: NavItemProps) {
-  const { isLight, isFocus } = useTheme();
-
   return (
     <button
       onClick={onClick}
@@ -37,11 +34,7 @@ function NavItem({ icon: Icon, label, active, collapsed, onClick }: NavItemProps
         'no-drag w-full flex items-center rounded-md text-[13px] transition-all duration-300',
         collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5',
         active
-          ? isLight
-            ? 'bg-bg-card shadow-sm text-text-emphasis font-medium shadow-[inset_3px_0_0_var(--color-accent-warm)]'
-            : isFocus
-              ? 'bg-bg-elevated text-text-primary font-medium'
-              : 'bg-white/10 text-text-emphasis font-medium shadow-[inset_3px_0_0_var(--color-accent-warm)]'
+          ? 'text-accent-warm font-medium'
           : 'text-text-muted/70 hover:text-text-primary hover:bg-bg-card/60'
       )}
     >
@@ -79,7 +72,7 @@ function ThemeSwitcher({ collapsed }: { collapsed: boolean }) {
   return (
     <div
       className={cn(
-        'flex gap-1 rounded-lg bg-bg-card p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]',
+        'flex gap-3',
         collapsed ? 'flex-col items-center justify-center' : 'items-center'
       )}
     >
@@ -88,10 +81,10 @@ function ThemeSwitcher({ collapsed }: { collapsed: boolean }) {
           key={value}
           onClick={() => handleModeClick(value)}
           className={cn(
-            'no-drag p-1.5 rounded-md transition-all duration-300',
+            'no-drag p-1 transition-all duration-300',
             (mode === value || (value === 'focus' && dayLocked))
-              ? 'bg-bg-elevated text-text-emphasis shadow-sm'
-              : 'text-text-muted hover:text-text-primary'
+              ? 'text-accent-warm/80'
+              : 'text-text-muted/40 hover:text-text-muted/70'
           )}
         >
           <Icon className="w-3.5 h-3.5" />
@@ -108,48 +101,13 @@ interface SidebarProps {
   onToggleCollapse: () => void;
 }
 
-function RitualsStrip() {
-  const { rituals, toggleRitualComplete } = useApp();
-  if (rituals.length === 0) return null;
-
-  const today = new Date().toISOString().slice(0, 10);
-
-  return (
-    <div className="pt-4 pb-2">
-      <div className="mb-2 px-3">
-        <span className="text-[10px] uppercase tracking-[0.14em] text-text-muted font-medium">
-          Daily Rituals
-        </span>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        {rituals.map((ritual) => {
-          const done = ritual.completedDates.includes(today);
-          return (
-            <button
-              key={ritual.id}
-              onClick={() => toggleRitualComplete(ritual.id)}
-              className="no-drag w-full flex items-center gap-2.5 px-3 py-1.5 rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-card/60 transition-all text-left"
-            >
-              {done ? (
-                <CheckCircle2 className="w-3.5 h-3.5 text-done shrink-0" />
-              ) : (
-                <Circle className="w-3.5 h-3.5 shrink-0" />
-              )}
-              <span className={cn('leading-snug', done && 'line-through opacity-60')}>{ritual.title}</span>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCollapse }: SidebarProps) {
   const { isLight } = useTheme();
-  const { activeView, setActiveView, openWeeklyPlanning } = useApp();
+  const { activeView, setActiveView, openWeeklyPlanning, openMonthlyPlanning } = useApp();
 
   return (
-    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)] backdrop-blur-xl shadow-[24px_0_60px_rgba(0,0,0,0.22)]', collapsed ? 'w-14' : 'w-52')}>
+    <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]', collapsed ? 'w-14' : 'w-52')}>
       <div
         className={cn(
           'drag-region shrink-0 transition-all duration-300',
@@ -158,7 +116,7 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
             : 'flex min-h-[148px] items-end px-4 pt-[76px] pb-6'
         )}
       >
-        <ThreadlineLogo
+        <InkedLogo
           collapsed={collapsed}
           className={collapsed ? 'mx-auto h-[36px] w-[36px] p-0.5' : 'ml-5 w-full max-w-[170px]'}
         />
@@ -215,11 +173,19 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
             <CalendarClock className="w-3.5 h-3.5 shrink-0" />
             <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Plan Week</span>
           </button>
+          <button
+            onClick={openMonthlyPlanning}
+            title={collapsed ? 'Plan Month' : undefined}
+            className={cn(
+              'no-drag w-full flex items-center rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-card/60 transition-all border border-dashed border-border-subtle',
+              collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5'
+            )}
+          >
+            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
+            <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Plan Month</span>
+          </button>
         </div>
 
-        <div className={cn('transition-opacity duration-150 overflow-hidden', collapsed ? 'opacity-0 h-0' : 'opacity-100')}>
-          <RitualsStrip />
-        </div>
       </nav>
 
       <div className={cn('border-t border-border-subtle flex flex-col gap-2', collapsed ? 'p-3' : 'p-3')}>
@@ -232,7 +198,7 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
         {!collapsed ? (
           <div className="flex items-center justify-between gap-1 mt-1 px-1.5">
             <button className="no-drag flex items-center gap-3 flex-1 min-w-0 px-2.5 py-1.5 rounded-lg hover:bg-bg-card transition-colors text-left group">
-              <div className="w-6 h-6 rounded-full bg-bg-elevated border border-border flex items-center justify-center text-[10px] display-font font-medium text-text-primary shrink-0 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+              <div className="w-6 h-6 rounded-full bg-bg-elevated border border-border flex items-center justify-center text-[10px] display-font font-medium text-text-primary shrink-0">
                 P
               </div>
               <div className="flex-1 min-w-0 flex flex-col justify-center">
@@ -240,7 +206,7 @@ export function Sidebar({ onSettingsClick, onShowBriefing, collapsed, onToggleCo
                   Patrick
                 </div>
                 <div className="text-[9px] uppercase tracking-wider text-accent-warm/80 flex items-center gap-1.5 mt-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-accent-warm/80 shadow-[0_0_8px_rgba(229,85,71,0.4)]" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent-warm/80" />
                   Connected
                 </div>
               </div>

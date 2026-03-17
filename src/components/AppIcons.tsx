@@ -6,7 +6,7 @@ export function AppMark({ className }: IconProps) {
   return (
     <img
       src="/icon.png"
-      alt="Threadline"
+      alt="Inked"
       className={className}
     />
   );
@@ -15,8 +15,8 @@ export function AppMark({ className }: IconProps) {
 export function AppWordmark({ className }: IconProps) {
   return (
     <img
-      src="/threadline_wordmark.png"
-      alt="Threadline"
+      src="/inked_logo_dark.png"
+      alt="Inked"
       className={className}
     />
   );
