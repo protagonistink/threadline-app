@@ -54,6 +54,7 @@ const SAFE_STORE_KEYS = new Set([
   'plannerState',
   'dayLocked',
   'dayLockedDate',
+  'monthlyPlanDismissedDate',
 ]);
 
 function isAllowedStoreKey(key: string) {
