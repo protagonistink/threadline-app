@@ -1083,7 +1083,7 @@ import { DeadlineMargin } from './DeadlineMargin';
 import { BlockCard } from './BlockCard';
 ```
 
-- [ ] **Delete lines 18–821** — this is everything from `const BASE_HOUR_HEIGHT = 96;` through the blank line after `AfterHoursVeil`'s closing brace (line 820 is `}`, line 821 is blank, line 822 is `export function Timeline() {`). That removes:
+- [ ] **Delete everything between the import block and `export function Timeline()`** — that is lines 18 through the blank line immediately before `export function Timeline() {`. In the current file, `export function Timeline()` is at line 922, so delete lines 18–921. Verify by running `grep -n "export function Timeline" src/components/Timeline.tsx` before deleting to confirm the exact line number. That removes:
   - 3 module-level constants
   - 5 utility functions
   - `FocusSetMeter`

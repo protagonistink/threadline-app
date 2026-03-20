@@ -228,6 +228,8 @@ function BlockCard({
   colCount = 1,
   isSelected = false,
   onSelect,
+  selectedNestedTaskId,
+  onSelectNestedTask,
 }: {
   block: ScheduleBlock;
   onRemove: () => void;
@@ -247,6 +249,8 @@ function BlockCard({
   colCount?: number;
   isSelected?: boolean;
   onSelect?: (blockId: string) => void;
+  selectedNestedTaskId?: string | null;
+  onSelectNestedTask?: (taskId: string | null) => void;
 }) {
   const { isFocus } = useTheme();
   const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, addLocalTask } = useApp();
@@ -526,7 +530,14 @@ function BlockCard({
           {nestedTasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center gap-2 pl-0.5 group/nested"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectNestedTask?.(selectedNestedTaskId === task.id ? null : task.id);
+              }}
+              className={cn(
+                'flex items-center gap-2 pl-0.5 group/nested rounded-sm transition-colors cursor-pointer',
+                selectedNestedTaskId === task.id && 'bg-accent-warm/10'
+              )}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); void toggleTask(task.id); }}
@@ -939,6 +950,7 @@ export function Timeline() {
     syncStatus,
     viewDate,
     dayCommitInfo,
+    unnestTaskFromBlock,
   } = useApp();
   const timelineLocked = dayCommitInfo.state === 'closed';
   const { play } = useSound();
@@ -1074,29 +1086,40 @@ export function Timeline() {
   const [livePomodoro, setLivePomodoro] = useState<PomodoroState | null>(null);
   const [inkMessage, setInkMessage] = useState('');
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+  const [selectedNestedTaskId, setSelectedNestedTaskId] = useState<string | null>(null);
 
-  // Keyboard delete for selected block
+  // Keyboard delete for selected block or nested task
   useEffect(() => {
-    if (!selectedBlockId || timelineLocked) return;
+    if (timelineLocked) return;
+    if (!selectedBlockId && !selectedNestedTaskId) return;
+
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
-        const block = scheduleBlocks.find((b) => b.id === selectedBlockId);
-        if (!block) return;
-        if (block.id.startsWith('ritual-')) {
-          toggleRitualSkipped(block.id.slice('ritual-'.length), format(viewDate, 'yyyy-MM-dd'));
-        } else if (!block.readOnly) {
-          removeScheduleBlock(block.id);
+        if (selectedNestedTaskId && selectedBlockId) {
+          unnestTaskFromBlock(selectedNestedTaskId, selectedBlockId);
+          setSelectedNestedTaskId(null);
+          return;
         }
-        setSelectedBlockId(null);
+        if (selectedBlockId) {
+          const block = scheduleBlocks.find((b) => b.id === selectedBlockId);
+          if (!block) return;
+          if (block.id.startsWith('ritual-')) {
+            toggleRitualSkipped(block.id.slice('ritual-'.length), format(viewDate, 'yyyy-MM-dd'));
+          } else if (!block.readOnly) {
+            removeScheduleBlock(block.id);
+          }
+          setSelectedBlockId(null);
+        }
       }
       if (e.key === 'Escape') {
         setSelectedBlockId(null);
+        setSelectedNestedTaskId(null);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedBlockId, timelineLocked, scheduleBlocks, removeScheduleBlock, toggleRitualSkipped, viewDate]);
+  }, [selectedBlockId, selectedNestedTaskId, timelineLocked, scheduleBlocks, removeScheduleBlock, toggleRitualSkipped, viewDate, unnestTaskFromBlock]);
 
   useEffect(() => {
     if (!isTodayView) {
@@ -1521,6 +1544,11 @@ export function Timeline() {
                 colCount={overlapLayout.get(block.id)?.colCount ?? 1}
                 isSelected={selectedBlockId === block.id}
                 onSelect={(id) => setSelectedBlockId(id || null)}
+                selectedNestedTaskId={selectedBlockId === block.id ? selectedNestedTaskId : null}
+                onSelectNestedTask={(taskId) => {
+                  setSelectedBlockId(block.id);
+                  setSelectedNestedTaskId(taskId);
+                }}
               />
             ))}
             {openIntervals.map((interval, i) => (
