@@ -13,18 +13,20 @@ Blocks are exclusive owners of their time slot. Tasks get nested inside blocks a
 ### No Overlaps
 
 - Every block (focus, ritual, hard/gcal) acts as a solid obstacle.
-- `planFocusCascade` already prevents focus blocks from overlapping each other and immovable blocks. Extend this so that when a user drags a block to a time slot occupied by another block, the block cascades to the next available gap — never stacks on top.
+- `planFocusCascade` already prevents focus blocks from overlapping each other and immovable blocks. Ritual blocks are already `readOnly: true`, so they're treated as immovable obstacles too. Verify this works end-to-end and that no code path bypasses the cascade.
 - The `overlapLayout` side-by-side rendering code becomes a safety net only. Under normal operation, no two blocks should share a time range.
 
 ### Nesting Tasks Into Blocks
 
 **Drag to nest:** Drag a task from the TodaysFlow sidebar onto an existing block (any kind: focus, ritual, or hard). The task appears as a checklist item inside that block instead of creating a new block.
 
-**Drop target differentiation:** When dragging a task over the timeline:
-- Hovering over empty grid space → show the existing ghost block preview (creates a new focus block)
-- Hovering over an existing block → highlight the block (e.g., brighter border or subtle glow) to indicate "nest inside this block"
+**Drop target implementation:** Each `BlockCard` gets its own `useDrop` zone that accepts `DragTypes.TASK`. When a task is dragged:
+- If the cursor is over a `BlockCard`'s drop zone → the block highlights and the task nests inside it on drop
+- If the cursor is over empty grid space → the existing grid-level `useDrop` handles it (creates a new focus block)
 
-**Inline add:** Each block shows a `+` button (visible on hover, or always visible if the block already has nested tasks). Clicking opens a single-line text input inside the block. Pressing Enter creates a new local task and nests it in that block. Pressing Escape or blur dismisses.
+The BlockCard drop zone takes priority because it's rendered inside the grid and is higher in the DOM/z-order.
+
+**Inline add:** Each block shows a `+` button (visible on hover, or always visible if the block already has nested tasks). Clicking opens a single-line text input inside the block. Pressing Enter creates a new local task and nests it in that block. The new task is assigned to the block's linked task's goal if available, otherwise no goal. Pressing Escape or blur dismisses. New tasks are appended at the bottom (insertion order).
 
 ### Visual Treatment
 
@@ -48,6 +50,8 @@ Nested tasks render as compact lines inside the BlockCard, below the block title
 
 ### Data Model
 
+**Relationship to existing `parentId` system:** The codebase already has task-to-task nesting via `PlannedTask.parentId` (used by `nestTask`/`unnestTask` in `useTaskActions`). That system nests tasks under *other tasks*. This new system nests tasks inside *schedule blocks*. They are orthogonal — a task with a `parentId` (subtask) can also be nested inside a block. No changes to the existing `parentId` system.
+
 Add to `ScheduleBlock`:
 
 ```typescript
@@ -58,6 +62,15 @@ These reference task IDs from the existing `plannedTasks` array. A task that is 
 - Is removed from the "unscheduled" count in TodaysFlow
 - Is still visible in TodaysFlow under its goal section (but shown with a subtle indicator that it's scheduled)
 - Does NOT get its own ScheduleBlock — it lives inside the parent block's `nestedTaskIds`
+
+### Persistence Across GCal Sync
+
+Hard (gcal) blocks are rebuilt from external data on each sync via `eventToBlock()` in `useExternalPlannerSync`. This would lose `nestedTaskIds`. To preserve nesting:
+
+- Store a separate map in planner state: `blockNesting: Record<string, string[]>` keyed by block ID.
+- After GCal sync rebuilds blocks, re-apply nesting from this map by matching block IDs.
+- GCal block IDs are derived from the calendar event ID, so they're stable across syncs.
+- If a GCal event is deleted, its nesting entries are cleaned up — nested tasks return to the unscheduled pool.
 
 ### Nesting a Task (State Changes)
 
@@ -75,9 +88,17 @@ When a nested task is removed from a block:
 2. The task returns to the unscheduled pool in TodaysFlow
 3. Method: select the nested task line + Delete key, or drag it out
 
+When a block is deleted (`removeScheduleBlock`):
+1. All tasks in `block.nestedTaskIds` return to the unscheduled pool
+2. Their `committedTaskIds` status is preserved — they're still committed, just no longer scheduled
+
+When `resetDay` is called:
+1. All `nestedTaskIds` are cleared along with the blocks
+2. Follows existing `resetDay` behavior — tasks go back to uncommitted
+
 ### No Time Tracking
 
-Nested tasks are a checklist. They have no individual time estimates. The parent block's duration is unchanged by nesting.
+Nested tasks are a checklist. They have no individual time estimates. The parent block's duration is unchanged by nesting. Physics warnings ignore nested tasks — they only consider block duration vs. time-of-day rules.
 
 ## Out of Scope
 
@@ -88,8 +109,12 @@ Nested tasks are a checklist. They have no individual time estimates. The parent
 
 ## Files Affected
 
-- `src/types.ts` — add `nestedTaskIds` to `ScheduleBlock`
+- `src/types/index.ts` — add `nestedTaskIds` to `ScheduleBlock`
 - `src/context/AppContext.tsx` — add `nestTaskInBlock`, `unnestTaskFromBlock` actions; update `scheduleTaskBlock` to handle drop-on-block vs. drop-on-grid
-- `src/components/Timeline.tsx` — `BlockCard` renders nested tasks, handles drop target for nesting, inline add input
+- `src/hooks/useScheduleManager.ts` — handle `nestedTaskIds` cleanup in `removeScheduleBlock`
+- `src/hooks/useExternalPlannerSync.ts` — preserve `nestedTaskIds` across GCal sync
+- `src/hooks/useDragDrop.ts` — may need extended `DragItem` metadata for nest-vs-schedule distinction
+- `src/components/Timeline.tsx` — `BlockCard` gets `useDrop` zone, renders nested tasks, inline add input
 - `src/components/TodaysFlow.tsx` — show indicator on tasks that are nested in a block
-- `src/lib/planner.ts` — ensure all block kinds act as obstacles (ritual blocks currently may not)
+- `src/lib/planner.ts` — verify all block kinds act as solid obstacles (ritual blocks are already `readOnly: true`)
+- `src/lib/plannerState.ts` — serialize/deserialize `nestedTaskIds` and `blockNesting` map
