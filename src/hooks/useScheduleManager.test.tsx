@@ -17,6 +17,15 @@ function useHarness() {
       estimateMins: 60,
       active: false,
     },
+    {
+      id: 'task-2',
+      title: 'Protect unrelated task',
+      source: 'local',
+      weeklyGoalId: 'goal-1',
+      status: 'candidate',
+      estimateMins: 45,
+      active: false,
+    },
   ]);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([]);
   const [dailyPlan, setDailyPlan] = useState<DailyPlan>({
@@ -28,9 +37,12 @@ function useHarness() {
     plannedTasks,
     scheduleBlocks,
     dailyPlan,
+    planningDate: '2026-03-12',
     setPlannedTasks,
     setScheduleBlocks,
-    setDailyPlan,
+    setDailyPlanForDate: (_date, value) => {
+      setDailyPlan((prev) => typeof value === 'function' ? value(prev) : value);
+    },
     bringForward: (taskId: string) => {
       setPlannedTasks((prev) =>
         prev.map((task) =>
@@ -53,6 +65,13 @@ function useHarness() {
     plannedTasks,
     scheduleBlocks,
     dailyPlan,
+    promoteTask2() {
+      setPlannedTasks((prev) =>
+        prev.map((task) =>
+          task.id === 'task-2' ? { ...task, status: 'committed' } : task
+        )
+      );
+    },
   };
 }
 
@@ -93,6 +112,7 @@ describe('useScheduleManager', () => {
       window: {
         showPomodoro: vi.fn(),
         hidePomodoro: vi.fn(),
+        hideCapture: vi.fn(),
         activate: vi.fn(),
         setFocusSize: vi.fn(),
         showMain: vi.fn(),
@@ -117,6 +137,20 @@ describe('useScheduleManager', () => {
         writeContext: vi.fn(),
         appendJournal: vi.fn(),
       },
+      chat: {
+        load: vi.fn().mockResolvedValue([]),
+        save: vi.fn().mockResolvedValue(true),
+        clear: vi.fn().mockResolvedValue(true),
+      },
+      capture: {
+        save: vi.fn(),
+        update: vi.fn(),
+        getToday: vi.fn(),
+        deleteEntry: vi.fn(),
+        onNewEntry: vi.fn(() => vi.fn()),
+        onEntryUpdated: vi.fn(() => vi.fn()),
+        onEntryDeleted: vi.fn(() => vi.fn()),
+      },
     };
   });
 
@@ -133,6 +167,39 @@ describe('useScheduleManager', () => {
       expect(result.current.plannedTasks[0].status).toBe('candidate');
       expect(result.current.plannedTasks[0]).not.toHaveProperty('scheduledEventId');
       expect(result.current.plannedTasks[0]).not.toHaveProperty('scheduledCalendarId');
+    });
+  });
+
+  it('does not wipe unrelated task changes when calendar creation fails', async () => {
+    let rejectCreate: ((value: { success: false; error: string }) => void) | null = null;
+    window.api.gcal.createEvent = vi.fn().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          rejectCreate = resolve as typeof rejectCreate;
+        })
+    );
+
+    const { result } = renderHook(() => useHarness());
+
+    await act(async () => {
+      void result.current.scheduleTaskBlock('task-1', 9, 0, 60);
+    });
+
+    await act(async () => {
+      result.current.promoteTask2();
+    });
+
+    await act(async () => {
+      rejectCreate?.({ success: false, error: 'Calendar exploded' });
+    });
+
+    await waitFor(() => {
+      expect(result.current.plannedTasks.find((task) => task.id === 'task-1')).toMatchObject({
+        status: 'candidate',
+      });
+      expect(result.current.plannedTasks.find((task) => task.id === 'task-2')).toMatchObject({
+        status: 'committed',
+      });
     });
   });
 });

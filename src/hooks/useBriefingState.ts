@@ -103,12 +103,32 @@ export function useBriefingState({
   const [pendingRituals, setPendingRituals] = useState<string[]>([]);
   const [proposalDate, setProposalDate] = useState(format(viewDate, 'yyyy-MM-dd'));
   const [resolvedInkMode, setResolvedInkMode] = useState<InkMode | null>(null);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hasStartedBriefingRef = useRef(false);
   const closeTimeoutRef = useRef<number | null>(null);
   const phaseRef = useRef<Phase>('idle');
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+
+  // Load persisted chat history for today on mount
+  useEffect(() => {
+    void window.api.chat.load(todayStr).then((stored) => {
+      if (stored.length > 0) {
+        setMessages(stored);
+        setPhase('conversation');
+      }
+      setHistoryLoaded(true);
+    });
+  }, [todayStr]);
+
+  // Persist messages whenever they change (debounced by the fact setMessages is batched)
+  useEffect(() => {
+    if (!historyLoaded || messages.length === 0) return;
+    void window.api.chat.save(todayStr, messages);
+  }, [messages, todayStr, historyLoaded]);
 
   useEffect(() => {
     void window.api.ink.readContext().then((ctx) => {
@@ -206,8 +226,13 @@ export function useBriefingState({
   }, [messages, streamingContent]);
 
   useEffect(() => {
-    if (mode !== 'briefing' || resolvedInkMode === null) return;
+    if (mode !== 'briefing' || resolvedInkMode === null || !historyLoaded) return;
     if (hasStartedBriefingRef.current) return;
+    // Skip auto-start if we restored a previous conversation
+    if (messages.length > 0) {
+      hasStartedBriefingRef.current = true;
+      return;
+    }
     hasStartedBriefingRef.current = true;
 
     if (resolvedInkMode === 'sunday-interview') {
@@ -216,7 +241,7 @@ export function useBriefingState({
       setMessages([initialMsg]);
       void streamMessage([initialMsg]);
     }
-  }, [streamMessage, mode, resolvedInkMode]);
+  }, [streamMessage, mode, resolvedInkMode, historyLoaded, messages.length]);
 
   const handleStartDay = useCallback((intention: string) => {
     if (isStreaming) return;

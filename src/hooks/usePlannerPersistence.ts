@@ -10,13 +10,16 @@ import type {
   WeeklyGoal,
 } from '@/types';
 
-export type PersistedView = 'flow' | 'archive' | 'goals';
+export type PersistedView = 'flow' | 'archive' | 'goals' | 'scratch';
 export type PersistedSourceView = 'cover' | 'asana' | 'gcal' | 'gmail';
 
 export interface StoredPlannerState {
   weeklyGoals: WeeklyGoal[];
   plannedTasks: PlannedTask[];
-  dailyPlan: DailyPlan;
+  dailyPlan?: DailyPlan;
+  dailyPlans?: DailyPlan[];
+  viewDate?: string;
+  selectedDate?: string;
   timeLogs?: TimeLogEntry[];
   activeView?: PersistedView;
   activeSource?: PersistedSourceView;

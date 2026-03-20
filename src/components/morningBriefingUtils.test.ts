@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildBriefingContext } from './morningBriefingUtils';
+import { buildBriefingContext, stripStructuredAssistantBlocks } from './morningBriefingUtils';
 
 describe('buildBriefingContext', () => {
   beforeEach(() => {
@@ -43,6 +43,7 @@ describe('buildBriefingContext', () => {
       window: {
         showPomodoro: vi.fn(),
         hidePomodoro: vi.fn(),
+        hideCapture: vi.fn(),
         activate: vi.fn(),
         setFocusSize: vi.fn(),
         showMain: vi.fn(),
@@ -67,6 +68,20 @@ describe('buildBriefingContext', () => {
         writeContext: vi.fn(),
         appendJournal: vi.fn(),
       },
+      chat: {
+        load: vi.fn().mockResolvedValue([]),
+        save: vi.fn().mockResolvedValue(true),
+        clear: vi.fn().mockResolvedValue(true),
+      },
+      capture: {
+        save: vi.fn(),
+        update: vi.fn(),
+        getToday: vi.fn(),
+        deleteEntry: vi.fn(),
+        onNewEntry: vi.fn(() => vi.fn()),
+        onEntryUpdated: vi.fn(() => vi.fn()),
+        onEntryDeleted: vi.fn(() => vi.fn()),
+      },
     };
   });
 
@@ -75,7 +90,9 @@ describe('buildBriefingContext', () => {
       weeklyGoals: [],
       committedTasks: [],
       doneTasks: [],
+      workdayStart: { hour: 9, min: 0 },
       workdayEnd: { hour: 17, min: 0 },
+      planningDate: new Date().toISOString().split('T')[0],
       scheduleBlocks: [
         {
           id: 'block-1',
@@ -93,5 +110,23 @@ describe('buildBriefingContext', () => {
 
     expect(context.availableFocusMinutes).toBe(420);
     expect(context.scheduledMinutes).toBe(90);
+  });
+});
+
+describe('stripStructuredAssistantBlocks', () => {
+  it('removes schedule code blocks and ritual directives from visible assistant copy', () => {
+    const content = [
+      'Here is the plan.',
+      '',
+      '```schedule',
+      '[{"title":"Write draft","startHour":9,"startMin":0,"durationMins":60}]',
+      '```',
+      '',
+      '[RITUAL] LinkedIn post',
+      '',
+      'Keep the morning clean.',
+    ].join('\n');
+
+    expect(stripStructuredAssistantBlocks(content)).toBe('Here is the plan.\n\nKeep the morning clean.');
   });
 });

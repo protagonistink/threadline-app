@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { format } from 'date-fns';
 import type { MonthlyPlan } from '@/types';
 
 interface MonthlyPlanningOptions {
@@ -25,16 +26,22 @@ export function useMonthlyPlanning({
   const [isMonthlyPlanningOpen, setIsMonthlyPlanningOpen] = useState(false);
 
   useEffect(() => {
+    setMonthlyPlanState(initialMonthlyPlan);
+  }, [initialMonthlyPlan]);
+
+  useEffect(() => {
     if (!isInitialized) return;
-    const currentMonth = new Date().toISOString().slice(0, 7);
+    const currentMonth = format(new Date(), 'yyyy-MM');
     if (!monthlyPlan || monthlyPlan.month !== currentMonth) {
       void window.api.store.get('monthlyPlanDismissedDate').then((dismissed) => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = format(new Date(), 'yyyy-MM-dd');
         if (dismissed !== today) {
           setMonthlyPlanPrompt(true);
         }
       });
+      return;
     }
+    setMonthlyPlanPrompt(false);
   }, [isInitialized, monthlyPlan]);
 
   const setMonthlyPlan = useCallback((plan: MonthlyPlan) => {
@@ -45,7 +52,7 @@ export function useMonthlyPlanning({
   }, []);
 
   const dismissMonthlyPlanPrompt = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = format(new Date(), 'yyyy-MM-dd');
     void window.api.store.set('monthlyPlanDismissedDate', today);
     setMonthlyPlanPrompt(false);
   }, []);

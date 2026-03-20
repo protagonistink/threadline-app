@@ -1,24 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { format } from 'date-fns';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
+import { Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import type { InboxItem } from '@/types';
-
-const WORK_MODE_COLORS: Record<string, string> = {
-  deep_work: '#C83C2F',
-  collaborative: '#252B54',
-  admin: '#9C9EA2',
-  quick_win: '#5B8A8A',
-};
-
-const WORK_MODE_LABELS: Record<string, string> = {
-  deep_work: 'DEEP WORK',
-  collaborative: 'COLLABORATIVE',
-  admin: 'ADMIN',
-  quick_win: 'QUICK WIN',
-};
+import { WORK_MODE_COLORS, WORK_MODE_LABELS } from '@/constants/workModes';
 
 function summarizeSyncIssue(message: string) {
   const jsonStart = message.indexOf('{');
@@ -204,10 +193,12 @@ function RitualEntry({
   ritual,
   isPlaced,
   placedTime,
+  isSkipped,
 }: {
   ritual: { id: string; title: string; estimateMins?: number };
   isPlaced: boolean;
   placedTime: string;
+  isSkipped: boolean;
 }) {
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.TASK,
@@ -236,7 +227,7 @@ function RitualEntry({
         )}
         {ritual.estimateMins && !isPlaced && (
           <div className="font-sans text-[12px] text-text-muted/45 leading-relaxed mt-1.5 font-light">
-            {ritual.estimateMins} min
+            {isSkipped ? 'Skipped for this day' : `${ritual.estimateMins} min`}
           </div>
         )}
       </div>
@@ -244,35 +235,29 @@ function RitualEntry({
   );
 }
 
-function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
+function ReturnDropZone({ onDrop }: { onDrop: (item: DragItem) => void }) {
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, unknown, { isOver: boolean; canDrop: boolean }>({
-    accept: DragTypes.TASK,
-    canDrop: (item) => item.sourceType === 'asana',
-    drop: (item) => { onDrop(item.id); },
+    accept: [DragTypes.TASK, DragTypes.BLOCK],
+    canDrop: (item) => item.sourceType === 'asana' || item.sourceType === 'local',
+    drop: (item) => { onDrop(item); },
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),
       canDrop: monitor.canDrop(),
     }),
   });
 
+  // Only visible when actively dragging a compatible item
   return (
-    <div className="relative mt-2 px-4">
-      {/* Hand-drawn underline vector substituting a rigid 1px border */}
-      <svg className="absolute -top-3 left-0 right-0 w-full h-3 text-border pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 10">
-        <path d="M0 5 Q 25 3, 50 6 T 100 4" fill="none" stroke="currentColor" strokeWidth="0.8" opacity="0.6" strokeLinecap="round" />
-      </svg>
+    <div ref={dropRef} className={cn('relative mt-2 px-4 transition-all duration-200', !canDrop && 'hidden')}>
       <div
-      ref={dropRef}
       className={cn(
         'mx-4 mb-3 rounded-xl border border-dashed flex items-center justify-center px-3 py-3 text-[11px] font-medium tracking-[0.08em] uppercase transition-all duration-200',
-        isOver && canDrop
+        isOver
           ? 'border-accent-warm/60 bg-accent-warm/10 text-accent-warm'
-          : canDrop
-          ? 'border-border text-text-muted opacity-60'
-          : 'border-border-subtle text-text-muted opacity-30'
+          : 'border-border text-text-muted opacity-60'
       )}
     >
-      Return to inbox
+      Drop to release
       </div>
     </div>
   );
@@ -281,10 +266,25 @@ function ReturnDropZone({ onDrop }: { onDrop: (itemId: string) => void }) {
 const PAGE_SIZE = 7;
 
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
-  const { candidateItems, plannedTasks, selectedInboxId, selectInboxItem, releaseTask, lastCommitTimestamp, syncStatus, rituals, scheduleBlocks } = useApp();
+  const {
+    candidateItems,
+    plannedTasks,
+    weeklyGoals,
+    selectedInboxId,
+    selectInboxItem,
+    addInboxTask,
+    returnTaskToInbox,
+    lastCommitTimestamp,
+    syncStatus,
+    rituals,
+    scheduleBlocks,
+    viewDate,
+  } = useApp();
 
   const [showZen, setShowZen] = useState(false);
   const [page, setPage] = useState(0);
+  const [isComposing, setIsComposing] = useState(false);
+  const [draftTitle, setDraftTitle] = useState('');
 
   useEffect(() => {
     if (!lastCommitTimestamp) return;
@@ -293,7 +293,39 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     return () => clearTimeout(timer);
   }, [lastCommitTimestamp]);
 
-  const inboxItems = candidateItems.filter((item) => item.source === 'asana' || item.source === 'local');
+  const WORK_MODE_SORT_ORDER: Record<string, number> = {
+    deep_work: 0,
+    collaborative: 1,
+    quick_win: 2,
+    admin: 3,
+  };
+
+  const primaryGoalId = weeklyGoals[0]?.id ?? null;
+
+  const inboxItems = useMemo(() => {
+    const filtered = candidateItems.filter((item) => item.source === 'asana' || item.source === 'local');
+
+    return [...filtered].sort((a, b) => {
+      // 1. Ink recommends first (matches primary goal)
+      const aTask = plannedTasks.find((t) => t.id === a.id);
+      const bTask = plannedTasks.find((t) => t.id === b.id);
+      const aIsInk = primaryGoalId != null && aTask?.weeklyGoalId === primaryGoalId;
+      const bIsInk = primaryGoalId != null && bTask?.weeklyGoalId === primaryGoalId;
+      if (aIsInk !== bIsInk) return aIsInk ? -1 : 1;
+
+      // 2. Work mode: Deep Work → Collaborative → Quick Win → Admin → unset
+      const aMode = a.workMode ? (WORK_MODE_SORT_ORDER[a.workMode] ?? 4) : 4;
+      const bMode = b.workMode ? (WORK_MODE_SORT_ORDER[b.workMode] ?? 4) : 4;
+      if (aMode !== bMode) return aMode - bMode;
+
+      // 3. Priority (high first, then medium, etc.)
+      const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+      const aPri = a.priority ? (priorityOrder[a.priority.toLowerCase()] ?? 3) : 3;
+      const bPri = b.priority ? (priorityOrder[b.priority.toLowerCase()] ?? 3) : 3;
+      return aPri - bPri;
+    });
+  }, [candidateItems, plannedTasks, primaryGoalId]);
+
   const totalPages = Math.ceil(inboxItems.length / PAGE_SIZE);
 
   // Clamp page if items shrink (e.g. after committing last item on a page)
@@ -306,9 +338,19 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     ? summarizeSyncIssue(syncStatus.asana || syncStatus.gcal || '')
     : null;
 
-  const hasCommittedAsanaTasks = plannedTasks.some(
-    (t) => t.source === 'asana' && (t.status === 'committed' || t.status === 'scheduled')
+  const hasReturnableTasks = plannedTasks.some(
+    (t) => (t.source === 'asana' || t.source === 'local') && (t.status === 'committed' || t.status === 'scheduled')
   );
+  const viewDateKey = format(viewDate, 'yyyy-MM-dd');
+
+  function submitNewTask() {
+    const nextId = addInboxTask(draftTitle);
+    if (!nextId) return;
+    setDraftTitle('');
+    setIsComposing(false);
+    setPage(0);
+    selectInboxItem(nextId);
+  }
 
   return (
     <div
@@ -328,9 +370,55 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
             </h2>
             <span className="section-lbl mt-2" style={{ marginBottom: 0 }}>Ready to ink</span>
           </div>
-          {syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setIsComposing((value) => !value);
+                setDraftTitle('');
+              }}
+              className="rounded-md border border-border-subtle bg-bg-card/70 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-text-muted transition-colors hover:text-text-primary"
+              title={isComposing ? 'Close new task' : 'Add task'}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                {isComposing ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                New task
+              </span>
+            </button>
+            {syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
+          </div>
         </div>
       </div>
+
+      {isComposing && (
+        <div className="px-4 py-3 border-b border-border-subtle bg-bg-card/40">
+          <div className="flex items-center gap-2">
+            <input
+              value={draftTitle}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  submitNewTask();
+                }
+                if (event.key === 'Escape') {
+                  setIsComposing(false);
+                  setDraftTitle('');
+                }
+              }}
+              autoFocus
+              placeholder="Add a task to the inbox"
+              className="flex-1 rounded-md border border-border-subtle bg-bg px-3 py-2 text-[13px] text-text-primary outline-none transition-colors placeholder:text-text-muted/40 focus:border-accent-warm/40"
+            />
+            <button
+              onClick={submitNewTask}
+              disabled={!draftTitle.trim()}
+              className="rounded-md bg-accent-warm px-3 py-2 text-[11px] uppercase tracking-[0.14em] text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Add
+            </button>
+          </div>
+        </div>
+      )}
 
       {syncIssue && (
         <div className="px-4 py-3 border-b border-border-subtle bg-accent-warm/[0.045]">
@@ -395,20 +483,22 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
                   const block = scheduleBlocks.find((b) => b.id === ritualBlockId || b.linkedTaskId === ritualBlockId);
                   const isPlaced = !!block;
                   const placedTime = block ? formatBlockTime(block.startHour, block.startMin) : '';
+                  const isSkipped = (ritual.skippedDates ?? []).includes(viewDateKey);
                   return (
                     <RitualEntry
                       key={ritual.id}
                       ritual={ritual}
                       isPlaced={isPlaced}
                       placedTime={placedTime}
+                      isSkipped={isSkipped}
                     />
                   );
                 })}
               </>
             )}
           </div>
-          {hasCommittedAsanaTasks && (
-            <ReturnDropZone onDrop={(id) => { void releaseTask(id); }} />
+          {hasReturnableTasks && (
+            <ReturnDropZone onDrop={(item) => { void returnTaskToInbox(item.id); }} />
           )}
         </div>
 

@@ -1,5 +1,4 @@
-import { format } from 'date-fns';
-import { getToday } from '@/lib/planner';
+import { format, parseISO } from 'date-fns';
 import type { BriefingContext } from '@/types/electron';
 import type { InboxItem, InkMode, MonthlyPlan, PlannedTask, ScheduleBlock, WeeklyGoal } from '@/types';
 
@@ -14,8 +13,10 @@ interface BuildBriefingContextOptions {
   weeklyGoals: WeeklyGoal[];
   committedTasks: PlannedTask[];
   doneTasks: PlannedTask[];
+  workdayStart: { hour: number; min: number };
   workdayEnd: { hour: number; min: number };
   scheduleBlocks: ScheduleBlock[];
+  planningDate: string;
   monthlyPlan?: MonthlyPlan | null;
   inkMode?: InkMode;
 }
@@ -28,8 +29,10 @@ export async function buildBriefingContext({
   weeklyGoals,
   committedTasks,
   doneTasks,
+  workdayStart,
   workdayEnd,
   scheduleBlocks,
+  planningDate,
   monthlyPlan,
   inkMode,
 }: BuildBriefingContextOptions): Promise<BriefingContext> {
@@ -58,7 +61,7 @@ export async function buildBriefingContext({
 
   let gcalEvents: BriefingContext['gcalEvents'] = [];
   try {
-    const result = await window.api.gcal.getEvents(getToday());
+    const result = await window.api.gcal.getEvents(planningDate);
     if (result.success && result.data) {
       gcalEvents = result.data.map((event) => ({
         title: event.summary || '(No title)',
@@ -75,12 +78,21 @@ export async function buildBriefingContext({
   const endOfDay = new Date();
   endOfDay.setHours(workdayEnd.hour, workdayEnd.min, 0, 0);
   const remainingMins = Math.max(0, Math.floor((endOfDay.getTime() - now.getTime()) / 60000));
+  const minutesPastClose = Math.max(0, Math.floor((now.getTime() - endOfDay.getTime()) / 60000));
   const scheduledMinutes = scheduleBlocks
     .filter((block) => !block.readOnly)
     .reduce((sum, block) => sum + block.durationMins, 0);
+  const planningDateLabel = format(parseISO(planningDate), 'EEEE, MMMM d, yyyy');
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   return {
-    date: format(new Date(), 'EEEE, MMMM d, yyyy'),
+    date: planningDateLabel,
+    planningDate,
+    planningDateLabel,
+    planningDateIsToday: planningDate === today,
+    currentTime: format(now, 'h:mm a'),
+    currentHour: now.getHours(),
+    currentMinute: now.getMinutes(),
     weeklyGoals: weeklyGoals.map((goal) => ({ title: goal.title, why: goal.why })),
     asanaTasks,
     gcalEvents,
@@ -103,12 +115,29 @@ export async function buildBriefingContext({
       };
     }),
     countdowns: [],
+    workdayStartHour: workdayStart.hour,
+    workdayStartMin: workdayStart.min,
     workdayEndHour: workdayEnd.hour,
     workdayEndMin: workdayEnd.min,
+    isAfterWorkday: now > endOfDay,
+    minutesPastClose,
     monthlyOneThing: monthlyPlan?.oneThing,
     monthlyWhy: monthlyPlan?.why,
     inkMode,
   };
+}
+
+export function inferPlanningDateFromContent(content: string, fallbackDate: string): string {
+  const normalized = content.toLowerCase();
+  if (/\btomorrow\b/.test(normalized)) {
+    const date = new Date(`${fallbackDate}T12:00:00`);
+    date.setDate(date.getDate() + 1);
+    return format(date, 'yyyy-MM-dd');
+  }
+  if (/\btoday\b|\btonight\b|\bthis evening\b/.test(normalized)) {
+    return fallbackDate;
+  }
+  return fallbackDate;
 }
 
 export interface ScheduleChip {
@@ -217,4 +246,13 @@ export function parseRitualSuggestions(content: string): string[] {
     .filter((line) => /\[RITUAL\]/i.test(line))
     .map((line) => line.replace(/\[RITUAL\]/i, '').replace(/^[-–•*]\s*/, '').trim())
     .filter(Boolean);
+}
+
+export function stripStructuredAssistantBlocks(content: string): string {
+  return content
+    .replace(/```schedule\s*\n[\s\S]*?\n```/g, '')
+    .replace(/```json\s*\n[\s\S]*?\n```/g, '')
+    .replace(/^\s*\[RITUAL\].*$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }

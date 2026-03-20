@@ -8,6 +8,8 @@ interface SettingsProps {
 }
 
 export function Settings({ onClose }: SettingsProps) {
+  const [appVersion, setAppVersion] = useState('');
+  const [buildDate, setBuildDate] = useState<string | null>(null);
   const [anthropicApiKey, setAnthropicApiKey] = useState('');
   const [anthropicConfigured, setAnthropicConfigured] = useState(false);
   const [anthropicDirty, setAnthropicDirty] = useState(false);
@@ -58,6 +60,8 @@ export function Settings({ onClose }: SettingsProps) {
   useEffect(() => {
     async function load() {
       const settings = await window.api.settings.load();
+      setAppVersion(settings.app.version);
+      setBuildDate(settings.app.buildDate);
       setAnthropicConfigured(settings.anthropic.configured);
       setAsanaConfigured(settings.asana.configured);
       setGcalClientId(settings.gcal.clientId);
@@ -135,6 +139,14 @@ export function Settings({ onClose }: SettingsProps) {
     setSaving(false);
     onClose();
   }
+
+  const formattedBuildDate = buildDate
+    ? new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }).format(new Date(buildDate))
+    : 'Unavailable';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -312,6 +324,19 @@ export function Settings({ onClose }: SettingsProps) {
               placeholder="reddit.com&#10;twitter.com&#10;youtube.com"
               className="input-field resize-none font-mono text-[12px]"
             />
+          </Section>
+
+          <Section title="About">
+            <div className="rounded-lg border border-border bg-bg px-4 py-3 text-[12px] text-text-muted">
+              <div className="flex items-center justify-between gap-4">
+                <span>Version</span>
+                <span className="font-mono text-text-primary">{appVersion || 'Unknown'}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span>Build date</span>
+                <span className="font-mono text-text-primary">{formattedBuildDate}</span>
+              </div>
+            </div>
           </Section>
         </div>
 

@@ -1,23 +1,27 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { DailyPlan, PlannedTask, ScheduleBlock, WeeklyGoal } from '@/types';
-import { currentWeekStart, getToday } from '@/lib/planner';
+import { currentWeekStart } from '@/lib/planner';
 
 interface TaskActionsOptions {
   weeklyGoals: WeeklyGoal[];
+  plannedTasks: PlannedTask[];
   scheduleBlocks: ScheduleBlock[];
+  planningDate: string;
   setPlannedTasks: Dispatch<SetStateAction<PlannedTask[]>>;
   setScheduleBlocks: Dispatch<SetStateAction<ScheduleBlock[]>>;
-  setDailyPlan: Dispatch<SetStateAction<DailyPlan>>;
+  setDailyPlanForDate: (date: string, value: DailyPlan | ((current: DailyPlan) => DailyPlan)) => void;
   setSelectedInboxId: Dispatch<SetStateAction<string | null>>;
   setLastCommitTimestamp: Dispatch<SetStateAction<number>>;
 }
 
 export function useTaskActions({
   weeklyGoals,
+  plannedTasks,
   scheduleBlocks,
+  planningDate,
   setPlannedTasks,
   setScheduleBlocks,
-  setDailyPlan,
+  setDailyPlanForDate,
   setSelectedInboxId,
   setLastCommitTimestamp,
 }: TaskActionsOptions) {
@@ -37,27 +41,42 @@ export function useTaskActions({
 
   const migrateOldTasks = useCallback((): PlannedTask[] => {
     const weekStart = currentWeekStart();
-    const stale: PlannedTask[] = [];
+    const stale = plannedTasks.filter((task) => (
+      (task.status === 'committed' || task.status === 'scheduled') &&
+      task.lastCommittedDate &&
+      task.lastCommittedDate < weekStart
+    ));
+    const staleIds = new Set(stale.map((task) => task.id));
 
-    setPlannedTasks((prev) => prev.map((task) => {
-      if (
-        (task.status === 'committed' || task.status === 'scheduled') &&
-        task.lastCommittedDate &&
-        task.lastCommittedDate < weekStart
-      ) {
-        stale.push(task);
-        return { ...task, status: 'candidate' };
-      }
-      return task;
-    }));
+    if (staleIds.size === 0) return [];
 
-    setDailyPlan((prev) => ({
+    setPlannedTasks((prev) => prev.map((task) => (
+      staleIds.has(task.id)
+        ? {
+            ...task,
+            status: 'candidate',
+            active: false,
+            scheduledEventId: undefined,
+            scheduledCalendarId: undefined,
+          }
+        : task
+    )));
+
+    setScheduleBlocks((prev) => prev.filter((block) => !block.linkedTaskId || !staleIds.has(block.linkedTaskId)));
+
+    setDailyPlanForDate(planningDate, (prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.filter((id) => !stale.some((task) => task.id === id)),
     }));
 
-    return stale;
-  }, [setDailyPlan, setPlannedTasks]);
+    return stale.map((task) => ({
+      ...task,
+      status: 'candidate',
+      active: false,
+      scheduledEventId: undefined,
+      scheduledCalendarId: undefined,
+    }));
+  }, [plannedTasks, planningDate, setDailyPlanForDate, setPlannedTasks, setScheduleBlocks]);
 
   const dropTask = useCallback((taskId: string) => {
     setPlannedTasks((prev) =>
@@ -66,7 +85,6 @@ export function useTaskActions({
   }, [setPlannedTasks]);
 
   const nestTask = useCallback((childId: string, parentTaskId: string) => {
-    const today = getToday();
     setPlannedTasks((prev) => {
       const parent = prev.find((t) => t.id === parentTaskId);
       if (!parent) return prev;
@@ -77,7 +95,7 @@ export function useTaskActions({
             parentId: parentTaskId,
             weeklyGoalId: parent.weeklyGoalId,
             status: task.status === 'done' ? 'done' : 'committed',
-            lastCommittedDate: today,
+            lastCommittedDate: planningDate,
           };
         }
         if (
@@ -86,13 +104,13 @@ export function useTaskActions({
           task.status !== 'scheduled' &&
           task.status !== 'done'
         ) {
-          return { ...task, status: 'committed', lastCommittedDate: today };
+          return { ...task, status: 'committed', lastCommittedDate: planningDate };
         }
         return task;
       });
     });
 
-    setDailyPlan((prev) => {
+    setDailyPlanForDate(planningDate, (prev) => {
       let ids = prev.committedTaskIds;
       if (!ids.includes(childId)) ids = [...ids, childId];
       if (!ids.includes(parentTaskId)) ids = [...ids, parentTaskId];
@@ -101,7 +119,7 @@ export function useTaskActions({
 
     setSelectedInboxId(null);
     setLastCommitTimestamp(Date.now());
-  }, [setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setSelectedInboxId]);
+  }, [planningDate, setDailyPlanForDate, setLastCommitTimestamp, setPlannedTasks, setSelectedInboxId]);
 
   const unnestTask = useCallback((childId: string) => {
     setPlannedTasks((prev) =>
@@ -111,9 +129,9 @@ export function useTaskActions({
     );
   }, [setPlannedTasks]);
 
-  const bringForward = useCallback((taskId: string, goalId?: string) => {
-    const today = getToday();
+  const bringForward = useCallback((taskId: string, goalId?: string, targetDate?: string) => {
     const targetGoal = goalId || weeklyGoals[0]?.id || null;
+    const commitDate = targetDate || planningDate;
 
     setPlannedTasks((prev) =>
       prev.map((task) =>
@@ -122,13 +140,13 @@ export function useTaskActions({
               ...task,
               weeklyGoalId: targetGoal,
               status: task.status === 'done' ? 'done' : 'committed',
-              lastCommittedDate: today,
+              lastCommittedDate: commitDate,
             }
           : task
       )
     );
 
-    setDailyPlan((prev) => ({
+    setDailyPlanForDate(commitDate, (prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.includes(taskId)
         ? prev.committedTaskIds
@@ -137,14 +155,14 @@ export function useTaskActions({
 
     setSelectedInboxId(null);
     setLastCommitTimestamp(Date.now());
-  }, [setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setSelectedInboxId, weeklyGoals]);
+  }, [planningDate, setDailyPlanForDate, setLastCommitTimestamp, setPlannedTasks, setSelectedInboxId, weeklyGoals]);
 
-  const addLocalTask = useCallback((title: string, goalId?: string) => {
-    if (!title.trim()) return;
+  const addLocalTask = useCallback((title: string, goalId?: string, targetDate?: string): string => {
+    if (!title.trim()) return '';
 
     const nextId = `local-${Date.now()}`;
     const targetGoal = goalId || weeklyGoals[0]?.id || null;
-    const today = getToday();
+    const commitDate = targetDate || planningDate;
     const task: PlannedTask = {
       id: nextId,
       title: title.trim(),
@@ -153,27 +171,45 @@ export function useTaskActions({
       status: 'committed',
       estimateMins: 45,
       active: false,
-      lastCommittedDate: today,
+      lastCommittedDate: commitDate,
     };
 
     setPlannedTasks((prev) => [...prev, task]);
-    setDailyPlan((prev) => ({ ...prev, committedTaskIds: [...prev.committedTaskIds, nextId] }));
-  }, [setDailyPlan, setPlannedTasks, weeklyGoals]);
+    setDailyPlanForDate(commitDate, (prev) => ({ ...prev, committedTaskIds: [...prev.committedTaskIds, nextId] }));
+    return nextId;
+  }, [planningDate, setDailyPlanForDate, setPlannedTasks, weeklyGoals]);
+
+  const addInboxTask = useCallback((title: string): string => {
+    if (!title.trim()) return '';
+
+    const nextId = `local-${Date.now()}`;
+    const task: PlannedTask = {
+      id: nextId,
+      title: title.trim(),
+      source: 'local',
+      weeklyGoalId: null,
+      status: 'candidate',
+      estimateMins: 45,
+      active: false,
+    };
+
+    setPlannedTasks((prev) => [task, ...prev]);
+    return nextId;
+  }, [setPlannedTasks]);
 
   const assignTaskToGoal = useCallback((taskId: string, goalId: string) => {
-    const today = getToday();
     setPlannedTasks((prev) =>
       prev.map((task) =>
         task.id === taskId
           ? {
               ...task,
               weeklyGoalId: goalId,
-              lastCommittedDate: today,
+              lastCommittedDate: planningDate,
             }
           : task
       )
     );
-  }, [setPlannedTasks]);
+  }, [planningDate, setPlannedTasks]);
 
   const detachTask = useCallback(async (taskId: string, targetStatus: 'migrated' | 'cancelled') => {
     await removeLinkedScheduleBlock(taskId);
@@ -190,14 +226,36 @@ export function useTaskActions({
       })
     );
 
-    setDailyPlan((prev) => ({
+    setDailyPlanForDate(planningDate, (prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.filter((id) => id !== taskId),
     }));
-  }, [removeLinkedScheduleBlock, setDailyPlan, setPlannedTasks]);
+  }, [planningDate, removeLinkedScheduleBlock, setDailyPlanForDate, setPlannedTasks]);
 
   const moveForward = useCallback((taskId: string) => detachTask(taskId, 'migrated'), [detachTask]);
   const releaseTask = useCallback((taskId: string) => detachTask(taskId, 'cancelled'), [detachTask]);
+  const returnTaskToInbox = useCallback(async (taskId: string) => {
+    await removeLinkedScheduleBlock(taskId);
+
+    setPlannedTasks((prev) =>
+      prev.map((task) =>
+        task.id === taskId
+          ? {
+              ...task,
+              status: 'candidate',
+              active: false,
+              scheduledEventId: undefined,
+              scheduledCalendarId: undefined,
+            }
+          : task
+      )
+    );
+
+    setDailyPlanForDate(planningDate, (prev) => ({
+      ...prev,
+      committedTaskIds: prev.committedTaskIds.filter((id) => id !== taskId),
+    }));
+  }, [planningDate, removeLinkedScheduleBlock, setDailyPlanForDate, setPlannedTasks]);
 
   const toggleTask = useCallback(async (id: string) => {
     const linkedBlock = scheduleBlocks.find((block) => block.linkedTaskId === id);
@@ -237,9 +295,11 @@ export function useTaskActions({
     unnestTask,
     bringForward,
     addLocalTask,
+    addInboxTask,
     assignTaskToGoal,
     moveForward,
     releaseTask,
+    returnTaskToInbox,
     toggleTask,
     setActiveTask,
     updateTaskEstimate,

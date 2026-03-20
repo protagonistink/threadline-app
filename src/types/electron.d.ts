@@ -29,6 +29,12 @@ export interface GCalEventContext {
 
 export interface BriefingContext {
   date: string;
+  planningDate: string;
+  planningDateLabel: string;
+  planningDateIsToday: boolean;
+  currentTime: string;
+  currentHour: number;
+  currentMinute: number;
   weeklyGoals: Array<{ title: string; why?: string }>;
   asanaTasks: Array<{
     title: string;
@@ -45,8 +51,12 @@ export interface BriefingContext {
   committedTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   doneTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   countdowns: Array<{ title: string; daysUntil: number }>;
+  workdayStartHour: number;
+  workdayStartMin: number;
   workdayEndHour: number;
   workdayEndMin: number;
+  isAfterWorkday: boolean;
+  minutesPastClose: number;
   monthlyOneThing?: string;
   monthlyWhy?: string;
   inkMode?: InkMode;
@@ -120,6 +130,10 @@ interface StoreAPI {
 }
 
 export interface LoadedSettings {
+  app: {
+    version: string;
+    buildDate: string | null;
+  };
   anthropic: {
     configured: boolean;
   };
@@ -164,6 +178,7 @@ interface SettingsAPI {
 interface WindowAPI {
   showPomodoro: () => Promise<void>;
   hidePomodoro: () => Promise<void>;
+  hideCapture: () => Promise<void>;
   activate: () => Promise<void>;
   setFocusSize: (locked: boolean) => Promise<void>;
   showMain: () => Promise<void>;
@@ -177,6 +192,28 @@ interface InkAPI {
   readContext: () => Promise<InkContext>;
   writeContext: (data: Partial<InkContext>) => Promise<InkContext>;
   appendJournal: (entry: InkJournalEntry) => Promise<InkJournalEntry[]>;
+}
+
+interface ChatHistoryAPI {
+  load: (date: string) => Promise<ChatMessage[]>;
+  save: (date: string, messages: ChatMessage[]) => Promise<boolean>;
+  clear: (date: string) => Promise<boolean>;
+}
+
+export interface ScratchEntry {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+interface CaptureAPI {
+  save: (text: string) => Promise<ScratchEntry>;
+  update: (id: string, text: string) => Promise<ScratchEntry | null>;
+  getToday: () => Promise<ScratchEntry[]>;
+  deleteEntry: (id: string) => Promise<void>;
+  onNewEntry: (callback: (entry: ScratchEntry) => void) => () => void;
+  onEntryUpdated: (callback: (entry: ScratchEntry) => void) => () => void;
+  onEntryDeleted: (callback: (id: string) => void) => () => void;
 }
 
 declare global {
@@ -193,6 +230,8 @@ declare global {
       physics: PhysicsAPI;
       shell: ShellAPI;
       ink: InkAPI;
+      chat: ChatHistoryAPI;
+      capture: CaptureAPI;
     };
   }
 }

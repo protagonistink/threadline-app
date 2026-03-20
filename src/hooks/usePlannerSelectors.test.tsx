@@ -70,6 +70,7 @@ describe('usePlannerSelectors', () => {
       plannedTasks,
       scheduleBlocks,
       dailyPlan,
+      planningDate: '2026-03-12',
     }));
 
     expect(result.current.currentBlock?.id).toBe('block-1');
@@ -96,6 +97,7 @@ describe('usePlannerSelectors', () => {
       plannedTasks: doneTasks,
       scheduleBlocks,
       dailyPlan,
+      planningDate: '2026-03-12',
     }));
 
     expect(result.current.currentBlock).toBeNull();
@@ -112,6 +114,7 @@ describe('usePlannerSelectors', () => {
       plannedTasks: doneTasks,
       scheduleBlocks,
       dailyPlan,
+      planningDate: '2026-03-12',
     }));
 
     expect(result.current.dayTasks.map((task) => task.id)).toEqual(['task-1', 'task-2']);

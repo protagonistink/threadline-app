@@ -37,6 +37,9 @@ interface UserPhysics {
 
 interface BriefingContext {
   date: string;
+  currentTime: string;
+  currentHour: number;
+  currentMinute: number;
   weeklyGoals: Array<{ title: string; why?: string }>;
   asanaTasks: Array<{
     title: string;
@@ -53,8 +56,12 @@ interface BriefingContext {
   committedTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   doneTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;
   countdowns: Array<{ title: string; daysUntil: number }>;
+  workdayStartHour: number;
+  workdayStartMin: number;
   workdayEndHour: number;
   workdayEndMin: number;
+  isAfterWorkday: boolean;
+  minutesPastClose: number;
   userPhysics?: UserPhysics;
   monthlyOneThing?: string;
   monthlyWhy?: string;
@@ -231,7 +238,15 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
   const capacityHours = (ctx.availableFocusMinutes / 60).toFixed(1);
   const scheduledHours = (ctx.scheduledMinutes / 60).toFixed(1);
   const remainingHours = (Math.max(0, ctx.availableFocusMinutes - ctx.scheduledMinutes) / 60).toFixed(1);
+  const startTime = `${ctx.workdayStartHour}:${String(ctx.workdayStartMin).padStart(2, '0')}`;
   const endTime = `${ctx.workdayEndHour}:${String(ctx.workdayEndMin).padStart(2, '0')}`;
+  const pastCloseHours = Math.floor(ctx.minutesPastClose / 60);
+  const pastCloseMinutes = ctx.minutesPastClose % 60;
+  const afterHoursLabel = ctx.minutesPastClose === 0
+    ? '0m past close'
+    : pastCloseHours > 0
+      ? `${pastCloseHours}h ${pastCloseMinutes}m past close`
+      : `${pastCloseMinutes}m past close`;
 
   // Rebuild Asana list with urgency markers for the prompt
   const asanaListDetailed = ctx.asanaTasks.length > 0
@@ -292,6 +307,15 @@ Patrick Kirkland — narrative strategist, screenwriter, and founder of Protagon
   const inkContext = loadInkContext();
   const inkSection = inkContext ? formatInkContextForPrompt(inkContext) : '';
 
+  // Load today's quick captures
+  const scratchRaw = store.get('scratch.entries') as Array<{ id: string; text: string; createdAt: string }> | undefined;
+  const todayScratch = Array.isArray(scratchRaw)
+    ? scratchRaw.filter((e) => e.createdAt.startsWith(today.toISOString().split('T')[0]))
+    : [];
+  const scratchSection = todayScratch.length > 0
+    ? `## QUICK CAPTURES (today)\nPatrick jotted these down during the day:\n${todayScratch.map((e) => `- "${e.text}" (${new Date(e.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })})`).join('\n')}\n\n`
+    : '';
+
   // Today's journal entry — mode-specific framing
   const todayStr = today.toISOString().split('T')[0];
   const todayJournal = inkContext?.journalEntries?.find((e) => e.date === todayStr);
@@ -349,7 +373,8 @@ Compare the morning intention against the evening reality. Name what landed. Nam
   // Character and behavioral instructions belong in your Anthropic Console system prompt.
   // This function injects only the live dynamic context that changes per-session.
   // The Console prompt handles: role, tone, briefing format, response constraints, etc.
-  return `Today is ${ctx.date}. Workday ends at ${endTime}.
+  return `The planning target date is ${ctx.planningDateLabel}. Current local time is ${ctx.currentTime}. Workday ends at ${endTime}. Session mode is ${ctx.inkMode ?? 'unspecified'}.
+The current session is ${ctx.isAfterWorkday ? `after hours (${afterHoursLabel})` : 'within the workday'}.
 
 ---
 
@@ -357,7 +382,7 @@ ${physicsSection}
 
 ---
 
-${inkSection}${journalMemorySection}## LIVE CONTEXT
+${inkSection}${scratchSection}${journalMemorySection}## LIVE CONTEXT
 
 ${monthlySection ? monthlySection + '\n\n' : ''}### Patrick's Weekly Goals
 ${goalsList}
@@ -365,13 +390,13 @@ ${goalsList}
 ### Asana Task List
 ${asanaListDetailed}
 
-### Today's Calendar
+### Calendar For The Planning Date
 ${gcalList}
 
 ### Deadlines and Countdowns
 ${countdownsDetailed}
 
-### Already Committed Today
+### Already Committed On The Planning Date
 ${alreadyCommitted}
 
 ### Focus Capacity
@@ -379,15 +404,36 @@ ${alreadyCommitted}
 - Already scheduled in blocks: ${scheduledHours}h
 - Remaining open capacity: ${remainingHours}h
 
+### Time Reality
+- Current local time: ${ctx.currentTime}
+- Workday: ${startTime} – ${endTime}
+- After workday: ${ctx.isAfterWorkday ? 'yes' : 'no'}
+- Minutes past close: ${ctx.minutesPastClose}
+
 ---
 ${ctx.inkMode === 'morning' ? `
 ## SCHEDULE PROPOSAL
-After your briefing analysis, if there are committed tasks or tasks you are recommending, propose a concrete schedule for today. Output a fenced code block with the language tag "schedule":
+You MUST end your morning briefing with a \`\`\`schedule code block proposing a concrete time-blocked plan for the planning target date. Always propose a schedule — this is how the user commits the selected day.
 
+Before the schedule block, do the planning work in plain language:
+- Name the real shape of the day, not a flattering one.
+- Distinguish fixed commitments, must-move work, and optional work.
+- If the day is overloaded, explicitly cut or defer things. Do not quietly cram everything in.
+- If the user pushes back, revise the plan directly instead of defending the old one.
+- If you are unsure which task the user means, say so plainly and make the ambiguity visible.
+
+Output a fenced JSON array with the language tag "schedule". Required fields per entry:
+- \`title\` (string): exact task title for existing tasks, descriptive title for new ones
+- \`startHour\` (integer, 24h): hour the block starts
+- \`startMin\` (integer): minute the block starts
+- \`durationMins\` (integer): block length in minutes
+
+Example:
 \`\`\`schedule
 [
-  {"title": "Exact task title", "startHour": 9, "startMin": 30, "durationMins": 90},
-  {"title": "Another task", "startHour": 11, "startMin": 0, "durationMins": 45}
+  {"title": "Workout", "startHour": ${ctx.workdayStartHour}, "startMin": ${ctx.workdayStartMin}, "durationMins": 30},
+  {"title": "DRIVR: Rewrite middle (Act 2A)", "startHour": 10, "startMin": 0, "durationMins": 90},
+  {"title": "Review project status", "startHour": 14, "startMin": 0, "durationMins": 45}
 ]
 \`\`\`
 
@@ -396,7 +442,10 @@ Rules:
 - You can include new tasks by inventing a title — they'll be created automatically when the user commits
 - Respect existing calendar events — never double-book
 - Honor peak energy window (${ctx.userPhysics?.peakEnergyWindow ?? 'morning'}) for deep work
-- Use the ideal focus block length (${ctx.userPhysics?.focusBlockLength ?? 45}min) as default duration
+- If a task has no clear duration, use ${ctx.userPhysics?.focusBlockLength ?? 60} minutes (the user's focus block length)
+- Schedule blocks within the workday window: ${startTime} – ${endTime}
+- Default to fewer, sharper blocks over a crowded plan
+- If there are more meaningful tasks than fit, choose the essential ones and say what got left out
 - The schedule block doesn't count against the word limit
 - If the user asks to replan or move items, output a new schedule block with the updated times
 ` : ''}
@@ -405,6 +454,15 @@ If the user asks you to add a task or suggests one should exist, include it as a
 
 ## ADDING DAILY RITUALS
 If the user asks you to add something as a recurring daily item, habit, or ritual (e.g., "add LinkedIn post as a daily ritual"), include a line in your reply using this exact format: [RITUAL] Title (e.g., "[RITUAL] LinkedIn post"). The app will prompt them to confirm adding it to their daily rituals.
+
+## TIME-OF-DAY BEHAVIOR
+- Treat the live local time as real, not hypothetical.
+- Treat the planning target date as the day you are scheduling and committing into.
+- If the planning target date is not today, do not label commitments as "today."
+- If "After workday" is yes, do not speak as if there is still a normal workday left today.
+- After hours, default to wrap-up, triage, reflection, or planning tomorrow unless Patrick explicitly says he is still working tonight.
+- Do not suggest "this afternoon," "before noon," "later today," or similar language when the current time makes that impossible.
+- If you propose work after hours, frame it explicitly as tonight or tomorrow.
 
 ## RESPONSE FORMAT
 - Hard limit: ${ctx.inkMode === 'midday' ? '120' : ctx.inkMode === 'evening' ? '180' : '200'} words total. No exceptions.

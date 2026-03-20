@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { format } from 'date-fns';
 import { X } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import { useApp } from '@/context/AppContext';
@@ -36,7 +37,7 @@ export function MonthlyPlanningWizard() {
     .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
     .toUpperCase();
   const monthShort = new Date().toLocaleDateString('en-US', { month: 'long' });
-  const monthKey = new Date().toISOString().slice(0, 7);
+  const monthKey = format(new Date(), 'yyyy-MM');
 
   function handleSave() {
     const plan: MonthlyPlan = { month: monthKey, reflection, oneThing, why };

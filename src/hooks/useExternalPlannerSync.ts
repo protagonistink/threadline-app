@@ -1,6 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { AsanaTask, DailyRitual, GCalEvent, PlannedTask, ScheduleBlock } from '@/types';
-import { asPlannedTask, eventToBlock, getToday, mergeScheduleBlocksWithRituals } from '@/lib/planner';
+import { asPlannedTask, eventToBlock, mergeScheduleBlocksWithRituals } from '@/lib/planner';
 
 interface SyncStatus {
   asana: string | null;
@@ -14,6 +14,7 @@ interface ExternalPlannerSyncOptions {
   setSyncStatus: Dispatch<SetStateAction<SyncStatus>>;
   rituals: DailyRitual[];
   workdayStart: { hour: number; min: number };
+  viewDate: string;
 }
 
 export function useExternalPlannerSync({
@@ -22,22 +23,28 @@ export function useExternalPlannerSync({
   setSyncStatus,
   rituals,
   workdayStart,
+  viewDate,
 }: ExternalPlannerSyncOptions) {
   const hydrateCalendar = useCallback((events: GCalEvent[], tasks: PlannedTask[]) => {
     const eventBlocks = events
       .map((event) => eventToBlock(event, tasks))
       .filter((block): block is ScheduleBlock => block !== null);
 
-    setScheduleBlocks(() => mergeScheduleBlocksWithRituals(eventBlocks, rituals, workdayStart));
-  }, [rituals, setScheduleBlocks, workdayStart]);
+    setScheduleBlocks(() => mergeScheduleBlocksWithRituals(eventBlocks, rituals, workdayStart, viewDate));
+  }, [rituals, setScheduleBlocks, viewDate, workdayStart]);
 
   const refreshExternalData = useCallback(async () => {
     setSyncStatus({ asana: null, gcal: null, loading: true });
 
     const [asanaResult, gcalResult] = await Promise.allSettled([
       window.api.asana.getTasks({ daysAhead: 7, limit: 50 }),
-      window.api.gcal.getEvents(getToday()),
+      window.api.gcal.getEvents(viewDate),
     ]);
+
+    // Capture the merged task list from the updater so we can pass it to
+    // hydrateCalendar afterwards — avoids calling setScheduleBlocks inside
+    // a setPlannedTasks updater function.
+    let mergedTasks: PlannedTask[] = [];
 
     setPlannedTasks((prev) => {
       let nextTasks = [...prev];
@@ -67,19 +74,20 @@ export function useExternalPlannerSync({
         setSyncStatus((prevStatus) => ({ ...prevStatus, asana: asanaResult.reason instanceof Error ? asanaResult.reason.message : 'Asana sync failed' }));
       }
 
-      if (gcalResult.status === 'fulfilled' && gcalResult.value.success && gcalResult.value.data) {
-        hydrateCalendar(gcalResult.value.data, nextTasks);
-      } else if (gcalResult.status === 'fulfilled' && !gcalResult.value.success) {
-        setSyncStatus((prevStatus) => ({ ...prevStatus, gcal: gcalResult.value.error || 'Calendar sync failed' }));
-      } else if (gcalResult.status === 'rejected') {
-        setSyncStatus((prevStatus) => ({ ...prevStatus, gcal: gcalResult.reason instanceof Error ? gcalResult.reason.message : 'Calendar sync failed' }));
-      }
-
+      mergedTasks = nextTasks;
       return nextTasks;
     });
 
+    if (gcalResult.status === 'fulfilled' && gcalResult.value.success && gcalResult.value.data) {
+      hydrateCalendar(gcalResult.value.data, mergedTasks);
+    } else if (gcalResult.status === 'fulfilled' && !gcalResult.value.success) {
+      setSyncStatus((prevStatus) => ({ ...prevStatus, gcal: gcalResult.value.error || 'Calendar sync failed' }));
+    } else if (gcalResult.status === 'rejected') {
+      setSyncStatus((prevStatus) => ({ ...prevStatus, gcal: gcalResult.reason instanceof Error ? gcalResult.reason.message : 'Calendar sync failed' }));
+    }
+
     setSyncStatus((prevStatus) => ({ ...prevStatus, loading: false }));
-  }, [hydrateCalendar, setPlannedTasks, setSyncStatus]);
+  }, [hydrateCalendar, setPlannedTasks, setSyncStatus, viewDate]);
 
   return {
     refreshExternalData,

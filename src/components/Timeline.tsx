@@ -12,7 +12,7 @@ import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
 import { usePhysicsWarnings } from '@/hooks/usePhysicsWarnings';
 import { useCurrentMinute } from '@/hooks/useCurrentMinute';
-import type { PomodoroState, ScheduleBlock } from '@/types';
+import type { PlannedTask, PomodoroState, ScheduleBlock } from '@/types';
 import { DateHeader } from './DateHeader';
 
 const BASE_HOUR_HEIGHT = 96;
@@ -267,6 +267,13 @@ function BlockCard({
     : block.kind === 'break' ? 'rgba(250,250,250,0.015)'
     : block.kind === 'hard' ? 'rgba(145,159,174,0.025)'
     : 'rgba(100,116,139,0.02)';
+  const nestedTasks = useMemo(
+    () => (block.nestedTaskIds ?? [])
+      .map((id) => plannedTasks.find((t) => t.id === id))
+      .filter((t): t is PlannedTask => t != null),
+    [block.nestedTaskIds, plannedTasks]
+  );
+
   const [{ isNestOver }, nestDropRef] = useDrop<DragItem, void, { isNestOver: boolean }>({
     accept: DragTypes.TASK,
     canDrop: () => !locked,
@@ -510,6 +517,36 @@ function BlockCard({
           </span>
         )}
       </div>
+
+      {nestedTasks.length > 0 && (
+        <div className="relative z-10 flex flex-col gap-0.5 mt-1">
+          {nestedTasks.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center gap-2 pl-0.5 group/nested"
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); void toggleTask(task.id); }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                className={cn(
+                  'w-2 h-2 rounded-full border shrink-0 transition-colors',
+                  task.status === 'done'
+                    ? 'bg-accent-warm/60 border-accent-warm/60'
+                    : 'border-text-muted/30 hover:border-text-muted/60'
+                )}
+              />
+              <span className={cn(
+                'font-sans text-[11px] truncate',
+                task.status === 'done'
+                  ? 'line-through text-text-muted/40'
+                  : 'text-text-primary/70'
+              )}>
+                {task.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* AI Breakdown for focus blocks */}
       {block.kind === 'focus' && block.linkedTaskId && (

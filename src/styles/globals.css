@@ -565,6 +565,17 @@
 }
 
 /* Prose styling for briefing chat messages */
+/* Morning Welcome */
+.morning-welcome-input::placeholder {
+  color: #64748B;
+}
+.morning-welcome-cta {
+  color: #94A3B8;
+}
+.morning-welcome-cta:hover {
+  color: #FFFFFF;
+}
+
 .prose-briefing p {
   margin-bottom: 0.5em;
 }
@@ -669,4 +680,228 @@
     transform: scale(1.9);
     opacity: 0;
   }
+}
+
+/* ============================================================
+   Planning Journal — Dot Grid, Block Variants, Triage
+   ============================================================ */
+
+/* Dot grid — very subtle, won't interfere with solid card bgs */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(250, 250, 250, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Section label */
+.section-lbl {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: rgba(148, 163, 184, 0.55);
+  display: block;
+  margin-bottom: 10px;
+}
+
+/* Day capacity bar */
+.capacity-track {
+  height: 3px;
+  background: rgba(250, 250, 250, 0.07);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.capacity-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s;
+}
+
+/* Timeline block variants — highlighter tints with subtle edges */
+.t-gcal {
+  background: rgba(145, 159, 174, 0.04);
+  border-radius: 6px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-left: 2px solid rgba(145, 159, 174, 0.3);
+  transition: background 0.2s;
+}
+.t-gcal:hover {
+  background: rgba(145, 159, 174, 0.07);
+}
+
+.t-ritual {
+  background: rgba(250, 250, 250, 0.02);
+  border-radius: 6px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-left: 2px solid rgba(250, 250, 250, 0.08);
+  transition: background 0.2s;
+}
+.t-ritual:hover {
+  background: rgba(250, 250, 250, 0.04);
+}
+
+.t-draft {
+  background: rgba(255, 151, 134, 0.03);
+  border-radius: 6px;
+  padding: 10px 12px 10px 16px;
+  border: 1px dashed rgba(255, 151, 134, 0.2);
+  border-left: 2px solid rgba(255, 151, 134, 0.5);
+  border-left-style: solid;
+}
+
+.t-inked {
+  border-radius: 6px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-left: 2px solid; /* color set dynamically via weeklyGoalId */
+  transition: background 0.2s;
+  /* background set dynamically via inline style using thread color */
+}
+.t-inked:hover {
+  filter: brightness(1.15);
+}
+
+/* Inked badge */
+.inked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(229, 85, 71, 0.6);
+  padding: 3px 8px;
+  border-radius: 9999px;
+  background: rgba(229, 85, 71, 0.08);
+}
+
+.inked-badge::before {
+  content: '\2726';
+  font-size: 7px;
+}
+
+/* Triage checkboxes — circle style, ink-bleed fill */
+.triage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: rgba(250, 250, 250, 0.45);
+  cursor: pointer;
+  transition: color 0.2s;
+  line-height: 1.4;
+}
+
+.triage-row:hover {
+  color: rgba(250, 250, 250, 0.7);
+}
+
+.triage-box {
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgba(255, 151, 134, 0.25);
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 1px;
+  transition: border-color 0.3s, box-shadow 0.4s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.triage-box::before {
+  content: '';
+  position: absolute;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 151, 134, 0.5);
+  transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.triage-row:hover .triage-box {
+  border-color: rgba(255, 151, 134, 0.4);
+}
+
+.triage-row.selected .triage-box {
+  border-color: rgba(255, 151, 134, 0.4);
+  box-shadow: 0 0 8px rgba(255, 151, 134, 0.12);
+}
+
+.triage-row.selected .triage-box::before {
+  width: 8px;
+  height: 8px;
+}
+
+/* Now pip */
+.now-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-accent-warm);
+  flex-shrink: 0;
+  box-shadow: 0 0 10px rgba(229, 85, 71, 0.4);
+}
+
+/* Time labels */
+.time-lbl {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  color: rgba(130, 130, 130, 0.45);
+  letter-spacing: 0.04em;
+  text-align: right;
+  width: 36px;
+  flex-shrink: 0;
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Physics warning — now just an amber dot, text in tooltip */
+
+/* Note entry — inbox cards */
+.note-entry {
+  position: relative;
+  padding: 14px 16px 14px 20px;
+  cursor: grab;
+  transition: background 0.3s;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  border-radius: 8px;
+}
+
+.note-entry:hover {
+  background: rgba(250, 250, 250, 0.025);
+}
+
+.note-entry:active {
+  cursor: grabbing;
+}
+
+/* Thread ink stroke — left edge */
+.note-entry::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  border-radius: 1px;
+}
+
+.note-entry.thread-primary::before { background: #E55547; opacity: 0.5; }
+.note-entry.thread-secondary::before { background: #4a6d8c; opacity: 0.5; }
+.note-entry.thread-tertiary::before { background: #919fae; opacity: 0.4; }
+.note-entry.thread-general::before { background: rgba(250, 250, 250, 0.07); }
+
+/* Placed entries */
+.note-entry.placed {
+  opacity: 0.25;
+  cursor: default;
 }

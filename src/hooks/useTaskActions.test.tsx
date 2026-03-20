@@ -10,7 +10,7 @@ const weeklyGoals: WeeklyGoal[] = [
   { id: 'goal-1', title: 'Client Work', color: 'bg-accent-warm' },
 ];
 
-function useHarness() {
+function useHarness(options?: { initialTask?: Partial<PlannedTask>; initialDailyPlan?: Partial<DailyPlan> }) {
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([
     {
       id: 'task-1',
@@ -22,6 +22,7 @@ function useHarness() {
       active: true,
       scheduledEventId: 'event-1',
       scheduledCalendarId: 'primary',
+      ...options?.initialTask,
     },
   ]);
   const [scheduleBlocks, setScheduleBlocks] = useState<ScheduleBlock[]>([
@@ -42,16 +43,21 @@ function useHarness() {
   const [dailyPlan, setDailyPlan] = useState<DailyPlan>({
     date: '2026-03-11',
     committedTaskIds: ['task-1'],
+    ...options?.initialDailyPlan,
   });
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [lastCommitTimestamp, setLastCommitTimestamp] = useState(0);
 
   const actions = useTaskActions({
     weeklyGoals,
+    plannedTasks,
     scheduleBlocks,
+    planningDate: '2026-03-11',
     setPlannedTasks,
     setScheduleBlocks,
-    setDailyPlan,
+    setDailyPlanForDate: (_date, value) => {
+      setDailyPlan((prev) => typeof value === 'function' ? value(prev) : value);
+    },
     setSelectedInboxId,
     setLastCommitTimestamp,
   });
@@ -103,6 +109,7 @@ describe('useTaskActions', () => {
       window: {
         showPomodoro: vi.fn(),
         hidePomodoro: vi.fn(),
+        hideCapture: vi.fn(),
         activate: vi.fn(),
         setFocusSize: vi.fn(),
         showMain: vi.fn(),
@@ -126,6 +133,20 @@ describe('useTaskActions', () => {
         readContext: vi.fn(),
         writeContext: vi.fn(),
         appendJournal: vi.fn(),
+      },
+      chat: {
+        load: vi.fn().mockResolvedValue([]),
+        save: vi.fn().mockResolvedValue(true),
+        clear: vi.fn().mockResolvedValue(true),
+      },
+      capture: {
+        save: vi.fn(),
+        update: vi.fn(),
+        getToday: vi.fn(),
+        deleteEntry: vi.fn(),
+        onNewEntry: vi.fn(() => vi.fn()),
+        onEntryUpdated: vi.fn(() => vi.fn()),
+        onEntryDeleted: vi.fn(() => vi.fn()),
       },
     };
   });
@@ -211,6 +232,27 @@ describe('useTaskActions', () => {
     });
   });
 
+  it('returnTaskToInbox removes the linked calendar block and restores candidate status', async () => {
+    const { result } = renderHook(() => useHarness());
+
+    await act(async () => {
+      await result.current.returnTaskToInbox('task-1');
+    });
+
+    expect(window.api.gcal.deleteEvent).toHaveBeenCalledWith('event-1', 'primary');
+
+    await waitFor(() => {
+      expect(result.current.scheduleBlocks).toHaveLength(0);
+      expect(result.current.dailyPlan.committedTaskIds).toEqual([]);
+      expect(result.current.plannedTasks[0]).toMatchObject({
+        status: 'candidate',
+        scheduledEventId: undefined,
+        scheduledCalendarId: undefined,
+        active: false,
+      });
+    });
+  });
+
   it('does not mutate local task state when calendar deletion fails', async () => {
     window.api.gcal.deleteEvent = vi.fn().mockResolvedValue({ success: false, error: 'Calendar exploded' });
     const { result } = renderHook(() => useHarness());
@@ -228,6 +270,28 @@ describe('useTaskActions', () => {
       scheduledEventId: 'event-1',
       scheduledCalendarId: 'primary',
       active: true,
+    });
+  });
+
+  it('migrateOldTasks clears stale schedule blocks and scheduling metadata', async () => {
+    const { result } = renderHook(() => useHarness({
+      initialTask: { lastCommittedDate: '2026-03-01' },
+      initialDailyPlan: { date: '2026-03-17' },
+    }));
+
+    await act(async () => {
+      result.current.migrateOldTasks();
+    });
+
+    await waitFor(() => {
+      expect(result.current.scheduleBlocks).toHaveLength(0);
+      expect(result.current.dailyPlan.committedTaskIds).toEqual([]);
+      expect(result.current.plannedTasks[0]).toMatchObject({
+        status: 'candidate',
+        scheduledEventId: undefined,
+        scheduledCalendarId: undefined,
+        active: false,
+      });
     });
   });
 });

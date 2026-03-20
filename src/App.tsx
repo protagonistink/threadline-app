@@ -1,18 +1,18 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { DndProvider, useDragLayer } from 'react-dnd';
+import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Lock, Moon, Sparkles, Sun } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, Lock, Moon, Sparkles, Sun } from 'lucide-react';
 import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { Sidebar } from './components/Sidebar';
 import { UnifiedInbox } from './components/UnifiedInbox';
-import { TodaysFlow } from './components/TodaysFlow';
 import { Timeline } from './components/Timeline';
 import { PomodoroTimer } from './components/PomodoroTimer';
 import { DragOverlay } from './components/DragOverlay';
 import { AtmosphereLayer } from './components/AtmosphereLayer';
+import { FocusOverlay } from './components/FocusOverlay';
 import { useTheme } from './context/ThemeContext';
 
 const Settings = lazy(() => import('./components/Settings').then((module) => ({ default: module.Settings })));
@@ -23,17 +23,23 @@ const MonthlyPlanningWizard = lazy(() => import('./components/MonthlyPlanningWiz
 const InkThread = lazy(() => import('./components/Thread').then((module) => ({ default: module.InkThread })));
 const MorningBriefing = lazy(() => import('./components/MorningBriefing').then((module) => ({ default: module.MorningBriefing })));
 const Archive = lazy(() => import('./components/Archive').then((module) => ({ default: module.Archive })));
+const ScratchView = lazy(() => import('./components/ScratchView').then((module) => ({ default: module.ScratchView })));
+const TodaysFlow = lazy(() => import('./components/TodaysFlow').then((module) => ({ default: module.TodaysFlow })));
+const PlanningGuardrails = lazy(() => import('./components/PlanningGuardrails').then((module) => ({ default: module.PlanningGuardrails })));
 
-const INK_PANEL_WIDTH = 380;
+const ASSISTANT_CLOSE_DELAY_MS = 140;
 
 type LayoutPhase = 'opening' | 'active';
 
 function AppLayout() {
   const [showSettings, setShowSettings] = useState(false);
   const [showBriefing, setShowBriefing] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const [assistantPinned, setAssistantPinned] = useState(false);
   const [briefingSessionId, setBriefingSessionId] = useState(0);
   const [briefingMode, setBriefingMode] = useState<'briefing' | 'chat'>('briefing');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sourcePanelCollapsed, setSourcePanelCollapsed] = useState(false);
   const [inkStreaming, setInkStreaming] = useState(false);
   const [layoutPhase, setLayoutPhase] = useState<LayoutPhase>('active');
   const [isEveningReflection, setIsEveningReflection] = useState(false);
@@ -41,7 +47,6 @@ function AppLayout() {
   const { isFocus } = useTheme();
   const {
     activeView,
-    dailyPlan,
     dayLocked,
     focusResumePrompt,
     resumeFocusMode,
@@ -54,14 +59,81 @@ function AppLayout() {
     showStartOfDayPrompt,
     dismissStartOfDayPrompt,
     resetDay,
+    isFirstLoadOfDay,
+    dayCommitInfo,
   } = useApp();
 
-  const { isDragging } = useDragLayer((monitor) => ({ isDragging: monitor.isDragging() }));
   const autoBriefingCheckedRef = useRef(false);
+  const initializedSourcePanelRef = useRef(false);
+  const assistantCloseTimeoutRef = useRef<number | null>(null);
+
+  const clearAssistantCloseTimeout = useCallback(() => {
+    if (assistantCloseTimeoutRef.current !== null) {
+      window.clearTimeout(assistantCloseTimeoutRef.current);
+      assistantCloseTimeoutRef.current = null;
+    }
+  }, []);
+
+  const closeAssistant = useCallback(() => {
+    clearAssistantCloseTimeout();
+    setAssistantPinned(false);
+    setAssistantOpen(false);
+  }, [clearAssistantCloseTimeout]);
+
+  const openAssistantPreview = useCallback(() => {
+    if (showBriefing) return;
+    clearAssistantCloseTimeout();
+    setActiveView('flow');
+    setBriefingMode('chat');
+    setAssistantOpen(true);
+  }, [clearAssistantCloseTimeout, setActiveView, showBriefing]);
+
+  const scheduleAssistantClose = useCallback(() => {
+    if (assistantPinned) return;
+    clearAssistantCloseTimeout();
+    assistantCloseTimeoutRef.current = window.setTimeout(() => {
+      setAssistantOpen(false);
+    }, ASSISTANT_CLOSE_DELAY_MS);
+  }, [assistantPinned, clearAssistantCloseTimeout]);
+
+  const openPinnedAssistant = useCallback(() => {
+    if (showBriefing) return;
+    clearAssistantCloseTimeout();
+    setActiveView('flow');
+    setBriefingMode('chat');
+    setAssistantOpen(true);
+    setAssistantPinned(true);
+  }, [clearAssistantCloseTimeout, setActiveView, showBriefing]);
+
+  const togglePinnedAssistant = useCallback(() => {
+    if (assistantPinned) {
+      closeAssistant();
+      return;
+    }
+    openPinnedAssistant();
+  }, [assistantPinned, closeAssistant, openPinnedAssistant]);
+
+  const openFullscreenInk = useCallback(() => {
+    closeAssistant();
+    const shouldRunBriefing = dayCommitInfo.state === 'briefing' && !dayCommitInfo.hadBlocks;
+    setBriefingMode(shouldRunBriefing ? 'briefing' : 'chat');
+    setIsEveningReflection(false);
+    setShowBriefing(true);
+    setLayoutPhase('opening');
+  }, [closeAssistant, dayCommitInfo.hadBlocks, dayCommitInfo.state]);
+
+  const openFullscreenEveningReflection = useCallback(() => {
+    closeAssistant();
+    setBriefingMode('chat');
+    setShowBriefing(true);
+    setIsEveningReflection(true);
+    setLayoutPhase('opening');
+  }, [closeAssistant]);
 
   const checkAutoBriefing = useCallback(async (isCancelled: () => boolean) => {
-    const hour = new Date().getHours();
-    if (hour >= 12 || dailyPlan.committedTaskIds.length > 0) return;
+    // Show briefing whenever user hasn't committed focus blocks, regardless of time.
+    // hasEverCommitted prevents re-triggering after someone clears all blocks.
+    if (dayCommitInfo.state !== 'briefing' || dayCommitInfo.hadBlocks) return;
 
     const key = `briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`;
     const [settings, dismissed] = await Promise.all([
@@ -70,11 +142,9 @@ function AppLayout() {
     ]);
 
     if (!isCancelled() && settings.anthropic.configured && !dismissed) {
-      setBriefingMode('briefing');
-      setShowBriefing(true);
-      setLayoutPhase('opening');
+      openFullscreenInk();
     }
-  }, [dailyPlan.committedTaskIds.length]);
+  }, [dayCommitInfo.state, dayCommitInfo.hadBlocks, openFullscreenInk]);
 
   // Auto-open briefing: before noon, no commits yet, API key configured
   // Gate on isInitialized so dailyPlan reflects the real stored state
@@ -93,38 +163,76 @@ function AppLayout() {
   // Weekly planning wizard is opened manually from the sidebar — no auto-open
 
   const closeBriefing = useCallback(() => {
+    const wasEvening = isEveningReflection;
     if (pendingDayReset) {
       void resetDay();
       setPendingDayReset(false);
     }
+    setSidebarCollapsed(true);
     setShowBriefing(false);
     setLayoutPhase('active');
     setIsEveningReflection(false);
     window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
-  }, [pendingDayReset, resetDay]);
+
+    // Generate and save evening reflection from today's conversation
+    if (wasEvening) {
+      const today = format(new Date(), 'yyyy-MM-dd');
+      void window.api.chat.load(today).then((msgs) => {
+        if (msgs.length < 2) return;
+        const transcript = msgs.map((m) => `${m.role}: ${m.content}`).join('\n').slice(0, 2000);
+        void window.api.ai.chat(
+          [{ role: 'user', content: `Summarize this end-of-day conversation in 1-2 sentences as a carry-forward note for tomorrow morning. Focus on what landed, what slipped, and any decisions made. Be concise and factual.\n\n${transcript}` }],
+          {} as any
+        ).then((res) => {
+          if (!res.success || !res.content) return;
+          void window.api.ink.readContext().then((ctx) => {
+            const entry = ctx.journalEntries?.find((e) => e.date === today);
+            if (entry) {
+              entry.eveningReflection = res.content!;
+              void window.api.ink.appendJournal(entry);
+            }
+          });
+        });
+      });
+    }
+  }, [pendingDayReset, resetDay, isEveningReflection]);
+
+  useEffect(() => {
+    return () => {
+      clearAssistantCloseTimeout();
+    };
+  }, [clearAssistantCloseTimeout]);
 
   // Escape key: close Ink overlay or exit focus lock
   useEffect(() => {
-    if (!showBriefing && !dayLocked) return;
+    if (!showBriefing && !assistantPinned && !dayLocked) return;
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key !== 'Escape') return;
       if (showBriefing) closeBriefing();
+      else if (assistantPinned) closeAssistant();
       else if (dayLocked) unlockDay();
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showBriefing, dayLocked, closeBriefing, unlockDay]);
+  }, [showBriefing, assistantPinned, dayLocked, closeBriefing, closeAssistant, unlockDay]);
+
+  useEffect(() => {
+    if (!isInitialized || initializedSourcePanelRef.current) return;
+    initializedSourcePanelRef.current = true;
+    setSourcePanelCollapsed(!isFirstLoadOfDay);
+  }, [isFirstLoadOfDay, isInitialized]);
 
   const isOpening = layoutPhase === 'opening' && showBriefing;
   const sidebarIsCollapsed = isFocus || sidebarCollapsed || dayLocked || showBriefing;
-  const sourcePanelIsCollapsed = isFocus || dayLocked || isDragging;
+  const sourcePanelAutoCollapsed = isFocus;
+  const sourcePanelIsCollapsed = sourcePanelAutoCollapsed || sourcePanelCollapsed;
 
   return (
     <div
-      data-ink-open={showBriefing ? 'true' : 'false'}
+      data-ink-open={showBriefing || assistantOpen ? 'true' : 'false'}
       className={cn(
         'cinematic-shell relative flex h-screen w-full bg-bg text-text-primary font-sans overflow-hidden transition-colors duration-700',
-        !showBriefing && 'grain'
+        !showBriefing && !assistantOpen && 'grain'
       )}
     >
       <div className="drag-region" />
@@ -144,7 +252,9 @@ function AppLayout() {
             <>
               {/* Evening: Today's Plan left, Ink right — review what you did */}
               <div className="flex-1 min-w-0 h-full overflow-hidden border-r border-border-subtle">
-                <TodaysFlow />
+                <Suspense fallback={null}>
+                  <TodaysFlow />
+                </Suspense>
               </div>
               <div className="h-full overflow-hidden" style={{ flex: '1 1 0%', minWidth: 320 }}>
                 <Suspense fallback={null}>
@@ -160,8 +270,8 @@ function AppLayout() {
             </>
           ) : (
             <>
-              {/* Morning: Ink left, Timeline right */}
-              <div className="flex-1 min-w-0 h-full overflow-hidden" style={{ flex: '1.2 1 0%' }}>
+              {/* Morning: Full-width Ink (has its own sidebar) */}
+              <div className="flex-1 min-w-0 h-full overflow-hidden">
                 <Suspense fallback={null}>
                   <MorningBriefing
                     key={briefingSessionId}
@@ -171,9 +281,6 @@ function AppLayout() {
                     onStreamingChange={setInkStreaming}
                   />
                 </Suspense>
-              </div>
-              <div className="h-full overflow-hidden border-l border-border-subtle" style={{ flex: '0.8 1 0%', minWidth: 280 }}>
-                <Timeline />
               </div>
             </>
           )}
@@ -185,39 +292,49 @@ function AppLayout() {
             collapsed={sidebarIsCollapsed}
             onToggleCollapse={() => setSidebarCollapsed((value) => !value)}
             onSettingsClick={() => setShowSettings(true)}
-            onShowBriefing={() => { setBriefingMode('briefing'); setShowBriefing(true); }}
-            onShowEveningReflection={() => { setBriefingMode('chat'); setShowBriefing(true); setIsEveningReflection(true); setLayoutPhase('opening'); }}
+            onShowBriefing={openFullscreenInk}
+            onShowEveningReflection={openFullscreenEveningReflection}
           />
-          {/* Content area — shrinks when Ink opens via margin-right */}
-          <div
-            className="flex flex-1 overflow-hidden transition-[margin,padding] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]"
-            style={{
-              marginRight: activeView === 'flow' && showBriefing ? INK_PANEL_WIDTH : 0
-            }}
-          >
+          <div className="flex flex-1 overflow-hidden">
             {activeView === 'flow' && (
               <>
-                {/* Threads */}
-                <div className={cn(
-                  'shrink-0 h-full overflow-hidden transition-[width,opacity] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
-                  sourcePanelIsCollapsed ? 'w-0 min-w-0 opacity-0 pointer-events-none' : 'w-[264px] opacity-100'
-                )}>
-                  <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
-                </div>
-                {/* Today's Plan — slightly narrower than Day Frame */}
-                <div
-                  className={cn(
-                    'h-full overflow-hidden transition-[width,flex,opacity,margin] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
-                    isFocus ? 'w-0 min-w-0 flex-[0_0_0%] opacity-0 pointer-events-none' : 'flex-1 min-w-[280px] opacity-100'
+                {/* Inbox collapse toggle */}
+                <div className="relative shrink-0 h-full flex">
+                  {!sourcePanelAutoCollapsed && sourcePanelCollapsed && (
+                    <button
+                      onClick={() => setSourcePanelCollapsed(false)}
+                      title="Open source list"
+                      aria-label="Open source list"
+                      className="flex h-full w-10 shrink-0 items-center justify-center border-r border-border-subtle bg-bg text-text-muted transition-colors hover:text-text-primary"
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </button>
                   )}
-                  style={{ flex: isFocus ? '0 0 0%' : '0.9 1 0%' }}
-                >
-                  <TodaysFlow collapsed={dayLocked} />
+                  <div className={cn(
+                    'relative h-full overflow-hidden transition-[width,opacity] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+                    sourcePanelIsCollapsed ? 'w-0 min-w-0 opacity-0 pointer-events-none' : 'w-[280px] opacity-100'
+                  )}>
+                    {!sourcePanelAutoCollapsed && !sourcePanelCollapsed && (
+                      <button
+                        onClick={() => setSourcePanelCollapsed(true)}
+                        title="Collapse source list"
+                        aria-label="Collapse source list"
+                        className="absolute right-3 top-3 z-10 rounded-md border border-border-subtle bg-bg-card/90 p-1 text-text-muted backdrop-blur-sm transition-colors hover:text-text-primary"
+                      >
+                        <ChevronsLeft className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                    <UnifiedInbox collapsed={sourcePanelIsCollapsed} />
+                  </div>
                 </div>
-                {/* Day Frame — slightly wider than Plan */}
-                <div className="flex-1 min-w-[320px] h-full overflow-hidden transition-[flex] duration-[600ms] ease-[cubic-bezier(0.4,0,0.2,1)]" style={{ flex: '1.1 1 0%' }}>
+                {/* Timeline — center column */}
+                <div className="flex-1 min-w-[320px] h-full overflow-hidden">
                   <Timeline />
                 </div>
+                {/* Guardrails — right column */}
+                <Suspense fallback={null}>
+                  <PlanningGuardrails onShowBriefing={openPinnedAssistant} />
+                </Suspense>
               </>
             )}
             {activeView === 'goals' && (
@@ -230,26 +347,9 @@ function AppLayout() {
                 <Archive />
               </Suspense>
             )}
-          </div>
-          {/* Ink panel — slides in from right, GPU-composited transform */}
-          <div
-            className={cn(
-              'absolute top-0 right-0 h-full z-20 transition-[transform,opacity] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
-              showBriefing
-                ? 'translate-x-0 opacity-100'
-                : 'translate-x-full opacity-0 pointer-events-none'
-            )}
-            style={{ width: INK_PANEL_WIDTH }}
-          >
-            {showBriefing && (
+            {activeView === 'scratch' && (
               <Suspense fallback={null}>
-                <MorningBriefing
-                  key={briefingSessionId}
-                  mode={briefingMode}
-                  onClose={closeBriefing}
-                  onNewChat={() => setBriefingSessionId((value) => value + 1)}
-                  onStreamingChange={setInkStreaming}
-                />
+                <ScratchView />
               </Suspense>
             )}
           </div>
@@ -270,34 +370,58 @@ function AppLayout() {
       <Suspense fallback={null}>
         <InkThread />
       </Suspense>
-      {!showBriefing && (
-        <button
-          onClick={() => {
-            setActiveView('flow');
-            setBriefingMode('chat');
-            setBriefingSessionId((value) => value + 1);
-            setShowBriefing(true);
-          }}
-          title="Open Ink"
-          aria-label="Open Ink"
-          className={cn(
-            'ink-fab no-drag absolute bottom-6 right-6 z-40 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-bg-card/92 text-text-muted shadow-[0_16px_40px_rgba(0,0,0,0.24)] backdrop-blur-md transition-[border-color,color] hover:border-accent-warm/35 hover:text-accent-warm',
-            inkStreaming && 'ink-fab--thinking'
-          )}
+      {!showBriefing && activeView === 'flow' && (
+        <div
+          className="absolute bottom-6 right-6 z-40"
+          onMouseEnter={openAssistantPreview}
+          onMouseLeave={scheduleAssistantClose}
         >
-          {inkStreaming && (
-            <>
-              <span className="ink-fab__ring ink-fab__ring--1" />
-              <span className="ink-fab__ring ink-fab__ring--2" />
-              <span className="ink-fab__ring ink-fab__ring--3" />
-            </>
+          {assistantOpen && (
+            <div
+              className={cn(
+                'assistant-overlay no-drag absolute bottom-16 right-0 w-[440px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-[28px] border border-[#243041] shadow-[0_28px_80px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-200 ease-out',
+                assistantPinned
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-100 translate-y-0'
+              )}
+            >
+              <Suspense fallback={null}>
+                <MorningBriefing
+                  key={briefingSessionId}
+                  mode="chat"
+                  variant="overlay"
+                  onClose={closeAssistant}
+                  onNewChat={() => setBriefingSessionId((value) => value + 1)}
+                  onStreamingChange={setInkStreaming}
+                />
+              </Suspense>
+            </div>
           )}
-          <Sparkles className="ink-fab__icon h-5 w-5" />
-        </button>
+          <button
+            onClick={togglePinnedAssistant}
+            title={assistantPinned ? 'Close Ink' : 'Open Ink'}
+            aria-label={assistantPinned ? 'Close Ink' : 'Open Ink'}
+            className={cn(
+              'ink-fab no-drag relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-bg-card/92 text-text-muted shadow-[0_16px_40px_rgba(0,0,0,0.24)] backdrop-blur-md transition-[border-color,color,background-color] hover:border-accent-warm/35 hover:text-accent-warm',
+              (inkStreaming || assistantPinned) && 'ink-fab--thinking',
+              assistantPinned && 'border-accent-warm/40 bg-bg-elevated/95 text-accent-warm'
+            )}
+          >
+            {inkStreaming && (
+              <>
+                <span className="ink-fab__ring ink-fab__ring--1" />
+                <span className="ink-fab__ring ink-fab__ring--2" />
+                <span className="ink-fab__ring ink-fab__ring--3" />
+              </>
+            )}
+            <Sparkles className="ink-fab__icon h-5 w-5" />
+          </button>
+        </div>
       )}
       <div className="absolute h-px w-px overflow-hidden -left-[9999px] top-0">
         <PomodoroTimer />
       </div>
+      <FocusOverlay />
       <Suspense fallback={null}>
         <CommandPalette />
       </Suspense>
@@ -363,7 +487,7 @@ function AppLayout() {
             </div>
             <div className="flex flex-col gap-2 w-full">
               <button
-                onClick={() => { setPendingDayReset(true); dismissEndOfDayPrompt(); dismissStartOfDayPrompt(); setBriefingMode('chat'); setShowBriefing(true); setIsEveningReflection(true); setLayoutPhase('opening'); }}
+                onClick={() => { setPendingDayReset(true); dismissEndOfDayPrompt(); dismissStartOfDayPrompt(); openFullscreenEveningReflection(); }}
                 className="w-full px-5 py-2.5 bg-accent-warm/10 hover:bg-accent-warm text-accent-warm hover:text-[#FAFAFA] text-[11px] uppercase tracking-[0.18em] font-medium transition-all duration-200 flex items-center justify-center gap-2"
               >
                 <Moon className="w-3 h-3" />

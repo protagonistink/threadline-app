@@ -2,6 +2,7 @@ import {
   Target,
   LayoutGrid,
   Archive,
+  StickyNote,
   Settings,
   Moon,
   Sun,
@@ -150,6 +151,13 @@ export function Sidebar({ onSettingsClick, onShowBriefing, onShowEveningReflecti
           collapsed={collapsed}
           active={activeView === 'archive'}
           onClick={() => setActiveView('archive')}
+        />
+        <NavItem
+          icon={StickyNote}
+          label="Scratch"
+          collapsed={collapsed}
+          active={activeView === 'scratch'}
+          onClick={() => setActiveView('scratch')}
         />
 
         <div className="mt-4 flex flex-col gap-1">

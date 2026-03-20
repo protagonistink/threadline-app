@@ -18,7 +18,8 @@ export interface PlannerState {
   weeklyGoals: WeeklyGoal[];
   plannedTasks: PlannedTask[];
   scheduleBlocks: ScheduleBlock[];
-  dailyPlan: DailyPlan;
+  dailyPlans: DailyPlan[];
+  viewDate: string;
   timeLogs: TimeLogEntry[];
   rituals: DailyRitual[];
   countdowns: Countdown[];
@@ -38,7 +39,8 @@ export const initialPlannerState: PlannerState = {
   weeklyGoals: [],
   plannedTasks: [],
   scheduleBlocks: [],
-  dailyPlan: { date: getToday(), committedTaskIds: [] },
+  dailyPlans: [{ date: getToday(), committedTaskIds: [] }],
+  viewDate: getToday(),
   timeLogs: [],
   rituals: [],
   countdowns: [],
@@ -91,8 +93,14 @@ export function storedPlannerStateToPlannerState(stored: StoredPlannerState): Pa
     }));
   }
 
-  if (stored.dailyPlan) {
-    nextState.dailyPlan = stored.dailyPlan;
+  if (stored.dailyPlans?.length) {
+    nextState.dailyPlans = stored.dailyPlans;
+  } else if (stored.dailyPlan) {
+    nextState.dailyPlans = [stored.dailyPlan];
+  }
+
+  if (stored.viewDate || stored.selectedDate) {
+    nextState.viewDate = stored.viewDate ?? stored.selectedDate ?? getToday();
   }
 
   if (stored.timeLogs) {

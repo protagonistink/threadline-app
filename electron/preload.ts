@@ -85,6 +85,7 @@ contextBridge.exposeInMainWorld('api', {
   window: {
     showPomodoro: () => ipcRenderer.invoke('window:show-pomodoro'),
     hidePomodoro: () => ipcRenderer.invoke('window:hide-pomodoro'),
+    hideCapture: () => ipcRenderer.invoke('window:hide-capture'),
     activate: () => ipcRenderer.invoke('window:activate'),
     setFocusSize: (locked: boolean) => ipcRenderer.invoke('window:set-focus-size', locked),
     showMain: () => ipcRenderer.invoke('window:show-main'),
@@ -97,7 +98,36 @@ contextBridge.exposeInMainWorld('api', {
     appendJournal: (entry: InkJournalEntry): Promise<InkJournalEntry[]> =>
       ipcRenderer.invoke('ink:append-journal', entry),
   },
+  // Chat history persistence
+  chat: {
+    load: (date: string) => ipcRenderer.invoke('chat:load', date),
+    save: (date: string, messages: Array<{ role: string; content: string }>) =>
+      ipcRenderer.invoke('chat:save', date, messages),
+    clear: (date: string) => ipcRenderer.invoke('chat:clear', date),
+  },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
+  },
+  // Quick Capture
+  capture: {
+    save: (text: string) => ipcRenderer.invoke('capture:save', text),
+    update: (id: string, text: string) => ipcRenderer.invoke('capture:update', id, text),
+    getToday: () => ipcRenderer.invoke('capture:get-today'),
+    deleteEntry: (id: string) => ipcRenderer.invoke('capture:delete', id),
+    onNewEntry: (callback: (entry: { id: string; text: string; createdAt: string }) => void) => {
+      const handler = (_event: unknown, entry: { id: string; text: string; createdAt: string }) => callback(entry);
+      ipcRenderer.on('capture:new-entry', handler);
+      return () => ipcRenderer.removeListener('capture:new-entry', handler);
+    },
+    onEntryUpdated: (callback: (entry: { id: string; text: string; createdAt: string }) => void) => {
+      const handler = (_event: unknown, entry: { id: string; text: string; createdAt: string }) => callback(entry);
+      ipcRenderer.on('capture:entry-updated', handler);
+      return () => ipcRenderer.removeListener('capture:entry-updated', handler);
+    },
+    onEntryDeleted: (callback: (id: string) => void) => {
+      const handler = (_event: unknown, id: string) => callback(id);
+      ipcRenderer.on('capture:entry-deleted', handler);
+      return () => ipcRenderer.removeListener('capture:entry-deleted', handler);
+    },
   },
 });

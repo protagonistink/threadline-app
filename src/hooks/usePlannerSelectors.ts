@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type {
   DailyPlan,
   InboxItem,
@@ -6,45 +6,23 @@ import type {
   ScheduleBlock,
 } from '@/types';
 import { asInboxItem } from '@/lib/planner';
+import { useCurrentMinute } from './useCurrentMinute';
 
 interface PlannerSelectorsOptions {
   plannedTasks: PlannedTask[];
   scheduleBlocks: ScheduleBlock[];
   dailyPlan: DailyPlan;
+  planningDate: string;
 }
 
 export function usePlannerSelectors({
   plannedTasks,
   scheduleBlocks,
   dailyPlan,
+  planningDate,
 }: PlannerSelectorsOptions) {
-  const [currentMinute, setCurrentMinute] = useState(() => {
-    const now = new Date();
-    return now.getHours() * 60 + now.getMinutes();
-  });
-
-  useEffect(() => {
-    let intervalId: number | null = null;
-
-    const updateCurrentMinute = () => {
-      const now = new Date();
-      setCurrentMinute(now.getHours() * 60 + now.getMinutes());
-    };
-
-    updateCurrentMinute();
-
-    const timeoutId = window.setTimeout(() => {
-      updateCurrentMinute();
-      intervalId = window.setInterval(updateCurrentMinute, 60_000);
-    }, (60 - new Date().getSeconds()) * 1000);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
-    };
-  }, []);
+  const currentMinute = useCurrentMinute();
+  const isTodayView = planningDate === new Date().toISOString().split('T')[0];
 
   const taskStatusById = useMemo(() => {
     const statuses = new Map<string, PlannedTask['status']>();
@@ -54,29 +32,27 @@ export function usePlannerSelectors({
     return statuses;
   }, [plannedTasks]);
 
-  const currentBlock = useMemo(() => {
-    return scheduleBlocks.find((block) => {
+  const { currentBlock, nextBlock } = useMemo(() => {
+    if (!isTodayView) return { currentBlock: null, nextBlock: null };
+
+    let current: ScheduleBlock | null = null;
+    let next: ScheduleBlock | null = null;
+
+    for (const block of scheduleBlocks) {
+      if (block.kind !== 'focus') continue;
+      if (block.linkedTaskId && taskStatusById.get(block.linkedTaskId) === 'done') continue;
       const start = block.startHour * 60 + block.startMin;
       const end = start + block.durationMins;
-      return (
-        block.kind === 'focus' &&
-        currentMinute >= start &&
-        currentMinute < end &&
-        (!block.linkedTaskId || taskStatusById.get(block.linkedTaskId) !== 'done')
-      );
-    }) || null;
-  }, [currentMinute, scheduleBlocks, taskStatusById]);
+      if (!current && currentMinute >= start && currentMinute < end) {
+        current = block;
+      } else if (!next && start > currentMinute) {
+        next = block;
+      }
+      if (current && next) break;
+    }
 
-  const nextBlock = useMemo(() => {
-    return scheduleBlocks.find((block) => {
-      const start = block.startHour * 60 + block.startMin;
-      return (
-        block.kind === 'focus' &&
-        start > currentMinute &&
-        (!block.linkedTaskId || taskStatusById.get(block.linkedTaskId) !== 'done')
-      );
-    }) || null;
-  }, [currentMinute, scheduleBlocks, taskStatusById]);
+    return { currentBlock: current, nextBlock: next };
+  }, [currentMinute, isTodayView, scheduleBlocks, taskStatusById]);
 
   const currentTask = useMemo(() => {
     if (currentBlock?.linkedTaskId) {

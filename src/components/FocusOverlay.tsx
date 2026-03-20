@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { PomodoroTimer } from './PomodoroTimer';
+import { ScratchPanel } from './ScratchPanel';
 import { cn } from '@/lib/utils';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
@@ -23,36 +24,57 @@ export function FocusOverlay() {
       <div
         className={cn(
           'relative bg-bg-card border border-border shadow-2xl rounded-[24px] p-6 transition-all duration-700',
-          isExpanded ? 'w-full max-w-4xl flex flex-col items-center gap-12 bg-transparent border-none shadow-none mt-[-10vh]' : 'w-[260px]'
+          isExpanded ? 'w-full max-w-5xl bg-transparent border-none shadow-none mt-[-10vh]' : 'w-[260px]'
         )}
       >
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="absolute top-4 right-4 p-2 text-text-muted hover:text-text-primary transition-colors"
+          className="absolute top-4 right-4 z-10 p-2 text-text-muted hover:text-text-primary transition-colors"
         >
           {isExpanded ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
-        <div className={cn('flex flex-col items-center gap-4 text-center', isExpanded ? 'scale-125' : 'scale-100')}>
-          <PomodoroTimer />
-
-          <div className="flex flex-col gap-1 items-center">
-            <span className={cn('text-[10px] uppercase tracking-[0.2em] font-semibold', isExpanded ? 'text-text-muted/70 mb-4' : 'text-accent-warm')}>
-              Here Now
-            </span>
-            <h3 className={cn('text-text-emphasis leading-tight px-4 text-center', isExpanded ? 'text-4xl md:text-5xl lg:text-[4.5rem] font-display italic font-normal max-w-3xl' : 'text-[14px] font-medium truncate max-w-[220px]')}>
-              {currentTask?.title || 'No active thread'}
-            </h3>
-          </div>
-        </div>
-
-        {!isExpanded && (
-          <div className="w-full rounded-2xl border border-border-subtle bg-bg px-4 py-3">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Next</div>
-            <div className="text-[13px] text-text-primary mt-1 truncate">
-              {nextBlock?.title || 'No next block yet'}
+        {isExpanded ? (
+          <div className="flex w-full h-[60vh]">
+            {/* Left — Scratch panel */}
+            <div className="flex-1 border-r border-white/[0.06] overflow-hidden">
+              <ScratchPanel />
+            </div>
+            {/* Right — Timer + current task */}
+            <div className="flex-1 flex flex-col items-center justify-center gap-12">
+              <div className="flex flex-col items-center gap-4 text-center scale-125">
+                <PomodoroTimer />
+                <div className="flex flex-col gap-1 items-center">
+                  <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-text-muted/70 mb-4">
+                    Here Now
+                  </span>
+                  <h3 className="text-text-emphasis leading-tight px-4 text-center text-4xl md:text-5xl lg:text-[4.5rem] font-display italic font-normal max-w-3xl">
+                    {currentTask?.title || 'No active thread'}
+                  </h3>
+                </div>
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            <div className="flex flex-col items-center gap-4 text-center">
+              <PomodoroTimer />
+              <div className="flex flex-col gap-1 items-center">
+                <span className="text-[10px] uppercase tracking-[0.2em] font-semibold text-accent-warm">
+                  Here Now
+                </span>
+                <h3 className="text-text-emphasis leading-tight px-4 text-center text-[14px] font-medium truncate max-w-[220px]">
+                  {currentTask?.title || 'No active thread'}
+                </h3>
+              </div>
+            </div>
+            <div className="w-full rounded-2xl border border-border-subtle bg-bg px-4 py-3">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">Next</div>
+              <div className="text-[13px] text-text-primary mt-1 truncate">
+                {nextBlock?.title || 'No next block yet'}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

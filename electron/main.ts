@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, shell, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import { registerAsanaHandlers } from './asana';
 import { registerGCalHandlers } from './gcal';
@@ -7,6 +7,8 @@ import { registerTimerHandlers, setTrayUpdater, startLastUsedPomodoro } from './
 import { registerFocusHandlers } from './focus';
 import { registerAnthropicHandlers } from './anthropic';
 import { registerInkContextHandlers } from './ink-context';
+import { registerChatHistoryHandlers } from './chat-history';
+import { registerCaptureHandlers, createCaptureWindow } from './capture';
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
@@ -17,6 +19,7 @@ const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 
 let mainWindow: BrowserWindow | null;
 let pomodoroWindow: BrowserWindow | null = null;
+let captureWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
@@ -198,6 +201,8 @@ app.whenReady().then(() => {
   registerFocusHandlers();
   registerAnthropicHandlers();
   registerInkContextHandlers();
+  registerChatHistoryHandlers();
+  registerCaptureHandlers();
 
   ipcMain.handle('window:show-pomodoro', () => {
     if (!pomodoroWindow) createPomodoroWindow();
@@ -237,4 +242,19 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+
+  const registered = globalShortcut.register('CommandOrControl+Shift+.', () => {
+    if (!captureWindow || captureWindow.isDestroyed()) {
+      captureWindow = createCaptureWindow();
+    }
+    captureWindow.show();
+    captureWindow.focus();
+  });
+  if (!registered) {
+    console.warn('Quick Capture: failed to register Cmd+Shift+. global shortcut');
+  }
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });

@@ -7,6 +7,7 @@ import type {
   PlannedTask,
   ScheduleBlock,
   CalendarEventInput,
+  WorkMode,
 } from '@/types';
 import { formatRoundedHours } from '@/lib/utils';
 
@@ -21,10 +22,11 @@ export function asInboxItem(task: PlannedTask): InboxItem {
   const today = getToday();
   return {
     id: task.id,
-    source: task.source === 'asana' ? 'asana' : 'gmail',
+    source: task.source === 'asana' ? 'asana' : 'local',
     title: task.title || 'Untitled task',
     time: task.lastCommittedDate === today ? 'Held for today' : formatRoundedHours(task.estimateMins),
     priority: task.priority,
+    workMode: task.workMode,
   };
 }
 
@@ -40,7 +42,21 @@ export function isDueSoon(task: AsanaTask): boolean {
   return diffDays <= 7;
 }
 
+const WORK_MODE_MAP: Record<string, WorkMode> = {
+  'deep work': 'deep_work',
+  'collaborative': 'collaborative',
+  'admin': 'admin',
+  'quick win': 'quick_win',
+};
+
 export function asPlannedTask(task: AsanaTask, existing?: PlannedTask): PlannedTask {
+  const workModeValue = task.custom_fields?.find(
+    (f) => f.name?.toLowerCase() === 'work mode'
+  )?.display_value;
+  const workMode = workModeValue
+    ? WORK_MODE_MAP[workModeValue.toLowerCase()]
+    : existing?.workMode;
+
   return {
     id: existing?.id || `asana-${task.gid}`,
     title: task.name || 'Untitled task',
@@ -52,6 +68,7 @@ export function asPlannedTask(task: AsanaTask, existing?: PlannedTask): PlannedT
     priority: getPriority(task) || existing?.priority,
     notes: task.notes || existing?.notes,
     asanaProject: task.projects?.[0]?.name || existing?.asanaProject,
+    workMode,
     active: existing?.active || false,
     scheduledEventId: existing?.scheduledEventId,
     scheduledCalendarId: existing?.scheduledCalendarId,
@@ -72,7 +89,8 @@ export function eventToBlock(event: GCalEvent, tasks: PlannedTask[]): ScheduleBl
   const linkedTask = tasks.find((task) => task.scheduledEventId === event.id)
     ?? (() => {
       if (!event.description?.includes(FOCUS_EVENT_MARKER)) return undefined;
-      const descTaskId = event.description.split('\n')[1]?.trim();
+      const match = /\[Inked\]\s*\n([^\n]+)/.exec(event.description);
+      const descTaskId = match?.[1]?.trim();
       return descTaskId ? tasks.find((task) => task.id === descTaskId) : undefined;
     })();
   const isFocus = event.description?.includes(FOCUS_EVENT_MARKER) || Boolean(linkedTask);
@@ -115,11 +133,14 @@ export function currentWeekStart(): string {
 
 export function buildRitualBlocks(
   rituals: DailyRitual[],
-  workdayStart: { hour: number; min: number }
+  workdayStart: { hour: number; min: number },
+  dateKey = getToday()
 ): ScheduleBlock[] {
   let cursorMinutes = workdayStart.hour * 60 + workdayStart.min;
 
-  return rituals.map((ritual) => {
+  return rituals
+    .filter((ritual) => !(ritual.skippedDates ?? []).includes(dateKey))
+    .map((ritual) => {
     const durationMins = ritual.estimateMins ?? 30;
     const block: ScheduleBlock = {
       id: `ritual-${ritual.id}`,
@@ -140,10 +161,11 @@ export function buildRitualBlocks(
 export function mergeScheduleBlocksWithRituals(
   blocks: ScheduleBlock[],
   rituals: DailyRitual[],
-  workdayStart: { hour: number; min: number }
+  workdayStart: { hour: number; min: number },
+  dateKey = getToday()
 ): ScheduleBlock[] {
   const nonRitualBlocks = blocks.filter((block) => !block.id.startsWith('ritual-'));
-  return [...nonRitualBlocks, ...buildRitualBlocks(rituals, workdayStart)].sort(sortBlocksByStart);
+  return [...nonRitualBlocks, ...buildRitualBlocks(rituals, workdayStart, dateKey)].sort(sortBlocksByStart);
 }
 
 function overlapsWindow(start: number, durationMins: number, block: ScheduleBlock): boolean {
@@ -151,7 +173,7 @@ function overlapsWindow(start: number, durationMins: number, block: ScheduleBloc
   return start < blockEndMinutes(block) && end > blockStartMinutes(block);
 }
 
-function sortBlocksByStart(a: ScheduleBlock, b: ScheduleBlock): number {
+export function sortBlocksByStart(a: ScheduleBlock, b: ScheduleBlock): number {
   return blockStartMinutes(a) - blockStartMinutes(b);
 }
 

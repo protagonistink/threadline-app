@@ -1,4 +1,6 @@
-import { ipcMain } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
+import { app, ipcMain } from 'electron';
 import Store from 'electron-store';
 
 const store = new Store({
@@ -27,6 +29,8 @@ const store = new Store({
     plannerState: {
       weeklyGoals: [],
       plannedTasks: [],
+      dailyPlans: [],
+      viewDate: '',
       dailyPlan: { date: '', committedTaskIds: [] },
     },
     userPhysics: {
@@ -47,6 +51,9 @@ const store = new Store({
       journalEntries: [] as Array<Record<string, unknown>>,
       lastUpdated: new Date().toISOString(),
     },
+    scratch: {
+      entries: [] as Array<{ id: string; text: string; createdAt: string }>,
+    },
   },
 });
 
@@ -55,6 +62,8 @@ const SAFE_STORE_KEYS = new Set([
   'dayLocked',
   'dayLockedDate',
   'monthlyPlanDismissedDate',
+  'startOfDay.shownDate',
+  'endOfDay.shownDate',
 ]);
 
 function isAllowedStoreKey(key: string) {
@@ -81,8 +90,22 @@ export function registerStoreHandlers() {
     const gcal = (store.get('gcal') as Record<string, unknown> | undefined) ?? {};
     const pomodoro = (store.get('pomodoro') as Record<string, unknown> | undefined) ?? {};
     const focus = (store.get('focus') as Record<string, unknown> | undefined) ?? {};
+    let buildDate: string | null = null;
+
+    try {
+      const buildArtifact = app.isPackaged
+        ? process.execPath
+        : path.join(app.getAppPath(), 'package.json');
+      buildDate = fs.statSync(buildArtifact).mtime.toISOString();
+    } catch (error) {
+      console.warn('Failed to resolve build date:', error);
+    }
 
     return {
+      app: {
+        version: app.getVersion(),
+        buildDate,
+      },
       anthropic: {
         configured: Boolean(store.get('anthropic.apiKey')),
       },
