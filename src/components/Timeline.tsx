@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { GripVertical, Play, Check, RefreshCw } from 'lucide-react';
+import { GripVertical, Play, Check, RefreshCw, Plus } from 'lucide-react';
 import { useDrag } from 'react-dnd';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { useDrop } from 'react-dnd';
@@ -249,7 +249,7 @@ function BlockCard({
   onSelect?: (blockId: string) => void;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock } = useApp();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, addLocalTask } = useApp();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
 
@@ -273,6 +273,9 @@ function BlockCard({
       .filter((t): t is PlannedTask => t != null),
     [block.nestedTaskIds, plannedTasks]
   );
+
+  const [showInlineAdd, setShowInlineAdd] = useState(false);
+  const [inlineValue, setInlineValue] = useState('');
 
   const [{ isNestOver }, nestDropRef] = useDrop<DragItem, void, { isNestOver: boolean }>({
     accept: DragTypes.TASK,
@@ -545,6 +548,51 @@ function BlockCard({
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {!locked && (height > 80 || nestedTasks.length > 0) && (
+        <div className="relative z-10 mt-0.5">
+          {showInlineAdd ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!inlineValue.trim()) return;
+                const goalId = linkedTask?.weeklyGoalId ?? weeklyGoals[0]?.id ?? null;
+                const newTaskId = addLocalTask(inlineValue, goalId ?? undefined);
+                if (newTaskId) void nestTaskInBlock(newTaskId, block.id);
+                setInlineValue('');
+                setShowInlineAdd(false);
+              }}
+              className="flex items-center gap-2 pl-0.5"
+            >
+              <Plus className="w-2 h-2 text-text-muted/30 shrink-0" />
+              <input
+                autoFocus
+                type="text"
+                value={inlineValue}
+                onChange={(e) => setInlineValue(e.target.value)}
+                onBlur={() => { setShowInlineAdd(false); setInlineValue(''); }}
+                onKeyDown={(e) => { if (e.key === 'Escape') { setShowInlineAdd(false); setInlineValue(''); } }}
+                placeholder="Add task"
+                className="bg-transparent border-none outline-none font-sans text-[11px] text-text-primary/70 placeholder:text-text-muted/25 w-full"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </form>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowInlineAdd(true); }}
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              className={cn(
+                'flex items-center gap-2 pl-0.5 text-text-muted/25 hover:text-text-muted/50 transition-colors',
+                nestedTasks.length === 0 && 'opacity-0 group-hover/block:opacity-100'
+              )}
+            >
+              <Plus className="w-2 h-2" />
+              <span className="font-sans text-[11px]">Add task</span>
+            </button>
+          )}
         </div>
       )}
 

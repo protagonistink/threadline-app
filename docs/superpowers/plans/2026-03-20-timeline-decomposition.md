@@ -587,15 +587,15 @@ git commit -m "feat: extract AIBreakdown sub-component from Timeline.tsx"
 
 ```typescript
 // src/components/BlockCard.tsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { GripVertical, Play, Check, RefreshCw } from 'lucide-react';
-import { useDrag } from 'react-dnd';
+import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn, formatRoundedHours } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
-import type { ScheduleBlock } from '@/types';
+import type { PlannedTask, ScheduleBlock } from '@/types';
 import { AIBreakdown } from './AIBreakdown';
 import { timeToTop, formatTimeShort, GRID_SNAP_MINS, getStepMins } from './timelineUtils';
 
@@ -660,7 +660,7 @@ export function BlockCard({
   onSelect?: (blockId: string) => void;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask } = useApp();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock } = useApp();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
 
@@ -678,6 +678,26 @@ export function BlockCard({
     : block.kind === 'break' ? 'rgba(250,250,250,0.015)'
     : block.kind === 'hard' ? 'rgba(145,159,174,0.025)'
     : 'rgba(100,116,139,0.02)';
+  const nestedTasks = useMemo(
+    () => (block.nestedTaskIds ?? [])
+      .map((id) => plannedTasks.find((t) => t.id === id))
+      .filter((t): t is PlannedTask => t != null),
+    [block.nestedTaskIds, plannedTasks]
+  );
+
+  const [{ isNestOver }, nestDropRef] = useDrop<DragItem, void, { isNestOver: boolean }>({
+    accept: DragTypes.TASK,
+    canDrop: () => !locked,
+    collect: (monitor) => ({ isNestOver: monitor.isOver() && monitor.canDrop() }),
+    drop: (item) => {
+      void nestTaskInBlock(item.id, block.id);
+    },
+  });
+
+  const blockRef = useCallback((node: HTMLDivElement | null) => {
+    nestDropRef(node);
+  }, [nestDropRef]);
+
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.BLOCK,
     canDrag: !locked && !block.readOnly && !isDone && Boolean(block.linkedTaskId),
