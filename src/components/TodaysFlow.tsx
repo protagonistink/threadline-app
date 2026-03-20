@@ -30,6 +30,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
     lockDay,
     unlockDay,
     viewDate,
+    scheduleBlocks,
   } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
@@ -39,7 +40,20 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
 
   const finishedCount = plannedTasks.filter((task) => task.status === 'done' && dailyPlan.committedTaskIds.includes(task.id)).length;
   const totalDayCount = dailyPlan.committedTaskIds.length;
-  const unscheduledCount = committedTasks.filter((task) => task.status === 'committed').length;
+
+  const nestedInBlockIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const block of scheduleBlocks) {
+      for (const id of block.nestedTaskIds ?? []) {
+        ids.add(id);
+      }
+    }
+    return ids;
+  }, [scheduleBlocks]);
+
+  const unscheduledCount = committedTasks.filter(
+    (task) => task.status === 'committed' && !nestedInBlockIds.has(task.id)
+  ).length;
 
   const actualByTask = useMemo(() => {
     const totals = new Map<string, number>();

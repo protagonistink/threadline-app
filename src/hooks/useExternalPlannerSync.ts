@@ -30,7 +30,23 @@ export function useExternalPlannerSync({
       .map((event) => eventToBlock(event, tasks))
       .filter((block): block is ScheduleBlock => block !== null);
 
-    setScheduleBlocks(() => mergeScheduleBlocksWithRituals(eventBlocks, rituals, workdayStart, viewDate));
+    setScheduleBlocks((prev) => {
+      // Preserve nestedTaskIds from existing blocks
+      const nestingMap = new Map<string, string[]>();
+      for (const block of prev) {
+        if (block.nestedTaskIds?.length) {
+          nestingMap.set(block.id, block.nestedTaskIds);
+        }
+      }
+
+      const merged = mergeScheduleBlocksWithRituals(eventBlocks, rituals, workdayStart, viewDate);
+
+      // Re-apply nesting
+      return merged.map((block) => {
+        const nested = nestingMap.get(block.id);
+        return nested ? { ...block, nestedTaskIds: nested } : block;
+      });
+    });
   }, [rituals, setScheduleBlocks, viewDate, workdayStart]);
 
   const refreshExternalData = useCallback(async () => {

@@ -553,7 +553,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         rituals,
         workdayStart,
         viewDate
-      )
+      ).map((block) => block.nestedTaskIds?.length ? { ...block, nestedTaskIds: [] } : block)
     );
     setPlannedTasks((prev) =>
       prev.map((task) =>
