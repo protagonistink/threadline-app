@@ -55,6 +55,7 @@ export interface DailyRitual {
   title: string;
   completedDates: string[];
   estimateMins?: number;
+  skippedDates?: string[];
 }
 
 export interface Countdown {
@@ -63,6 +64,16 @@ export interface Countdown {
   dueDate: string;
 }
 
+/**
+ * Lifecycle status for a planned task.
+ *
+ * - `candidate`  — In the inbox/backlog; not yet committed to any day.
+ * - `committed`  — Added to a specific day's plan but not yet on the calendar.
+ * - `scheduled`  — Committed AND linked to a Google Calendar focus block.
+ * - `done`       — Completed by the user on any day.
+ * - `migrated`   — Deliberately deferred; removed from the active day plan.
+ * - `cancelled`  — Released from the plan entirely (soft delete; kept for history).
+ */
 export type TaskStatus =
   | 'candidate'
   | 'committed'
@@ -71,21 +82,31 @@ export type TaskStatus =
   | 'migrated'
   | 'cancelled';
 
+export type WorkMode = 'deep_work' | 'collaborative' | 'admin' | 'quick_win';
+
 export interface PlannedTask {
   id: string;
   title: string;
   source: TaskSource;
+  /** Asana GID when source === 'asana'. */
   sourceId?: string;
+  /** Which weekly goal this task belongs to, or null if unassigned. */
   weeklyGoalId: string | null;
   status: TaskStatus;
   estimateMins: number;
   priority?: string;
   notes?: string;
   asanaProject?: string;
+  workMode?: WorkMode;
+  /** True while this task is the active focus (timer running). */
   active: boolean;
+  /** Google Calendar event ID when a focus block has been synced. */
   scheduledEventId?: string;
+  /** The calendar the focus block was created in. */
   scheduledCalendarId?: string;
+  /** The most recent date (YYYY-MM-DD) this task was committed or scheduled. Used to detect staleness across week boundaries. */
   lastCommittedDate?: string;
+  /** Parent task ID for nested subtasks. */
   parentId?: string;
 }
 
@@ -95,12 +116,29 @@ export interface ScheduleBlock {
   startHour: number;
   startMin: number;
   durationMins: number;
+  /**
+   * - `hard`  — A GCal event that cannot be moved (meeting, appointment).
+   * - `focus` — A focus block linked to a PlannedTask (moveable, syncable).
+   * - `break` — A ritual/buffer block (readOnly: true, source: 'local').
+   */
   kind: 'hard' | 'focus' | 'break';
+  /**
+   * Whether the block can be moved or resized.
+   * - gcal hard blocks: always true
+   * - rituals (break blocks): true
+   * - focus blocks created by the user: false
+   */
   readOnly: boolean;
+  /** PlannedTask.id for focus blocks. */
   linkedTaskId?: string;
+  /** Google Calendar event ID (set after sync). */
   eventId?: string;
   calendarId?: string;
   source: 'gcal' | 'local';
+  /** undefined = legacy/manual block (treated as accepted). */
+  proposal?: 'draft' | 'accepted';
+  /** Task IDs nested inside this block as a checklist. */
+  nestedTaskIds?: string[];
 }
 
 export interface PomodoroState {
@@ -116,16 +154,42 @@ export interface PomodoroState {
 
 export interface InboxItem {
   id: string;
-  source: 'asana' | 'gcal' | 'gmail';
+  source: 'asana' | 'gcal' | 'gmail' | 'local';
   title: string;
   time: string;
   priority?: string;
   active?: boolean;
+  workMode?: WorkMode;
 }
 
 export interface DailyPlan {
   date: string;
   committedTaskIds: string[];
+  hasEverCommitted?: boolean;
+}
+
+export interface PlanningDateOption {
+  date: string;
+  label: string;
+  shortLabel: string;
+  isToday: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Day Commit State — derived state machine for the Today's Commit view
+// ---------------------------------------------------------------------------
+
+export type DayCommitState = 'briefing' | 'committed' | 'closed';
+
+export interface DayCommitInfo {
+  state: DayCommitState;
+  focusMins: number;
+  completedFocusMins: number;
+  openMins: number;
+  totalBlocks: number;
+  completedBlocks: number;
+  minutesPastClose: number;
+  hadBlocks: boolean;
 }
 
 export interface MonthlyPlan {
