@@ -824,12 +824,9 @@ export function BlockCard({
     void toggleTask(block.linkedTaskId);
   }
 
-  // Compute horizontal positioning for overlapping blocks
-  const colWidthPct = colCount > 1 ? 100 / colCount : 100;
-  const colLeftPct = colIndex * colWidthPct;
-
   return (
     <div
+      ref={blockRef}
       data-task-id={block.linkedTaskId || undefined}
       onMouseDown={beginDrag}
       onClick={handleClick}
@@ -843,13 +840,14 @@ export function BlockCard({
         isDragging && 'opacity-30 scale-[0.98]',
         isDone && 'opacity-70 saturate-[0.8]',
         isSelected && 'ring-1 ring-accent-warm/50',
-        isNow && !isDragging && !isSelected && 'ring-1 ring-active/40'
+        isNow && !isDragging && !isSelected && 'ring-1 ring-active/40',
+        isNestOver && 'ring-2 ring-accent-warm/40'
       )}
       style={{
         top: `${top}px`,
         height: `${height}px`,
-        left: colCount > 1 ? `calc(${colLeftPct}% + 4px)` : '4px',
-        right: colCount > 1 ? `calc(${100 - colLeftPct - colWidthPct}% + 4px)` : '4px',
+        left: colCount > 1 ? `calc(${(colIndex * 100) / colCount}% + 4px)` : '4px',
+        right: colCount > 1 ? `calc(${((colCount - colIndex - 1) * 100) / colCount}% + 4px)` : '4px',
         borderLeftColor: block.kind === 'focus' ? threadColor : undefined,
         backgroundColor: blockVariant !== 't-draft' ? tintColor : undefined,
         zIndex: isSelected ? 6 : isNow ? 5 : colIndex + 1,
@@ -930,6 +928,36 @@ export function BlockCard({
           </span>
         )}
       </div>
+
+      {nestedTasks.length > 0 && (
+        <div className="relative z-10 flex flex-col gap-0.5 mt-1">
+          {nestedTasks.map((task) => (
+            <div
+              key={task.id}
+              className="flex items-center gap-2 pl-0.5 group/nested"
+            >
+              <button
+                onClick={(e) => { e.stopPropagation(); void toggleTask(task.id); }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                className={cn(
+                  'w-2 h-2 rounded-full border shrink-0 transition-colors',
+                  task.status === 'done'
+                    ? 'bg-accent-warm/60 border-accent-warm/60'
+                    : 'border-text-muted/30 hover:border-text-muted/60'
+                )}
+              />
+              <span className={cn(
+                'font-sans text-[11px] truncate',
+                task.status === 'done'
+                  ? 'line-through text-text-muted/40'
+                  : 'text-text-primary/70'
+              )}>
+                {task.title}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* AI Breakdown for focus blocks */}
       {block.kind === 'focus' && block.linkedTaskId && (
