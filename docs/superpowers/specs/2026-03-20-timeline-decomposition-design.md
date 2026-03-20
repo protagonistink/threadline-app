@@ -143,6 +143,8 @@ Own state: `expanded`, `suggestions`, `selected`, `loading`. ~100 lines.
 
 The draggable, resizable calendar block card. `FocusSetMeter` stays as a **non-exported internal function** inside this file — it is ~21 lines and only used by `BlockCard`.
 
+Click behavior: clicking a block (without dragging) calls `onSelect?.(isSelected ? '' : block.id)` — it selects/deselects the block. Block removal is handled in `Timeline.tsx` via the keyboard delete handler, not via an X button inside `BlockCard`. There is **no remove button rendered in `BlockCard`**. `GripVertical`, `Play`, `Check`, `RefreshCw` are imported from `lucide-react`; `X` is **not** imported.
+
 ```typescript
 export function BlockCard({
   block,
@@ -161,6 +163,8 @@ export function BlockCard({
   locked,
   colIndex,
   colCount,
+  isSelected,
+  onSelect,
 }: {
   block: ScheduleBlock;
   onRemove: () => void;
@@ -178,6 +182,8 @@ export function BlockCard({
   locked?: boolean;
   colIndex?: number;
   colCount?: number;
+  isSelected?: boolean;
+  onSelect?: (blockId: string) => void;
 })
 ```
 
@@ -200,6 +206,19 @@ Imports `AIBreakdown` from `./AIBreakdown`. Imports utilities from `./timelineUt
 - `DeadlineMargin` component
 - `BlockCard` component
 
+**Keep in `Timeline.tsx` (not extracted):**
+- `selectedBlockId` useState — keyboard selection state owned by Timeline
+- Keyboard delete/escape useEffect — listens for `Backspace`/`Delete`/`Escape` on `window`; on delete, calls `toggleRitualSkipped` for ritual blocks or `removeScheduleBlock` for regular blocks; clears `selectedBlockId` afterward
+- `dailyArc` useMemo — computes a summary string from `scheduleBlocks` (focus count · ritual count · total hours), rendered in the header
+- `toggleRitualSkipped` destructured from `useApp()` — used by the keyboard delete handler
+
+**`BlockCard` receives from `Timeline`:**
+- `isSelected={selectedBlockId === block.id}`
+- `onSelect={(id) => setSelectedBlockId(id || null)}`
+- `colIndex={overlapLayout.get(block.id)?.colIndex ?? 0}`
+- `colCount={overlapLayout.get(block.id)?.colCount ?? 1}`
+  (`overlapLayout` is a `Map<string, { colIndex: number; colCount: number }>` computed by a `useMemo` in `Timeline` that groups overlapping blocks into side-by-side columns.)
+
 **Add imports:**
 ```typescript
 import { BASE_HOUR_HEIGHT, GRID_SNAP_MINS, MIN_VISIBLE_DAY_HOURS, clampMinutes, timeToTop, formatTimeShort } from './timelineUtils';
@@ -212,10 +231,11 @@ import { BlockCard } from './BlockCard';
 
 Notes on `timelineUtils` imports:
 - `clampMinutes` is used directly in `Timeline.tsx`'s `resolvePlacement` callback — it IS imported here.
+- `formatTimeShort` is used in `Timeline.tsx` (hour labels in the grid) — it IS imported here.
 - `getStepMins` is only used in `BlockCard` — NOT imported into `Timeline.tsx`.
 - `formatTime` is only used in `CurrentTimeIndicator` and `AfterHoursVeil` — NOT imported into `Timeline.tsx`.
 
-**Result:** `Timeline.tsx` drops from 1407 to ~575 lines.
+**Result:** `Timeline.tsx` drops from ~1430 to ~600 lines.
 
 ---
 
