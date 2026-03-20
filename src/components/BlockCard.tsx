@@ -51,6 +51,8 @@ export function BlockCard({
   colCount = 1,
   isSelected = false,
   onSelect,
+  selectedNestedTaskId,
+  onSelectNestedTask,
 }: {
   block: ScheduleBlock;
   onRemove: () => void;
@@ -70,6 +72,8 @@ export function BlockCard({
   colCount?: number;
   isSelected?: boolean;
   onSelect?: (blockId: string) => void;
+  selectedNestedTaskId?: string | null;
+  onSelectNestedTask?: (taskId: string) => void;
 }) {
   const { isFocus } = useTheme();
   const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock } = useApp();
@@ -346,7 +350,12 @@ export function BlockCard({
           {nestedTasks.map((task) => (
             <div
               key={task.id}
-              className="flex items-center gap-2 pl-0.5 group/nested"
+              data-task-id={task.id}
+              className={cn(
+                'flex items-center gap-2 pl-0.5 group/nested rounded cursor-pointer',
+                selectedNestedTaskId === task.id && 'bg-accent-warm/10'
+              )}
+              onClick={(e) => { e.stopPropagation(); onSelectNestedTask?.(task.id); }}
             >
               <button
                 onClick={(e) => { e.stopPropagation(); void toggleTask(task.id); }}
