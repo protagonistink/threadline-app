@@ -1,50 +1,58 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { DailyPlan, PlannedTask, ScheduleBlock } from '@/types';
-import { buildFocusEventPayload, getToday, planFocusCascade } from '@/lib/planner';
+import { buildFocusEventPayload, planFocusCascade, sortBlocksByStart } from '@/lib/planner';
 
 interface ScheduleManagerOptions {
   plannedTasks: PlannedTask[];
   scheduleBlocks: ScheduleBlock[];
   dailyPlan: DailyPlan;
+  planningDate: string;
   setPlannedTasks: Dispatch<SetStateAction<PlannedTask[]>>;
   setScheduleBlocks: Dispatch<SetStateAction<ScheduleBlock[]>>;
-  setDailyPlan: Dispatch<SetStateAction<DailyPlan>>;
-  bringForward: (taskId: string, goalId?: string) => void;
+  setDailyPlanForDate: (date: string, value: DailyPlan | ((current: DailyPlan) => DailyPlan)) => void;
+  bringForward: (taskId: string, goalId?: string, targetDate?: string) => void;
 }
 
 export function useScheduleManager({
   plannedTasks,
   scheduleBlocks,
   dailyPlan,
+  planningDate,
   setPlannedTasks,
   setScheduleBlocks,
-  setDailyPlan,
+  setDailyPlanForDate,
   bringForward,
 }: ScheduleManagerOptions) {
-  const scheduleTaskBlock = useCallback(async (taskId: string, startHour: number, startMin: number, durationMins = 60) => {
+  const scheduleTaskBlock = useCallback(async (taskId: string, startHour: number, startMin: number, durationMins = 60, taskTitle?: string, targetDate?: string) => {
     const task = plannedTasks.find((item) => item.id === taskId);
-    if (!task) return;
-    const today = getToday();
-    const previousPlannedTasks = plannedTasks;
-    const previousScheduleBlocks = scheduleBlocks;
-    const previousDailyPlan = dailyPlan;
+    const title = task?.title || taskTitle;
+    if (!title) return;
+    const commitDate = targetDate || planningDate;
+    const previousTask = task ? { ...task } : null;
+    const previousCommittedTaskIds = dailyPlan.committedTaskIds;
 
-    bringForward(taskId);
+    // Only bringForward if task exists in state (skip for just-created tasks)
+    if (task) bringForward(taskId, undefined, commitDate);
+
+    // Mark day as having committed blocks (sticky — survives block removal)
+    setDailyPlanForDate(commitDate, (prev) => prev.hasEverCommitted ? prev : { ...prev, hasEverCommitted: true });
 
     const existingBlock = scheduleBlocks.find((block) => block.linkedTaskId === taskId);
+    const previousExistingBlock = existingBlock ? { ...existingBlock } : null;
     const cascadePlan = planFocusCascade(startHour, startMin, durationMins, scheduleBlocks, existingBlock?.id);
     const eventPayload = buildFocusEventPayload(
-      task.title,
-      task.id,
+      title,
+      taskId,
       cascadePlan.startHour,
       cascadePlan.startMin,
-      durationMins
+      durationMins,
+      commitDate
     );
 
     const localBlockId = existingBlock?.id || `local-block-${taskId}`;
     const localBlock: ScheduleBlock = {
       id: localBlockId,
-      title: task.title,
+      title,
       startHour: cascadePlan.startHour,
       startMin: cascadePlan.startMin,
       durationMins,
@@ -60,25 +68,28 @@ export function useScheduleManager({
         const nextSlot = cascadePlan.cascadeUpdates.get(block.id)!;
         return { ...block, ...nextSlot };
       });
+    const previousMovedBlocks = scheduleBlocks
+      .filter((block) => cascadePlan.cascadeUpdates.has(block.id))
+      .map((block) => ({ ...block }));
 
     setScheduleBlocks((prev) =>
       [
         ...prev.filter((block) => block.id !== localBlockId && !cascadePlan.cascadeUpdates.has(block.id)),
         ...movedBlocks,
         localBlock,
-      ].sort((a, b) => (a.startHour * 60 + a.startMin) - (b.startHour * 60 + b.startMin))
+      ].sort(sortBlocksByStart)
     );
 
     setPlannedTasks((prev) =>
       prev.map((item) =>
         item.id === taskId
-          ? { ...item, status: 'scheduled', lastCommittedDate: today }
+          ? { ...item, status: 'scheduled', lastCommittedDate: commitDate }
           : item
       )
     );
 
-    let eventId = task.scheduledEventId;
-    let calendarId = task.scheduledCalendarId || existingBlock?.calendarId;
+    let eventId = task?.scheduledEventId;
+    let calendarId = task?.scheduledCalendarId || existingBlock?.calendarId;
 
     try {
       if (eventId) {
@@ -101,7 +112,7 @@ export function useScheduleManager({
 
       setScheduleBlocks((prev) =>
         [...prev.filter((block) => block.id !== localBlockId && block.id !== eventId), gcalBlock]
-          .sort((a, b) => (a.startHour * 60 + a.startMin) - (b.startHour * 60 + b.startMin))
+          .sort(sortBlocksByStart)
       );
 
       setPlannedTasks((prev) =>
@@ -122,7 +133,8 @@ export function useScheduleManager({
                 block.linkedTaskId || '',
                 block.startHour,
                 block.startMin,
-                block.durationMins
+                block.durationMins,
+                commitDate
               );
               return window.api.gcal.updateEvent(block.eventId!, movedPayload, block.calendarId);
             })
@@ -130,19 +142,48 @@ export function useScheduleManager({
       }
     } catch (error) {
       console.error('Failed to sync focus block with calendar:', error);
-      setScheduleBlocks(previousScheduleBlocks);
-      setPlannedTasks(previousPlannedTasks);
-      setDailyPlan(previousDailyPlan);
+      setScheduleBlocks((prev) => {
+        const restoredBlocks = new Map<string, ScheduleBlock>();
+        if (previousExistingBlock) restoredBlocks.set(previousExistingBlock.id, previousExistingBlock);
+        previousMovedBlocks.forEach((block) => restoredBlocks.set(block.id, block));
+
+        const idsToRemove = new Set<string>([localBlockId]);
+        if (eventId) idsToRemove.add(eventId);
+
+        const next = prev.filter((block) => !idsToRemove.has(block.id) && !restoredBlocks.has(block.id));
+        return [...next, ...restoredBlocks.values()].sort(sortBlocksByStart);
+      });
+      if (previousTask) {
+        setPlannedTasks((prev) =>
+          prev.map((item) => (item.id === taskId ? previousTask : item))
+        );
+      }
+      setDailyPlanForDate(commitDate, (prev) => ({ ...prev, committedTaskIds: previousCommittedTaskIds }));
     }
-  }, [bringForward, dailyPlan, plannedTasks, scheduleBlocks, setDailyPlan, setPlannedTasks, setScheduleBlocks]);
+  }, [bringForward, dailyPlan, plannedTasks, planningDate, scheduleBlocks, setDailyPlanForDate, setPlannedTasks, setScheduleBlocks]);
 
   const removeScheduleBlock = useCallback(async (id: string) => {
     const block = scheduleBlocks.find((item) => item.id === id);
     if (!block) return;
 
+    const nestedIds = block.nestedTaskIds ?? [];
+    if (nestedIds.length > 0) {
+      setPlannedTasks((prev) =>
+        prev.map((task) =>
+          nestedIds.includes(task.id)
+            ? { ...task, status: 'committed', scheduledEventId: undefined, scheduledCalendarId: undefined }
+            : task
+        )
+      );
+    }
+
     if (!block.readOnly && block.eventId) {
-      const result = await window.api.gcal.deleteEvent(block.eventId, block.calendarId);
-      if (!result.success) throw new Error(result.error || 'Failed to remove focus block');
+      try {
+        const result = await window.api.gcal.deleteEvent(block.eventId, block.calendarId);
+        if (!result.success) console.warn('Failed to delete GCal event on remove:', result.error);
+      } catch (err) {
+        console.warn('GCal delete error on remove (local state will still be cleaned up):', err);
+      }
     }
 
     setScheduleBlocks((prev) => prev.filter((item) => item.id !== id));
@@ -157,14 +198,61 @@ export function useScheduleManager({
     }
   }, [scheduleBlocks, setPlannedTasks, setScheduleBlocks]);
 
+  const nestTaskInBlock = useCallback(async (taskId: string, targetBlockId: string) => {
+    const targetBlock = scheduleBlocks.find((b) => b.id === targetBlockId);
+    if (!targetBlock) return;
+
+    const ownBlock = scheduleBlocks.find((b) => b.linkedTaskId === taskId);
+    if (ownBlock) {
+      if (ownBlock.eventId) {
+        try {
+          await window.api.gcal.deleteEvent(ownBlock.eventId, ownBlock.calendarId);
+        } catch (err) {
+          console.warn('Failed to delete GCal event when nesting:', err);
+        }
+      }
+    }
+
+    setScheduleBlocks((prev) =>
+      prev
+        .filter((b) => b.linkedTaskId !== taskId || b.id === targetBlockId)
+        .map((b) =>
+          b.id === targetBlockId
+            ? { ...b, nestedTaskIds: [...(b.nestedTaskIds ?? []).filter((id) => id !== taskId), taskId] }
+            : b
+        )
+    );
+
+    setPlannedTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, status: 'committed', scheduledEventId: undefined, scheduledCalendarId: undefined }
+          : t
+      )
+    );
+  }, [scheduleBlocks, setPlannedTasks, setScheduleBlocks]);
+
+  const unnestTaskFromBlock = useCallback((taskId: string, blockId: string) => {
+    setScheduleBlocks((prev) =>
+      prev.map((b) =>
+        b.id === blockId
+          ? { ...b, nestedTaskIds: (b.nestedTaskIds ?? []).filter((id) => id !== taskId) }
+          : b
+      )
+    );
+  }, [setScheduleBlocks]);
+
   const unscheduleTaskBlock = useCallback(async (id: string, goalId?: string) => {
-    const today = getToday();
     const block = scheduleBlocks.find((item) => item.id === id);
     if (!block || block.readOnly || !block.linkedTaskId) return;
 
     if (block.eventId) {
-      const result = await window.api.gcal.deleteEvent(block.eventId, block.calendarId);
-      if (!result.success) throw new Error(result.error || 'Failed to return block to today');
+      try {
+        const result = await window.api.gcal.deleteEvent(block.eventId, block.calendarId);
+        if (!result.success) console.warn('Failed to delete GCal event on unschedule:', result.error);
+      } catch (err) {
+        console.warn('GCal delete error on unschedule (local state will still be cleaned up):', err);
+      }
     }
 
     setScheduleBlocks((prev) => prev.filter((item) => item.id !== id));
@@ -177,18 +265,18 @@ export function useScheduleManager({
               scheduledEventId: undefined,
               scheduledCalendarId: undefined,
               weeklyGoalId: goalId || task.weeklyGoalId,
-              lastCommittedDate: today,
+              lastCommittedDate: planningDate,
             }
           : task
       )
     );
-    setDailyPlan((prev) => ({
+    setDailyPlanForDate(planningDate, (prev) => ({
       ...prev,
       committedTaskIds: prev.committedTaskIds.includes(block.linkedTaskId!)
         ? prev.committedTaskIds
         : [...prev.committedTaskIds, block.linkedTaskId!],
     }));
-  }, [scheduleBlocks, setDailyPlan, setPlannedTasks, setScheduleBlocks]);
+  }, [planningDate, scheduleBlocks, setDailyPlanForDate, setPlannedTasks, setScheduleBlocks]);
 
   const updateScheduleBlock = useCallback(async (blockId: string, startHour: number, startMin: number, durationMins: number) => {
     const block = scheduleBlocks.find((item) => item.id === blockId);
@@ -199,7 +287,7 @@ export function useScheduleManager({
       setScheduleBlocks((prev) =>
         prev
           .map((b) => b.id === blockId ? { ...b, startHour, startMin, durationMins } : b)
-          .sort((a, b) => a.startHour * 60 + a.startMin - (b.startHour * 60 + b.startMin))
+          .sort(sortBlocksByStart)
       );
       return;
     }
@@ -208,7 +296,6 @@ export function useScheduleManager({
   }, [scheduleBlocks, scheduleTaskBlock, setScheduleBlocks]);
 
   const clearFocusBlocks = useCallback(async () => {
-    const today = getToday();
     const focusBlocks = scheduleBlocks.filter((block) => !block.readOnly && block.kind === 'focus');
     if (focusBlocks.length === 0) return;
 
@@ -233,22 +320,31 @@ export function useScheduleManager({
               status: 'committed',
               scheduledEventId: undefined,
               scheduledCalendarId: undefined,
-              lastCommittedDate: today,
+              lastCommittedDate: planningDate,
             }
           : task
       )
     );
-    setDailyPlan((prev) => ({
+    setDailyPlanForDate(planningDate, (prev) => ({
       ...prev,
       committedTaskIds: Array.from(new Set([...prev.committedTaskIds, ...linkedTaskIds])),
     }));
-  }, [scheduleBlocks, setDailyPlan, setPlannedTasks, setScheduleBlocks]);
+  }, [planningDate, scheduleBlocks, setDailyPlanForDate, setPlannedTasks, setScheduleBlocks]);
+
+  const acceptProposal = useCallback(async (blockId: string): Promise<void> => {
+    setScheduleBlocks((prev) =>
+      prev.map((b) => b.id === blockId ? { ...b, proposal: 'accepted' as const } : b)
+    );
+  }, [setScheduleBlocks]);
 
   return {
     scheduleTaskBlock,
     updateScheduleBlock,
     removeScheduleBlock,
+    nestTaskInBlock,
+    unnestTaskFromBlock,
     unscheduleTaskBlock,
     clearFocusBlocks,
+    acceptProposal,
   };
 }
