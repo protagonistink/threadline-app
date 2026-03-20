@@ -33,6 +33,7 @@ import { useScheduleManager } from '@/hooks/useScheduleManager';
 import { useTaskActions } from '@/hooks/useTaskActions';
 import { usePlannerSelectors } from '@/hooks/usePlannerSelectors';
 import { useDayCommitState } from '@/hooks/useDayCommitState';
+import { useDayLock } from '@/hooks/useDayLock';
 import { useWorkdayPrompts } from '@/hooks/useWorkdayPrompts';
 import {
   createPlannerFieldSetter,
@@ -150,11 +151,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [weeklyPlanningLastCompleted, setWeeklyPlanningLastCompleted] = useState<string | null>(null);
   const [isWeeklyPlanningOpen, setIsWeeklyPlanningOpen] = useState(false);
-  const [dayLocked, setDayLocked] = useState(false);
   const [monthlyPlan, setMonthlyPlanState] = useState<MonthlyPlan | null>(null);
   const [monthlyPlanPrompt, setMonthlyPlanPrompt] = useState(false);
   const [isMonthlyPlanningOpen, setIsMonthlyPlanningOpen] = useState(false);
-  const [focusResumePrompt, setFocusResumePrompt] = useState(false);
   const [workdayPromptsInit, setWorkdayPromptsInit] = useState<{
     startShownDate: string | null;
     endShownDate: string | null;
@@ -165,6 +164,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     gcal: null,
     loading: false,
   });
+
+  const { dayLocked, focusResumePrompt, lockDay, unlockDay, resumeFocusMode, dismissFocusPrompt } = useDayLock();
 
   const {
     weeklyGoals,
@@ -263,25 +264,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
 
     loadState();
-  }, []);
-
-  useEffect(() => {
-    const today = new Date().toISOString().split('T')[0];
-    void Promise.all([
-      window.api.store.get('dayLocked'),
-      window.api.store.get('dayLockedDate'),
-    ]).then(([locked, lockedDate]) => {
-      if (locked) {
-        if (lockedDate === today) {
-          // Same day — ask if they want to resume focus mode
-          setFocusResumePrompt(true);
-        } else {
-          // Stale lock from a previous day — clear it silently
-          void window.api.store.set('dayLocked', false);
-          void window.api.store.set('dayLockedDate', null);
-        }
-      }
-    });
   }, []);
 
   useEffect(() => {
@@ -487,32 +469,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [setWorkdayEndState, workdayStart]);
 
-  const lockDay = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
-    void window.api.store.set('dayLocked', true);
-    void window.api.store.set('dayLockedDate', today);
-    setDayLocked(true);
-  }, []);
-
-  const resumeFocusMode = useCallback(() => {
-    const today = new Date().toISOString().split('T')[0];
-    void window.api.store.set('dayLocked', true);
-    void window.api.store.set('dayLockedDate', today);
-    setFocusResumePrompt(false);
-    setDayLocked(true);
-  }, []);
-
-  const dismissFocusPrompt = useCallback(() => {
-    setFocusResumePrompt(false);
-    void window.api.store.set('dayLocked', false);
-    void window.api.store.set('dayLockedDate', null);
-  }, []);
-
-  const unlockDay = useCallback(() => {
-    void window.api.store.set('dayLocked', false);
-    setDayLocked(false);
-  }, []);
-
   const selectInboxItem = useCallback((id: string) => {
     setSelectedInboxId((prev) => prev === id ? null : id);
   }, []);
@@ -643,9 +599,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     );
     setDailyPlan((prev) => ({ ...prev, committedTaskIds: [] }));
     setLastCommitTimestamp(0);
-    void window.api.store.set('dayLocked', false);
-    setDayLocked(false);
-  }, [rituals, scheduleBlocks, setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setScheduleBlocks, workdayStart]);
+    unlockDay();
+  }, [rituals, scheduleBlocks, setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setScheduleBlocks, unlockDay, workdayStart]);
 
   return (
     <AppContext.Provider
