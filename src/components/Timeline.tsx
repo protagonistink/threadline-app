@@ -11,31 +11,35 @@ import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
 import { usePhysicsWarnings } from '@/hooks/usePhysicsWarnings';
+import { useCurrentMinute } from '@/hooks/useCurrentMinute';
 import type { PomodoroState, ScheduleBlock } from '@/types';
 import { GCalIcon } from './AppIcons';
-import { PlanningDateSwitcher } from './PlanningDateSwitcher';
+import { DateHeader } from './DateHeader';
 
-const HOUR_HEIGHT = 96;
+const BASE_HOUR_HEIGHT = 96;
 const GRID_SNAP_MINS = CALENDAR_GRID_SNAP_MINS;
+const MIN_VISIBLE_DAY_HOURS = 16;
 
 function clampMinutes(totalMinutes: number, dayStartMins: number, dayEndMins: number, maxDurationMins = 0): number {
   return Math.min(Math.max(totalMinutes, dayStartMins), dayEndMins - maxDurationMins);
 }
 
-function timeToTop(totalMinutes: number, dayStartMins: number): number {
-  return ((totalMinutes - dayStartMins) / 60) * HOUR_HEIGHT;
+function timeToTop(totalMinutes: number, dayStartMins: number, hourHeight: number): number {
+  return ((totalMinutes - dayStartMins) / 60) * hourHeight;
 }
 
 function formatTime(h: number, m: number): string {
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  const normalizedHour = ((h % 24) + 24) % 24;
+  const ampm = normalizedHour >= 12 ? 'PM' : 'AM';
+  const hour = normalizedHour > 12 ? normalizedHour - 12 : normalizedHour === 0 ? 12 : normalizedHour;
   const min = m.toString().padStart(2, '0');
   return `${hour}:${min} ${ampm}`;
 }
 
 function formatTimeShort(h: number, m: number): string {
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const hour = h > 12 ? h - 12 : h === 0 ? 12 : h;
+  const normalizedHour = ((h % 24) + 24) % 24;
+  const ampm = normalizedHour >= 12 ? 'PM' : 'AM';
+  const hour = normalizedHour > 12 ? normalizedHour - 12 : normalizedHour === 0 ? 12 : normalizedHour;
   return m === 0 ? `${hour} ${ampm}` : `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
 }
 
@@ -169,13 +173,15 @@ function OpenInterval({
   startMins,
   durationMins,
   dayStartMins,
+  hourHeight,
 }: {
   startMins: number;
   durationMins: number;
   dayStartMins: number;
+  hourHeight: number;
 }) {
-  const top = timeToTop(startMins, dayStartMins);
-  const height = (durationMins / 60) * HOUR_HEIGHT;
+  const top = timeToTop(startMins, dayStartMins, hourHeight);
+  const height = (durationMins / 60) * hourHeight;
   if (height < 12) return null;
 
   const hours = Math.floor(durationMins / 60);
@@ -216,7 +222,11 @@ function BlockCard({
   actualMins = 0,
   dayStartMins,
   dayEndMins,
+  hourHeight,
   physicsWarning,
+  locked = false,
+  colIndex: _colIndex = 0,
+  colCount: _colCount = 1,
 }: {
   block: ScheduleBlock;
   onRemove: () => void;
@@ -229,12 +239,17 @@ function BlockCard({
   actualMins?: number;
   dayStartMins: number;
   dayEndMins: number;
+  hourHeight: number;
   physicsWarning?: string | null;
+  locked?: boolean;
+  colIndex?: number;
+  colCount?: number;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask } = useApp();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, toggleRitualSkipped, viewDate } = useApp();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
+  const isRitualBlock = block.id.startsWith('ritual-');
 
   // Dynamic thread color for border-left based on weekly goal
   const goalId = linkedTask?.weeklyGoalId ?? null;
@@ -245,7 +260,7 @@ function BlockCard({
     : 'rgba(100,116,139,0.3)';
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.BLOCK,
-    canDrag: !block.readOnly && !isDone && Boolean(block.linkedTaskId),
+    canDrag: !locked && !block.readOnly && !isDone && Boolean(block.linkedTaskId),
     item: {
       id: block.linkedTaskId || block.id,
       title: block.title,
@@ -262,8 +277,8 @@ function BlockCard({
   const [draft, setDraft] = useState<{ startHour: number; startMin: number; durationMins: number } | null>(null);
   const draftRef = useRef<{ startHour: number; startMin: number; durationMins: number } | null>(null);
   const didDragRef = useRef(false);
-  const top = timeToTop(((draft?.startHour ?? block.startHour) * 60) + (draft?.startMin ?? block.startMin), dayStartMins);
-  const height = ((draft?.durationMins ?? block.durationMins) / 60) * HOUR_HEIGHT;
+  const top = timeToTop(((draft?.startHour ?? block.startHour) * 60) + (draft?.startMin ?? block.startMin), dayStartMins, hourHeight);
+  const height = ((draft?.durationMins ?? block.durationMins) / 60) * hourHeight;
   const isShortBlock = height < 110;
   const actualLabel = actualMins > 0 ? formatRoundedHours(actualMins, true) : null;
 
@@ -277,7 +292,7 @@ function BlockCard({
         : 't-inked';
 
   function beginDrag(event: React.MouseEvent<HTMLDivElement>) {
-    if (block.readOnly || isDone) return;
+    if (locked || block.readOnly || isDone) return;
     const target = event.target as HTMLElement;
     if (target.closest('button')) return;
     event.preventDefault();
@@ -288,7 +303,7 @@ function BlockCard({
     function onMove(moveEvent: MouseEvent) {
       const deltaY = moveEvent.clientY - startY;
       if (Math.abs(deltaY) > 4) didDragRef.current = true;
-      const rawMinutes = baseMinutes + (deltaY / HOUR_HEIGHT) * 60;
+      const rawMinutes = baseMinutes + (deltaY / hourHeight) * 60;
       const placement = resolvePlacement(rawMinutes, block.durationMins, block.id);
       const nextDraft = {
         startHour: placement.startHour,
@@ -312,7 +327,7 @@ function BlockCard({
   }
 
   function beginResize(event: React.MouseEvent<HTMLDivElement>) {
-    if (block.readOnly || isDone) return;
+    if (locked || block.readOnly || isDone) return;
     event.preventDefault();
     event.stopPropagation();
     const startY = event.clientY;
@@ -320,7 +335,7 @@ function BlockCard({
 
     function onMove(moveEvent: MouseEvent) {
       const deltaY = moveEvent.clientY - startY;
-      const pixelsPerSnap = HOUR_HEIGHT * (GRID_SNAP_MINS / 60);
+      const pixelsPerSnap = hourHeight * (GRID_SNAP_MINS / 60);
       const step = Math.round(deltaY / pixelsPerSnap) * GRID_SNAP_MINS;
       const nextDuration = Math.max(GRID_SNAP_MINS, baseDuration + step);
       const maxDuration = dayEndMins - (block.startHour * 60 + block.startMin);
@@ -347,7 +362,7 @@ function BlockCard({
   }
 
   function startFocus(event: React.MouseEvent<HTMLButtonElement>) {
-    if (!block.linkedTaskId || block.readOnly || isDone) return;
+    if (locked || !block.linkedTaskId || block.readOnly || isDone) return;
     event.stopPropagation();
     setActiveTask(block.linkedTaskId);
     void window.api.window.showPomodoro();
@@ -359,7 +374,7 @@ function BlockCard({
     if (didDragRef.current) { didDragRef.current = false; return; }
     const target = e.target as HTMLElement;
     if (target.closest('button')) return;
-    if (!block.linkedTaskId || block.readOnly || isDone) return;
+    if (locked || !block.linkedTaskId || block.readOnly || isDone) return;
     setActiveTask(block.linkedTaskId);
     void window.api.window.showPomodoro();
     void window.api.pomodoro.start(block.linkedTaskId, block.title);
@@ -367,7 +382,7 @@ function BlockCard({
   }
 
   function handleToggleTask(event: React.MouseEvent<HTMLButtonElement>) {
-    if (!block.linkedTaskId || block.readOnly) return;
+    if (locked || !block.linkedTaskId || block.readOnly) return;
     event.stopPropagation();
     void toggleTask(block.linkedTaskId);
   }
@@ -379,7 +394,7 @@ function BlockCard({
       onClick={handleClick}
       className={cn(
         blockVariant,
-        'animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[8px] p-4 flex flex-col gap-1.5 transition-all duration-300 group/block',
+        'animate-fade-in absolute left-4 right-4 overflow-hidden rounded-[8px] p-4 flex flex-col gap-3 transition-all duration-300 group/block',
         isFocus && block.kind !== 'hard' && 'focus-block-card',
         stagger === 1 && 'stagger-2',
         stagger === 2 && 'stagger-3',
@@ -400,7 +415,7 @@ function BlockCard({
         </div>
       )}
 
-      {!block.readOnly && block.linkedTaskId && !isDone && (
+      {!locked && !block.readOnly && block.linkedTaskId && !isDone && (
         <button
           onMouseDown={(event) => {
             event.preventDefault();
@@ -413,7 +428,7 @@ function BlockCard({
           <Play className="w-3 h-3 fill-current" />
         </button>
       )}
-      {!block.readOnly && block.linkedTaskId && (
+      {!locked && !block.readOnly && block.linkedTaskId && (
         <button
           onMouseDown={(event) => {
             event.preventDefault();
@@ -431,7 +446,7 @@ function BlockCard({
           <Check className="w-3 h-3" />
         </button>
       )}
-      {!block.readOnly && (
+      {!locked && (!block.readOnly || isRitualBlock) && (
         <button
           onMouseDown={(event) => {
             event.preventDefault();
@@ -439,9 +454,13 @@ function BlockCard({
           }}
           onClick={(e) => {
             e.stopPropagation();
+            if (isRitualBlock) {
+              toggleRitualSkipped(block.id.slice('ritual-'.length), format(viewDate, 'yyyy-MM-dd'));
+              return;
+            }
             onRemove();
           }}
-          title="Remove from schedule"
+          title={isRitualBlock ? 'Skip this ritual for the day' : 'Remove from schedule'}
           className="absolute top-2 right-2 p-1 rounded-md text-text-muted hover:text-text-primary hover:bg-bg-card opacity-0 group-hover/block:opacity-100 transition-all"
         >
           <X className="w-3 h-3" />
@@ -449,7 +468,7 @@ function BlockCard({
       )}
 
       <div className="relative z-10 flex items-start gap-2 pr-6">
-        {!block.readOnly && !isDone && (
+        {!locked && !block.readOnly && !isDone && (
         <button
           ref={dragRef}
           onMouseDown={(event) => {
@@ -511,7 +530,7 @@ function BlockCard({
       )}
 
       {/* Draft block accept/reject actions */}
-      {blockVariant === 't-draft' && (
+      {!locked && blockVariant === 't-draft' && (
         <div className="flex items-center gap-3 mt-4 pt-3" style={{ borderTop: '1px solid rgba(250,250,250,0.04)' }}>
           <button
             onClick={(e) => { e.stopPropagation(); acceptProposal(block.id); }}
@@ -529,7 +548,7 @@ function BlockCard({
         </div>
       )}
 
-      {onUpdateDuration && !isDone && block.durationMins >= 15 && (
+      {!locked && onUpdateDuration && !isDone && block.durationMins >= 15 && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
           className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 opacity-0 group-hover/block:opacity-100 transition-opacity z-10"
@@ -552,7 +571,7 @@ function BlockCard({
           </button>
         </div>
       )}
-      {!block.readOnly && !isDone && block.linkedTaskId && block.durationMins >= 15 && (() => {
+      {!locked && !block.readOnly && !isDone && block.linkedTaskId && block.durationMins >= 15 && (() => {
         return (
           <div
             onMouseDown={(e) => e.stopPropagation()}
@@ -575,7 +594,7 @@ function BlockCard({
           </div>
         );
       })()}
-      {!block.readOnly && !isDone && (
+      {!locked && !block.readOnly && !isDone && (
         <div
           onMouseDown={beginResize}
           className="absolute left-3 right-3 bottom-1 h-2 cursor-row-resize rounded-full bg-accent-warm/20 opacity-0 group-hover/block:opacity-100 transition-opacity"
@@ -588,9 +607,11 @@ function BlockCard({
 function CurrentTimeIndicator({
   dayStartMins,
   dayEndMins,
+  hourHeight,
 }: {
   dayStartMins: number;
   dayEndMins: number;
+  hourHeight: number;
 }) {
   const [now, setNow] = useState(new Date());
 
@@ -604,7 +625,7 @@ function CurrentTimeIndicator({
   const currentMinutes = currentHour * 60 + currentMin;
   if (currentMinutes < dayStartMins || currentMinutes >= dayEndMins) return null;
 
-  const top = timeToTop(currentMinutes, dayStartMins);
+  const top = timeToTop(currentMinutes, dayStartMins, hourHeight);
 
   return (
     <div className="absolute left-0 right-0 flex items-center z-10 pointer-events-none" style={{ top: `${top}px` }} id="now-indicator">
@@ -746,22 +767,26 @@ function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' | 'vert
 }
 
 function AfterHoursVeil({
-  workdayStart,
   workdayEnd,
   onEdit,
+  onDragBoundaryStart,
   isLight,
   isPastClose,
   minutesPastClose,
+  dayStartMins,
+  hourHeight,
 }: {
-  workdayStart: { hour: number; min: number };
   workdayEnd: { hour: number; min: number };
   onEdit: () => void;
+  onDragBoundaryStart: (event: React.MouseEvent<HTMLElement>) => void;
   isLight: boolean;
   isPastClose: boolean;
   minutesPastClose: number;
+  dayStartMins: number;
+  hourHeight: number;
 }) {
   const endMinutes = workdayEnd.hour * 60 + workdayEnd.min;
-  const top = timeToTop(endMinutes, workdayStart.hour * 60 + workdayStart.min);
+  const top = timeToTop(endMinutes, dayStartMins, hourHeight);
   const overrunHours = Math.floor(minutesPastClose / 60);
   const overrunMinutes = minutesPastClose % 60;
   const overrunLabel = overrunHours > 0 ? `${overrunHours}h ${overrunMinutes}m` : `${overrunMinutes}m`;
@@ -773,6 +798,7 @@ function AfterHoursVeil({
     >
       <button
         onClick={onEdit}
+        onMouseDown={onDragBoundaryStart}
         className={cn(
           'pointer-events-auto absolute left-4 -top-4 flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] transition-all hover:text-text-primary',
           isLight
@@ -805,6 +831,11 @@ function AfterHoursVeil({
         </svg>
       </div>
       <div
+        onMouseDown={onDragBoundaryStart}
+        className="pointer-events-auto absolute inset-x-0 top-[-8px] h-4 cursor-row-resize"
+        title="Drag to move day close"
+      />
+      <div
         className={cn(
           'absolute inset-0',
           isLight
@@ -833,24 +864,51 @@ export function Timeline() {
     timeLogs,
     refreshExternalData,
     syncStatus,
-    selectedDate,
+    viewDate,
     dayCommitInfo,
   } = useApp();
   const timelineLocked = dayCommitInfo.state === 'closed';
   const { play } = useSound();
   const { getWarning } = usePhysicsWarnings();
   const gridRef = useRef<HTMLDivElement>(null);
+  const [gridViewportHeight, setGridViewportHeight] = useState(0);
+  const [timelineDensity, setTimelineDensity] = useState<'day' | 'now'>('day');
+  const currentMinute = useCurrentMinute();
+  const isTodayView = format(viewDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   // Keep a ref so useDrop collect/drop always see the latest blocks (avoids stale closure)
   const scheduleBlocksRef = useRef(scheduleBlocks);
   useEffect(() => { scheduleBlocksRef.current = scheduleBlocks; }, [scheduleBlocks]);
-  const dayStartMins = workdayStart.hour * 60 + workdayStart.min;
+  const earliestBlockStartMins = useMemo(
+    () => scheduleBlocks.reduce((earliest, block) => Math.min(earliest, blockStartMinutes(block)), workdayStart.hour * 60 + workdayStart.min),
+    [scheduleBlocks, workdayStart.hour, workdayStart.min]
+  );
+  const contextualStartMins = isTodayView
+    ? Math.max(0, Math.floor(Math.max(0, currentMinute - 60) / 60) * 60)
+    : workdayStart.hour * 60 + workdayStart.min;
+  const dayStartMins = Math.max(0, Math.min(workdayStart.hour * 60 + workdayStart.min, earliestBlockStartMins, contextualStartMins));
   const requestedDayEndMins = workdayEnd.hour * 60 + workdayEnd.min;
-  const dayEndMins = Math.max(dayStartMins + 60, requestedDayEndMins);
+  const latestBlockEndMins = useMemo(
+    () => scheduleBlocks.reduce((latest, block) => Math.max(latest, blockEndMinutes(block)), requestedDayEndMins),
+    [requestedDayEndMins, scheduleBlocks]
+  );
+  const minimumVisibleEndMins = dayStartMins + MIN_VISIBLE_DAY_HOURS * 60;
+  const visibleDayEndMins = Math.max(
+    dayStartMins + 60,
+    minimumVisibleEndMins,
+    Math.ceil((latestBlockEndMins + 30) / 60) * 60
+  );
+  const dayEndMins = visibleDayEndMins;
+  const totalHoursVisible = Math.max(1, (dayEndMins - dayStartMins) / 60);
+  const hourHeight = useMemo(() => {
+    if (timelineDensity === 'now' || gridViewportHeight === 0) return BASE_HOUR_HEIGHT;
+    const fittedHeight = gridViewportHeight / totalHoursVisible;
+    return Math.min(BASE_HOUR_HEIGHT, Math.max(36, fittedHeight));
+  }, [gridViewportHeight, timelineDensity, totalHoursVisible]);
   const hourRows = useMemo(() => {
     const rowCount = Math.max(1, Math.ceil((dayEndMins - dayStartMins) / 60));
     return Array.from({ length: rowCount }, (_, index) => dayStartMins + index * 60);
   }, [dayEndMins, dayStartMins]);
-  const totalHeight = hourRows.length * HOUR_HEIGHT;
+  const totalHeight = hourRows.length * hourHeight;
 
   const openIntervals = useMemo(() => {
     if (dayCommitInfo.state !== 'committed') return [];
@@ -873,24 +931,21 @@ export function Timeline() {
       cursor = Math.max(cursor, bEnd);
     }
 
-    if (cursor < dayEndMins) {
-      const gap = dayEndMins - cursor;
+    if (cursor < requestedDayEndMins) {
+      const gap = requestedDayEndMins - cursor;
       if (gap >= 30) {
         intervals.push({ startMins: cursor, durationMins: gap });
       }
     }
 
     return intervals;
-  }, [dayCommitInfo.state, scheduleBlocks, dayStartMins, dayEndMins]);
+  }, [dayCommitInfo.state, requestedDayEndMins, scheduleBlocks, dayStartMins]);
   const [isEditingStart, setIsEditingStart] = useState(false);
   const [isEditingEnd, setIsEditingEnd] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
   const [minutesPastClose, setMinutesPastClose] = useState(0);
   const [livePomodoro, setLivePomodoro] = useState<PomodoroState | null>(null);
   const [inkMessage, setInkMessage] = useState('');
-  const isTodayView = selectedDate === format(new Date(), 'yyyy-MM-dd');
-  const selectedDateLabel = format(parseISO(selectedDate), 'MMMM d');
-  const selectedWeekday = format(parseISO(selectedDate), 'EEEE');
 
   useEffect(() => {
     if (!isTodayView) {
@@ -930,12 +985,17 @@ export function Timeline() {
     }
 
     const updateBoundaryState = () => {
+      if (!isTodayView) {
+        setTimeLeft('');
+        setMinutesPastClose(0);
+        return;
+      }
       const next = computeDayBoundaryState();
       // Only show "past close" when blocks were committed but incomplete.
       // If day was never committed or all blocks are done, show neutral messaging.
       if (next.pastClose > 0 && dayCommitInfo.state === 'closed') {
         if (!dayCommitInfo.hadBlocks) {
-          setTimeLeft('Day uncommitted');
+          setTimeLeft('');
           setMinutesPastClose(0);
           return;
         }
@@ -952,7 +1012,7 @@ export function Timeline() {
     updateBoundaryState();
     const id = setInterval(updateBoundaryState, 60000);
     return () => clearInterval(id);
-  }, [workdayEnd]);
+  }, [dayCommitInfo, isTodayView, workdayEnd]);
 
   useEffect(() => {
     const unsubscribe = window.api.pomodoro.onTick((state) => {
@@ -961,10 +1021,6 @@ export function Timeline() {
     return unsubscribe;
   }, []);
 
-  const focusMinutes = scheduleBlocks
-    .filter((block) => block.kind === 'focus')
-    .reduce((sum, block) => sum + block.durationMins, 0);
-  const committedLabel = formatRoundedHours(focusMinutes, true);
   const actualByTask = useMemo(() => {
     const totals = new Map<string, number>();
     for (const log of timeLogs) {
@@ -979,6 +1035,47 @@ export function Timeline() {
       : 0;
 
   const currentBlockId = currentBlock?.id ?? null;
+
+  const beginWorkdayEndDrag = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const originGrid = gridRef.current;
+    if (!originGrid) return;
+
+    let dragged = false;
+
+    const applyBoundary = (clientY: number) => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const rect = grid.getBoundingClientRect();
+      const scrollTop = grid.scrollTop;
+      const y = clientY - rect.top + scrollTop;
+      const rawMinutes = (y / hourHeight) * 60 + dayStartMins;
+      const snappedMinutes = snapToCalendarGrid(rawMinutes, GRID_SNAP_MINS);
+      const maxVisibleMinutes = Math.max(dayStartMins + 60, visibleDayEndMins);
+      const clampedMinutes = Math.min(Math.max(snappedMinutes, dayStartMins + 60), maxVisibleMinutes);
+      setWorkdayEnd(Math.floor(clampedMinutes / 60), clampedMinutes % 60);
+    };
+
+    function onMove(moveEvent: MouseEvent) {
+      dragged = true;
+      applyBoundary(moveEvent.clientY);
+    }
+
+    function onUp(upEvent: MouseEvent) {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      if (dragged) {
+        applyBoundary(upEvent.clientY);
+        return;
+      }
+      setIsEditingEnd(true);
+    }
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }, [dayStartMins, setWorkdayEnd, visibleDayEndMins]);
 
   const resolvePlacement = useCallback((rawMinutes: number, durationMins: number, targetBlockId?: string) => {
     const snappedMinutes = snapToCalendarGrid(rawMinutes, GRID_SNAP_MINS);
@@ -1008,7 +1105,7 @@ export function Timeline() {
       const rect = gridRef.current.getBoundingClientRect();
       const scrollTop = gridRef.current.scrollTop;
       const y = offset.y - rect.top + scrollTop;
-      const rawMinutes = (y / HOUR_HEIGHT) * 60 + dayStartMins;
+      const rawMinutes = (y / hourHeight) * 60 + dayStartMins;
       const placement = resolvePlacement(rawMinutes, 60);
 
       return {
@@ -1026,36 +1123,43 @@ export function Timeline() {
       const rect = gridRef.current.getBoundingClientRect();
       const scrollTop = gridRef.current.scrollTop;
       const y = offset.y - rect.top + scrollTop;
-      const rawMinutes = (y / HOUR_HEIGHT) * 60 + dayStartMins;
+      const rawMinutes = (y / hourHeight) * 60 + dayStartMins;
       const placement = resolvePlacement(rawMinutes, 60);
 
       void scheduleTaskBlock(item.id, placement.startHour, placement.startMin, 60);
       play('paper');
     },
-  }, [play, resolvePlacement, scheduleTaskBlock]);
+  }, [dayStartMins, hourHeight, play, resolvePlacement, scheduleTaskBlock]);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+
+    const updateViewportHeight = () => {
+      setGridViewportHeight(grid.clientHeight);
+    };
+
+    updateViewportHeight();
+    const observer = new ResizeObserver(updateViewportHeight);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (timelineDensity !== 'now' || !isTodayView || !gridRef.current) return;
+    const grid = gridRef.current;
+    const nowTop = timeToTop(currentMinute, dayStartMins, hourHeight);
+    const targetScrollTop = Math.max(0, nowTop - grid.clientHeight * 0.35);
+    grid.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+  }, [currentMinute, dayStartMins, hourHeight, isTodayView, timelineDensity]);
 
   return (
     <div className="focus-spotlight stage-bloom relative w-full min-w-0 bg-[#111111] border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
       {/* Sticky Date Header */}
       <div className="sticky top-0 z-20 px-8 pt-6 pb-5" style={{ background: 'rgba(10, 10, 10, 0.85)', backdropFilter: 'blur(16px)' }}>
         <div className="flex items-end justify-between">
-          <div>
-            <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-[#919fae]/35">
-              {selectedWeekday}
-            </span>
-            <div className="font-display leading-none mt-1" style={{ fontSize: '2.75rem', fontWeight: 400, color: '#c8c6c2', letterSpacing: '-0.015em' }}>
-              {selectedDateLabel}
-            </div>
-          </div>
-          <div className="text-right pb-1 flex flex-col items-end gap-3">
-            <PlanningDateSwitcher />
-            <div>
-              <div className="font-sans text-[10px] tracking-[0.15em] uppercase text-[#919fae]/30 mb-1">
-                {isTodayView ? 'Focus today' : 'Focus planned'}
-              </div>
-              <div className="font-display text-[17px] text-[#ff9786]/65">{committedLabel}</div>
-            </div>
-          </div>
+          <DateHeader />
+          <div />
         </div>
         {inkMessage && isTodayView && (
           <p className="font-display mt-4 leading-relaxed text-[15px] font-light text-[#919fae]/50">
@@ -1066,7 +1170,7 @@ export function Timeline() {
         <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
           <div className="flex items-center gap-2">
             <span className="font-sans text-[11px]" style={{ color: 'rgba(148,163,184,0.6)' }}>
-              {isTodayView ? timeLeft : `Planning ${selectedWeekday.toLowerCase()}`}
+              {isTodayView ? timeLeft : ''}
             </span>
             <button
               onClick={() => void refreshExternalData()}
@@ -1076,6 +1180,26 @@ export function Timeline() {
             >
               <RefreshCw className={cn('w-2.5 h-2.5', syncStatus.loading && 'animate-spin')} />
             </button>
+            <div className="ml-3 inline-flex rounded-full border border-border-subtle bg-bg-card/40 p-1">
+              <button
+                onClick={() => setTimelineDensity('day')}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors',
+                  timelineDensity === 'day' ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'
+                )}
+              >
+                Day
+              </button>
+              <button
+                onClick={() => setTimelineDensity('now')}
+                className={cn(
+                  'rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors',
+                  timelineDensity === 'now' ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'
+                )}
+              >
+                Now
+              </button>
+            </div>
           </div>
           <div className="flex items-baseline gap-0">
             {isEditingStart ? (
@@ -1136,8 +1260,6 @@ export function Timeline() {
       </div>
 
       {/* Deadline strip above calendar (normal mode) */}
-      {!isFocus && <DeadlineMargin layout="horizontal" />}
-
       {/* Calendar + Deadline column (focus mode: side by side) */}
       <div className="flex flex-1 min-h-0" style={{ minWidth: 0 }}>
       <div
@@ -1149,20 +1271,19 @@ export function Timeline() {
         className={cn('dot-grid flex-1 overflow-y-auto relative hide-scrollbar transition-colors min-w-0', isOver && 'bg-accent-warm/[0.035]')}
       >
         <div className="w-full max-w-4xl mx-auto relative" style={{ height: `${totalHeight}px` }}>
-          {isTodayView && <CurrentTimeIndicator dayStartMins={dayStartMins} dayEndMins={dayEndMins} />}
-
+          {isTodayView && <CurrentTimeIndicator dayStartMins={dayStartMins} dayEndMins={dayEndMins} hourHeight={hourHeight} />}
           {hourRows.map((rowStartMins, i) => (
             <div
               key={rowStartMins}
               className="absolute left-0 right-0 flex border-b border-border-subtle/50"
-              style={{ top: `${i * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}
+              style={{ top: `${i * hourHeight}px`, height: `${hourHeight}px` }}
             >
               <div className="time-lbl p-2 text-right border-r border-border-subtle/50 whitespace-nowrap" style={{ width: 56 }}>
                 {formatTimeShort(Math.floor(rowStartMins / 60), rowStartMins % 60)}
               </div>
-              <div className="flex-1 relative">
+              <div className="flex-1 relative" style={{ paddingTop: 6, paddingBottom: 6 }}>
                 {/* Half-hour mark */}
-                <div className="absolute left-0 right-0 border-b border-dotted border-border-subtle/50" style={{ top: `${HOUR_HEIGHT / 2}px` }} />
+                <div className="absolute left-0 right-0 border-b border-dotted border-border-subtle/50" style={{ top: `${hourHeight / 2}px` }} />
                 {/* Vertical center-line */}
                 <div className={cn('absolute top-0 bottom-0 left-1/2 border-l border-border-subtle/20', isFocus && 'opacity-35')} />
               </div>
@@ -1173,20 +1294,22 @@ export function Timeline() {
             <div
               className="absolute left-4 right-4 rounded-xl border-2 border-dashed border-accent-warm/45 bg-accent-warm/8 pointer-events-none z-20"
               style={{
-                top: `${timeToTop(ghostBlock.startHour * 60 + ghostBlock.startMin, dayStartMins)}px`,
-                height: `${HOUR_HEIGHT}px`,
+                top: `${timeToTop(ghostBlock.startHour * 60 + ghostBlock.startMin, dayStartMins, hourHeight)}px`,
+                height: `${hourHeight}px`,
               }}
             />
           )}
 
           {isTodayView && (
             <AfterHoursVeil
-              workdayStart={workdayStart}
               workdayEnd={workdayEnd}
               onEdit={() => setIsEditingEnd(true)}
+              onDragBoundaryStart={beginWorkdayEndDrag}
               isLight={isLight}
               isPastClose={minutesPastClose > 0}
               minutesPastClose={minutesPastClose}
+              dayStartMins={dayStartMins}
+              hourHeight={hourHeight}
             />
           )}
 
@@ -1214,7 +1337,9 @@ export function Timeline() {
                 }
                 dayStartMins={dayStartMins}
                 dayEndMins={dayEndMins}
+                hourHeight={hourHeight}
                 physicsWarning={getWarning(block)}
+                locked={timelineLocked}
               />
             ))}
             {openIntervals.map((interval, i) => (
@@ -1223,6 +1348,7 @@ export function Timeline() {
                 startMins={interval.startMins}
                 durationMins={interval.durationMins}
                 dayStartMins={dayStartMins}
+                hourHeight={hourHeight}
               />
             ))}
           </div>
