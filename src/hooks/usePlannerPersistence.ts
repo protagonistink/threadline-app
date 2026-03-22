@@ -10,7 +10,7 @@ import type {
   WeeklyGoal,
 } from '@/types';
 
-export type PersistedView = 'flow' | 'archive' | 'goals' | 'scratch';
+export type PersistedView = 'flow' | 'archive' | 'goals' | 'scratch' | 'money';
 export type PersistedSourceView = 'cover' | 'asana' | 'gcal' | 'gmail';
 
 export interface StoredPlannerState {

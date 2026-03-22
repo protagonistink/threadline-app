@@ -60,6 +60,35 @@ export interface BriefingContext {
   monthlyOneThing?: string;
   monthlyWhy?: string;
   inkMode?: InkMode;
+  finance?: {
+    weeklyRemaining: number;
+    weeklyRemainingContext: 'normal' | 'tight' | 'comfortable';
+    billsCovered: boolean;
+    cognitiveState: 'calm' | 'alert' | 'compressed';
+    upcoming: Array<{
+      name: string;
+      amount: number;
+      daysUntil: number;
+      covered: boolean;
+      category: 'personal' | 'business';
+    }>;
+    actionItems: Array<{
+      description: string;
+      daysOverdue?: number;
+      amount?: number;
+    }>;
+    recommendations: Array<{
+      action: string;
+      target: string;
+      amount: number;
+      reason: string;
+    }>;
+    businessPipeline?: {
+      confirmedThisMonth: number;
+      invoicedOutstanding: number;
+      overdueInvoices: number;
+    };
+  };
 }
 
 export interface UserPhysics {
@@ -155,6 +184,13 @@ export interface LoadedSettings {
   focus: {
     blockedSites: string[];
   };
+  finance: {
+    configured: boolean;
+    institutionName: string;
+    lastSync: string;
+    plaidClientIdConfigured: boolean;
+    plaidSecretConfigured: boolean;
+  };
 }
 
 export interface SettingsUpdate {
@@ -168,6 +204,8 @@ export interface SettingsUpdate {
   breakMins?: number;
   longBreakMins?: number;
   blockedSites?: string[];
+  plaidClientId?: string;
+  plaidSecret?: string;
 }
 
 interface SettingsAPI {
@@ -216,6 +254,13 @@ interface CaptureAPI {
   onEntryDeleted: (callback: (id: string) => void) => () => void;
 }
 
+interface FinanceAPI {
+  getState: () => Promise<import('../../engine/types').EngineState | null>;
+  refresh: () => Promise<import('../../engine/types').EngineState | null>;
+  plaidLink: () => Promise<{ success: boolean }>;
+  plaidExchange: (publicToken: string) => Promise<{ success: boolean }>;
+}
+
 declare global {
   interface Window {
     api: {
@@ -232,6 +277,7 @@ declare global {
       ink: InkAPI;
       chat: ChatHistoryAPI;
       capture: CaptureAPI;
+      finance: FinanceAPI;
     };
   }
 }

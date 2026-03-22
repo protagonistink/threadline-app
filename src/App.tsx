@@ -26,6 +26,7 @@ const Archive = lazy(() => import('./components/Archive').then((module) => ({ de
 const ScratchView = lazy(() => import('./components/ScratchView').then((module) => ({ default: module.ScratchView })));
 const TodaysFlow = lazy(() => import('./components/TodaysFlow').then((module) => ({ default: module.TodaysFlow })));
 const PlanningGuardrails = lazy(() => import('./components/PlanningGuardrails').then((module) => ({ default: module.PlanningGuardrails })));
+const MoneyView = lazy(() => import('./components/MoneyView').then((m) => ({ default: m.MoneyView })));
 
 const ASSISTANT_CLOSE_DELAY_MS = 140;
 
@@ -350,6 +351,11 @@ function AppLayout() {
             {activeView === 'scratch' && (
               <Suspense fallback={null}>
                 <ScratchView />
+              </Suspense>
+            )}
+            {activeView === 'money' && (
+              <Suspense fallback={null}>
+                <MoneyView />
               </Suspense>
             )}
           </div>

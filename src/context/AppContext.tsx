@@ -46,7 +46,7 @@ import {
   storedPlannerStateToPlannerState,
 } from './plannerState';
 
-export type View = 'flow' | 'archive' | 'goals' | 'scratch';
+export type View = 'flow' | 'archive' | 'goals' | 'scratch' | 'money';
 export type SourceView = 'cover' | 'asana' | 'gcal' | 'gmail';
 
 interface AppContextValue {
