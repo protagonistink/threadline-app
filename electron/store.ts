@@ -54,6 +54,23 @@ const store = new Store({
     scratch: {
       entries: [] as Array<{ id: string; text: string; createdAt: string }>,
     },
+    plaid: {
+      clientId: '',
+      secret: '',
+      accessToken: '',
+      itemId: '',
+      institutionName: '',
+      lastSync: '',
+    },
+    finance: {
+      configured: false,
+      weeklyPattern: [] as number[],
+    },
+    financeConfig: {
+      flexPoolTarget: 0,
+      survivalNeeds: 0,
+      untouchableNeeds: 0,
+    },
   },
 });
 
@@ -64,6 +81,7 @@ const SAFE_STORE_KEYS = new Set([
   'monthlyPlanDismissedDate',
   'startOfDay.shownDate',
   'endOfDay.shownDate',
+  'finance.configured',
 ]);
 
 function isAllowedStoreKey(key: string) {
@@ -127,6 +145,13 @@ export function registerStoreHandlers() {
       focus: {
         blockedSites: Array.isArray(focus.blockedSites) ? focus.blockedSites : [],
       },
+      finance: {
+        configured: Boolean(store.get('plaid.accessToken')),
+        institutionName: String(store.get('plaid.institutionName') || ''),
+        lastSync: String(store.get('plaid.lastSync') || ''),
+        plaidClientIdConfigured: Boolean(store.get('plaid.clientId')),
+        plaidSecretConfigured: Boolean(store.get('plaid.secret')),
+      },
     };
   });
 
@@ -144,6 +169,8 @@ export function registerStoreHandlers() {
     if ('breakMins' in payload) store.set('pomodoro.breakMins', payload.breakMins);
     if ('longBreakMins' in payload) store.set('pomodoro.longBreakMins', payload.longBreakMins);
     if ('blockedSites' in payload) store.set('focus.blockedSites', payload.blockedSites);
+    if ('plaidClientId' in payload) store.set('plaid.clientId', payload.plaidClientId);
+    if ('plaidSecret' in payload) store.set('plaid.secret', payload.plaidSecret);
     return true;
   });
 }

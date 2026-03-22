@@ -155,6 +155,13 @@ export interface LoadedSettings {
   focus: {
     blockedSites: string[];
   };
+  finance: {
+    configured: boolean;
+    institutionName: string;
+    lastSync: string;
+    plaidClientIdConfigured: boolean;
+    plaidSecretConfigured: boolean;
+  };
 }
 
 export interface SettingsUpdate {
@@ -168,6 +175,8 @@ export interface SettingsUpdate {
   breakMins?: number;
   longBreakMins?: number;
   blockedSites?: string[];
+  plaidClientId?: string;
+  plaidSecret?: string;
 }
 
 interface SettingsAPI {
