@@ -29,6 +29,15 @@ export function Settings({ onClose }: SettingsProps) {
   const [breakMins, setBreakMins] = useState(5);
   const [longBreakMins, setLongBreakMins] = useState(15);
   const [blockedSites, setBlockedSites] = useState('');
+  const [plaidClientId, setPlaidClientId] = useState('');
+  const [plaidSecret, setPlaidSecret] = useState('');
+  const [plaidClientIdConfigured, setPlaidClientIdConfigured] = useState(false);
+  const [plaidSecretConfigured, setPlaidSecretConfigured] = useState(false);
+  const [plaidClientIdDirty, setPlaidClientIdDirty] = useState(false);
+  const [plaidSecretDirty, setPlaidSecretDirty] = useState(false);
+  const [financeConfigured, setFinanceConfigured] = useState(false);
+  const [financeInstitution, setFinanceInstitution] = useState('');
+  const [financeLastSync, setFinanceLastSync] = useState('');
   const [saving, setSaving] = useState(false);
 
   async function loadCalendars() {
@@ -80,6 +89,14 @@ export function Settings({ onClose }: SettingsProps) {
       if (settings.pomodoro.breakMins) setBreakMins(settings.pomodoro.breakMins);
       if (settings.pomodoro.longBreakMins) setLongBreakMins(settings.pomodoro.longBreakMins);
       if (settings.focus.blockedSites) setBlockedSites(settings.focus.blockedSites.join('\n'));
+
+      if (settings.finance) {
+        setPlaidClientIdConfigured(settings.finance.plaidClientIdConfigured);
+        setPlaidSecretConfigured(settings.finance.plaidSecretConfigured);
+        setFinanceConfigured(settings.finance.configured);
+        setFinanceInstitution(settings.finance.institutionName);
+        setFinanceLastSync(settings.finance.lastSync);
+      }
 
       if (settings.gcal.clientId && settings.gcal.clientSecretConfigured) {
         await loadCalendars();
@@ -135,6 +152,8 @@ export function Settings({ onClose }: SettingsProps) {
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean),
+      ...(plaidClientIdDirty && plaidClientId ? { plaidClientId } : {}),
+      ...(plaidSecretDirty && plaidSecret ? { plaidSecret } : {}),
     });
     setSaving(false);
     onClose();
@@ -324,6 +343,56 @@ export function Settings({ onClose }: SettingsProps) {
               placeholder="reddit.com&#10;twitter.com&#10;youtube.com"
               className="input-field resize-none font-mono text-[12px]"
             />
+          </Section>
+
+          {/* Finance (Plaid) */}
+          <Section title="Finance (Plaid)">
+            <div className="rounded-lg border border-border bg-bg px-4 py-3 text-[12px] text-text-muted">
+              {financeConfigured ? (
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center justify-between gap-4">
+                    <span>Institution</span>
+                    <span className="font-mono text-text-primary">{financeInstitution || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span>Last sync</span>
+                    <span className="font-mono text-text-primary">{financeLastSync || '—'}</span>
+                  </div>
+                </div>
+              ) : (
+                <span>Not connected</span>
+              )}
+            </div>
+            <Field label="Plaid Client ID">
+              <div className="relative">
+                <input
+                  value={plaidClientId}
+                  onChange={(e) => {
+                    setPlaidClientId(e.target.value);
+                    setPlaidClientIdDirty(true);
+                  }}
+                  placeholder={plaidClientIdConfigured && !plaidClientId ? '' : 'client_id...'}
+                  className="input-field"
+                />
+                {plaidClientIdConfigured && !plaidClientId && (
+                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded bg-bg-elevated text-text-muted">
+                    configured
+                  </span>
+                )}
+              </div>
+            </Field>
+            <Field label="Plaid Secret">
+              <input
+                type="password"
+                value={plaidSecret}
+                onChange={(e) => {
+                  setPlaidSecret(e.target.value);
+                  setPlaidSecretDirty(true);
+                }}
+                placeholder={plaidSecretConfigured ? 'Saved secret' : ''}
+                className="input-field"
+              />
+            </Field>
           </Section>
 
           <Section title="About">
