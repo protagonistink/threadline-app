@@ -594,6 +594,69 @@ function loadUserPhysics(): UserPhysics {
   return store.get('userPhysics') as UserPhysics;
 }
 
+function injectFinanceContext(ctx: BriefingContext): void {
+  if (!store.get('finance.configured')) return;
+  try {
+    const engineResult = getEngineState();
+    const weeklyPattern = (store.get('finance.weeklyPattern') as number[]) || [];
+    const avg = weeklyPattern.length > 0
+      ? weeklyPattern.reduce((a, b) => a + b, 0) / weeklyPattern.length
+      : null;
+
+    const weeklyRemainingContext: 'normal' | 'tight' | 'comfortable' =
+      avg === null ? 'normal'
+      : engineResult.permissionNumber < avg * 0.7 ? 'tight'
+      : engineResult.permissionNumber > avg * 1.3 ? 'comfortable'
+      : 'normal';
+
+    // Business pipeline from revenue data
+    const now = new Date();
+    const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+    const confirmedRevenue = engineResult.revenue
+      .filter(r => r.confidence === 'confirmed' && r.expectedDate >= new Date(monthStart));
+    const invoicedRevenue = engineResult.revenue
+      .filter(r => r.confidence === 'invoiced');
+    const overdueInvoices = invoicedRevenue
+      .filter(r => r.expectedDate < now);
+
+    ctx.finance = {
+      weeklyRemaining: engineResult.permissionNumber,
+      weeklyRemainingContext,
+      billsCovered: engineResult.cashJobs.survival > 0 || engineResult.obligations.every(o => !o.isPastDue),
+      cognitiveState: engineResult.cognitiveState,
+      upcoming: engineResult.obligations
+        .filter(o => o.daysUntilDue >= 0 && o.daysUntilDue <= 14)
+        .map(o => ({
+          name: o.name,
+          amount: o.amount,
+          daysUntil: o.daysUntilDue,
+          covered: o.cashReserved >= o.amount,
+          category: 'personal' as const,
+        })),
+      actionItems: engineResult.actionItems
+        .filter((a: Record<string, unknown>) => a.status === 'pending')
+        .map((a: Record<string, unknown>) => ({
+          description: String(a.description),
+          daysOverdue: a.dueDate ? Math.max(0, Math.floor((Date.now() - new Date(String(a.dueDate)).getTime()) / 86400000)) : undefined,
+          amount: typeof a.amount === 'number' ? a.amount : undefined,
+        })),
+      recommendations: engineResult.recommendations.map(r => ({
+        action: r.actionVerb,
+        target: r.target,
+        amount: r.amount,
+        reason: r.protects,
+      })),
+      businessPipeline: {
+        confirmedThisMonth: confirmedRevenue.reduce((s, r) => s + r.amount, 0),
+        invoicedOutstanding: invoicedRevenue.reduce((s, r) => s + r.amount, 0),
+        overdueInvoices: overdueInvoices.length,
+      },
+    };
+  } catch (error) {
+    console.error('Failed to inject finance context into briefing:', error);
+  }
+}
+
 export function registerAnthropicHandlers() {
   // Non-streaming chat
   ipcMain.handle('ai:chat', async (_event, messages: ChatMessage[], context: BriefingContext) => {
@@ -604,53 +667,7 @@ export function registerAnthropicHandlers() {
       const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
       const ctxWithPhysics: BriefingContext = { ...context, userPhysics: loadUserPhysics() };
 
-      // Inject financial context if configured
-      if (store.get('finance.configured')) {
-        try {
-          const engineResult = getEngineState();
-          const weeklyPattern = (store.get('finance.weeklyPattern') as number[]) || [];
-          const avg = weeklyPattern.length > 0
-            ? weeklyPattern.reduce((a, b) => a + b, 0) / weeklyPattern.length
-            : null;
-
-          const weeklyRemainingContext: 'normal' | 'tight' | 'comfortable' =
-            avg === null ? 'normal'
-            : engineResult.permissionNumber < avg * 0.7 ? 'tight'
-            : engineResult.permissionNumber > avg * 1.3 ? 'comfortable'
-            : 'normal';
-
-          ctxWithPhysics.finance = {
-            weeklyRemaining: engineResult.permissionNumber,
-            weeklyRemainingContext,
-            billsCovered: engineResult.cashJobs.survival > 0 || engineResult.obligations.every(o => !o.isPastDue),
-            cognitiveState: engineResult.cognitiveState,
-            upcoming: engineResult.obligations
-              .filter(o => o.daysUntilDue >= 0 && o.daysUntilDue <= 14)
-              .map(o => ({
-                name: o.name,
-                amount: o.amount,
-                daysUntil: o.daysUntilDue,
-                covered: o.cashReserved >= o.amount,
-                category: 'personal' as const,
-              })),
-            actionItems: engineResult.actionItems
-              .filter((a: Record<string, unknown>) => a.status === 'pending')
-              .map((a: Record<string, unknown>) => ({
-                description: String(a.description),
-                daysOverdue: a.dueDate ? Math.max(0, Math.floor((Date.now() - new Date(String(a.dueDate)).getTime()) / 86400000)) : undefined,
-                amount: typeof a.amount === 'number' ? a.amount : undefined,
-              })),
-            recommendations: engineResult.recommendations.map(r => ({
-              action: r.actionVerb,
-              target: r.target,
-              amount: r.amount,
-              reason: r.protects,
-            })),
-          };
-        } catch (error) {
-          console.error('Failed to inject finance context into briefing:', error);
-        }
-      }
+      injectFinanceContext(ctxWithPhysics);
 
       const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 400;
 
@@ -696,53 +713,7 @@ export function registerAnthropicHandlers() {
       logAI('[AI] Using model:', model);
       const ctxWithPhysics: BriefingContext = { ...context, userPhysics: loadUserPhysics() };
 
-      // Inject financial context if configured
-      if (store.get('finance.configured')) {
-        try {
-          const engineResult = getEngineState();
-          const weeklyPattern = (store.get('finance.weeklyPattern') as number[]) || [];
-          const avg = weeklyPattern.length > 0
-            ? weeklyPattern.reduce((a, b) => a + b, 0) / weeklyPattern.length
-            : null;
-
-          const weeklyRemainingContext: 'normal' | 'tight' | 'comfortable' =
-            avg === null ? 'normal'
-            : engineResult.permissionNumber < avg * 0.7 ? 'tight'
-            : engineResult.permissionNumber > avg * 1.3 ? 'comfortable'
-            : 'normal';
-
-          ctxWithPhysics.finance = {
-            weeklyRemaining: engineResult.permissionNumber,
-            weeklyRemainingContext,
-            billsCovered: engineResult.cashJobs.survival > 0 || engineResult.obligations.every(o => !o.isPastDue),
-            cognitiveState: engineResult.cognitiveState,
-            upcoming: engineResult.obligations
-              .filter(o => o.daysUntilDue >= 0 && o.daysUntilDue <= 14)
-              .map(o => ({
-                name: o.name,
-                amount: o.amount,
-                daysUntil: o.daysUntilDue,
-                covered: o.cashReserved >= o.amount,
-                category: 'personal' as const,
-              })),
-            actionItems: engineResult.actionItems
-              .filter((a: Record<string, unknown>) => a.status === 'pending')
-              .map((a: Record<string, unknown>) => ({
-                description: String(a.description),
-                daysOverdue: a.dueDate ? Math.max(0, Math.floor((Date.now() - new Date(String(a.dueDate)).getTime()) / 86400000)) : undefined,
-                amount: typeof a.amount === 'number' ? a.amount : undefined,
-              })),
-            recommendations: engineResult.recommendations.map(r => ({
-              action: r.actionVerb,
-              target: r.target,
-              amount: r.amount,
-              reason: r.protects,
-            })),
-          };
-        } catch (error) {
-          console.error('Failed to inject finance context into briefing:', error);
-        }
-      }
+      injectFinanceContext(ctxWithPhysics);
 
       const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 400;
 
