@@ -13,6 +13,7 @@ import {
   ChevronsRight,
   Sunrise,
   MoonStar,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
@@ -144,6 +145,13 @@ export function Sidebar({ onSettingsClick, onShowBriefing, onShowEveningReflecti
           collapsed={collapsed}
           active={activeView === 'flow'}
           onClick={() => setActiveView('flow')}
+        />
+        <NavItem
+          icon={Wallet}
+          label="Money"
+          collapsed={collapsed}
+          active={activeView === 'money'}
+          onClick={() => setActiveView('money')}
         />
         <NavItem
           icon={Archive}
