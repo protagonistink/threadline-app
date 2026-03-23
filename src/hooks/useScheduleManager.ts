@@ -280,7 +280,7 @@ export function useScheduleManager({
 
   const updateScheduleBlock = useCallback(async (blockId: string, startHour: number, startMin: number, durationMins: number) => {
     const block = scheduleBlocks.find((item) => item.id === blockId);
-    if (!block || block.readOnly) return;
+    if (!block || (block.readOnly && block.kind !== 'break')) return;
 
     // Ritual/break blocks: reposition in place (no GCal sync)
     if (!block.linkedTaskId) {

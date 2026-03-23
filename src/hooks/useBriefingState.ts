@@ -189,9 +189,15 @@ export function useBriefingState({
             ...contextJson,
             weekUpdatedAt: new Date().toISOString(),
           }).then(() => {
-            setResolvedInkMode('morning');
-            setMessages([]);
-            setPhase('idle');
+            setMessages((prev) => [
+              ...prev,
+              { role: 'assistant', content: "Weekly context saved. I've got what I need — see you in the morning." },
+            ]);
+            setTimeout(() => {
+              setResolvedInkMode('morning');
+              setMessages([]);
+              setPhase('idle');
+            }, 2500);
           });
         }
       }

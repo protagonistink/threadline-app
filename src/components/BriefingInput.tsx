@@ -15,7 +15,6 @@ export function BriefingInput({
   onKeyDown,
   onSend,
   onShowCommit,
-  onOpenRevision,
 }: {
   inputValue: string;
   isStreaming: boolean;
@@ -27,7 +26,6 @@ export function BriefingInput({
   onKeyDown: (e: KeyboardEvent) => void;
   onSend: () => void;
   onShowCommit: () => void;
-  onOpenRevision: (seed?: string) => void;
 }) {
   return (
     <div className={cn('shrink-0', isOverlay ? 'pt-3' : 'pt-4')} style={{ borderTop: '1px solid #1E293B' }}>
@@ -40,22 +38,6 @@ export function BriefingInput({
         >
           Ready to commit? Pull tasks from the last reply
         </button>
-      )}
-
-      {/* Rework with Ink */}
-      {phase === 'committing' && (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-[#1E293B] bg-[rgba(30,41,59,0.35)] px-3 py-2">
-          <div className="text-[11px] leading-relaxed" style={{ color: '#94A3B8' }}>
-            Push back here if the plan is off. Cut, swap, add, or move things before you lock it in.
-          </div>
-          <button
-            onClick={() => onOpenRevision('Cut two things. Keep the essential work and rework the schedule.')}
-            className="shrink-0 rounded-md px-2.5 py-1.5 text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-white"
-            style={{ color: '#CBD5E1', border: '1px solid #334155', background: 'transparent' }}
-          >
-            Rework with Ink
-          </button>
-        </div>
       )}
 
       <div className="flex items-end gap-3">

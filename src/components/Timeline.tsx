@@ -59,7 +59,8 @@ export function Timeline() {
   const contextualStartMins = isTodayView
     ? Math.max(0, Math.floor(Math.max(0, currentMinute - 60) / 60) * 60)
     : workdayStart.hour * 60 + workdayStart.min;
-  const dayStartMins = Math.max(0, Math.min(workdayStart.hour * 60 + workdayStart.min, earliestBlockStartMins, contextualStartMins));
+  const EARLIEST_VISIBLE_HOUR = 5; // 5 AM hard floor — calendar is always scrollable from here
+  const dayStartMins = Math.max(EARLIEST_VISIBLE_HOUR * 60, Math.min(workdayStart.hour * 60 + workdayStart.min, earliestBlockStartMins, contextualStartMins));
   const requestedDayEndMins = workdayEnd.hour * 60 + workdayEnd.min;
   const latestBlockEndMins = useMemo(
     () => scheduleBlocks.reduce((latest, block) => Math.max(latest, blockEndMinutes(block)), requestedDayEndMins),
@@ -136,7 +137,8 @@ export function Timeline() {
       }
     }
     if (curGroup.length > 0) groups.push(curGroup);
-    // Assign columns per group
+    // Assign columns per group — use stable group-wide column count
+    // to prevent layout shifts when blocks are added/removed/moved
     for (const grp of groups) {
       if (grp.length === 1) {
         layout.set(grp[0].id, { colIndex: 0, colCount: 1 });
@@ -149,20 +151,21 @@ export function Timeline() {
         for (let c = 0; c < cols.length; c++) {
           if (cols[c][cols[c].length - 1] <= s) {
             cols[c].push(blockEndMinutes(blk));
-            layout.set(blk.id, { colIndex: c, colCount: grp.length });
+            layout.set(blk.id, { colIndex: c, colCount: cols.length });
             placed = true;
             break;
           }
         }
         if (!placed) {
           cols.push([blockEndMinutes(blk)]);
-          layout.set(blk.id, { colIndex: cols.length - 1, colCount: grp.length });
+          layout.set(blk.id, { colIndex: cols.length - 1, colCount: cols.length });
         }
       }
-      const actualCols = cols.length;
+      // Final pass: set colCount to total columns used in group
+      const totalCols = cols.length;
       for (const blk of grp) {
-        const entry = layout.get(blk.id)!;
-        entry.colCount = actualCols;
+        const entry = layout.get(blk.id);
+        if (entry) entry.colCount = totalCols;
       }
     }
     return layout;
@@ -177,12 +180,36 @@ export function Timeline() {
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedNestedTaskId, setSelectedNestedTaskId] = useState<string | null>(null);
 
+  // Migrate selection when block ID changes (e.g., local → gcal sync)
+  const prevBlocksRef = useRef(scheduleBlocks);
+  useEffect(() => {
+    if (selectedBlockId && !scheduleBlocks.some((b) => b.id === selectedBlockId)) {
+      // Look for a block that has the same linkedTaskId as the old selection
+      const oldBlock = prevBlocksRef.current.find((b) => b.id === selectedBlockId);
+      if (oldBlock?.linkedTaskId) {
+        const newBlock = scheduleBlocks.find((b) => b.linkedTaskId === oldBlock.linkedTaskId);
+        if (newBlock) {
+          setSelectedBlockId(newBlock.id);
+        } else {
+          setSelectedBlockId(null);
+        }
+      } else {
+        setSelectedBlockId(null);
+      }
+    }
+    prevBlocksRef.current = scheduleBlocks;
+  }, [scheduleBlocks, selectedBlockId]);
+
   // Keyboard delete for selected block or nested task
   useEffect(() => {
     if (timelineLocked) return;
     if (!selectedBlockId && !selectedNestedTaskId) return;
 
     function handleKeyDown(e: KeyboardEvent) {
+      // Don't intercept when an input/textarea/contenteditable is focused
+      const active = document.activeElement;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || (active as HTMLElement).isContentEditable)) return;
+
       if (e.key === 'Backspace' || e.key === 'Delete') {
         e.preventDefault();
         if (selectedNestedTaskId && selectedBlockId) {
@@ -413,7 +440,7 @@ export function Timeline() {
       void scheduleTaskBlock(item.id, placement.startHour, placement.startMin, 60);
       play('paper');
     },
-  }, [dayStartMins, hourHeight, play, resolvePlacement, scheduleTaskBlock]);
+  }, [dayStartMins, hourHeight, play, resolvePlacement, scheduleTaskBlock, timelineLocked]);
 
   useEffect(() => {
     const grid = gridRef.current;

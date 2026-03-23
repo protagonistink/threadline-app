@@ -100,7 +100,9 @@ export function storedPlannerStateToPlannerState(stored: StoredPlannerState): Pa
   }
 
   if (stored.viewDate || stored.selectedDate) {
-    nextState.viewDate = stored.viewDate ?? stored.selectedDate ?? getToday();
+    const restoredDate = stored.viewDate ?? stored.selectedDate ?? getToday();
+    // Always open on today — never restore a past date from storage
+    nextState.viewDate = restoredDate < getToday() ? getToday() : restoredDate;
   }
 
   if (stored.timeLogs) {

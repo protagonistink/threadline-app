@@ -238,7 +238,7 @@ function RitualEntry({
 function ReturnDropZone({ onDrop }: { onDrop: (item: DragItem) => void }) {
   const [{ isOver, canDrop }, dropRef] = useDrop<DragItem, unknown, { isOver: boolean; canDrop: boolean }>({
     accept: [DragTypes.TASK, DragTypes.BLOCK],
-    canDrop: (item) => item.sourceType === 'asana' || item.sourceType === 'local',
+    canDrop: (item) => item.sourceType === 'asana' || item.sourceType === 'local' || item.sourceType === 'gcal',
     drop: (item) => { onDrop(item); },
     collect: (monitor) => ({
       isOver: monitor.isOver({ shallow: true }),

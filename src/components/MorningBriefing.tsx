@@ -184,7 +184,6 @@ export function MorningBriefing({
                 onKeyDown={actions.handleKeyDown}
                 onSend={actions.sendMessage}
                 onShowCommit={actions.showCommitChips}
-                onOpenRevision={actions.openRevision}
               />
             )}
           </>

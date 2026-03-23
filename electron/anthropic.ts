@@ -199,7 +199,7 @@ The 7 questions, in order:
 1. "What's the shape of this week? What's locked, what's in play, what's on fire?"
    → Captures: weeklyContext
 
-2. "Rank your threads. If you could only move one forward this week, which one? Then the next."
+2. "Rank your goals. If you could only move one forward this week, which one? Then the next."
    → Captures: hierarchy
 
 3. "What must happen this week — non-negotiable, can't-slip?"

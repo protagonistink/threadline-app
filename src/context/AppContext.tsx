@@ -159,6 +159,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const [weeklyPlanningInit, setWeeklyPlanningInit] = useState<string | null | undefined>(undefined);
   const [monthlyPlanInit, setMonthlyPlanInit] = useState<MonthlyPlan | null | undefined>(undefined);
+  const [monthlyPromptInit, setMonthlyPromptInit] = useState<boolean | undefined>(undefined);
   const [workdayPromptsInit, setWorkdayPromptsInit] = useState<{
     startShownDate: string | null;
     endShownDate: string | null;
@@ -187,8 +188,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     openMonthlyPlanning,
     closeMonthlyPlanning,
   } = useMonthlyPlanning({
-    isInitialized,
     initialMonthlyPlan: monthlyPlanInit ?? null,
+    initialPromptState: monthlyPromptInit,
   });
 
   const {
@@ -277,12 +278,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setWeeklyPlanningInit(stored?.weeklyPlanningLastCompleted ?? null);
         if (stored?.workdayStart) setWorkdayStartState(stored.workdayStart);
         if (stored?.workdayEnd) setWorkdayEndState(stored.workdayEnd);
-        setMonthlyPlanInit(stored?.monthlyPlan ?? null);
+        const monthlyPlan = stored?.monthlyPlan ?? null;
+        setMonthlyPlanInit(monthlyPlan);
 
-        const [startShown, endShown] = await Promise.all([
+        const [startShown, endShown, dismissedMonth] = await Promise.all([
           window.api.store.get('startOfDay.shownDate'),
           window.api.store.get('endOfDay.shownDate'),
+          window.api.store.get('monthlyPlanDismissedDate'),
         ]);
+
+        // Compute whether to show the monthly prompt here, with all data in hand,
+        // so the hook never has to do an async store read after mount.
+        const currentMonth = format(new Date(), 'yyyy-MM');
+        const hasPlanForMonth = monthlyPlan?.month === currentMonth;
+        const isDismissed = (dismissedMonth as string | undefined) === currentMonth;
+        setMonthlyPromptInit(!hasPlanForMonth && !isDismissed);
         const today = new Date().toISOString().split('T')[0];
         const startShownDate = (startShown as string) || null;
         setWorkdayPromptsInit({

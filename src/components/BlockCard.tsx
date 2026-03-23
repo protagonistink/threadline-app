@@ -1,5 +1,5 @@
 // src/components/BlockCard.tsx
-import React, { useCallback, useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { GripVertical, Play, Check } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -110,9 +110,7 @@ export function BlockCard({
     },
   });
 
-  const blockRef = useCallback((node: HTMLDivElement | null) => {
-    nestDropRef(node);
-  }, [nestDropRef]);
+  const blockRef = useRef<HTMLDivElement | null>(null);
 
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.BLOCK,
@@ -134,7 +132,10 @@ export function BlockCard({
   const draftRef = useRef<{ startHour: number; startMin: number; durationMins: number } | null>(null);
   const didDragRef = useRef(false);
   const top = timeToTop(((draft?.startHour ?? block.startHour) * 60) + (draft?.startMin ?? block.startMin), dayStartMins, hourHeight);
-  const height = ((draft?.durationMins ?? block.durationMins) / 60) * hourHeight;
+  const rawHeight = ((draft?.durationMins ?? block.durationMins) / 60) * hourHeight;
+  const MIN_BLOCK_HEIGHT = 32;
+  const height = Math.max(rawHeight, MIN_BLOCK_HEIGHT);
+  const isCompact = rawHeight < 48;
   const actualLabel = actualMins > 0 ? formatRoundedHours(actualMins, true) : null;
 
   // Determine block variant class
@@ -147,7 +148,7 @@ export function BlockCard({
         : 't-inked';
 
   function beginDrag(event: React.MouseEvent<HTMLDivElement>) {
-    if (locked || block.readOnly || isDone) return;
+    if (locked || (block.readOnly && block.kind !== 'break') || isDone) return;
     const target = event.target as HTMLElement;
     if (target.closest('button')) return;
     event.preventDefault();
@@ -248,7 +249,9 @@ export function BlockCard({
       onClick={handleClick}
       className={cn(
         blockVariant,
-        'animate-fade-in absolute overflow-hidden flex flex-col gap-1 transition-all duration-300 group/block',
+        'animate-fade-in absolute overflow-hidden flex flex-col group/block',
+        isCompact ? 'gap-0 py-1 px-2' : 'gap-1',
+        'transition-all duration-300',
         isFocus && block.kind !== 'hard' && 'focus-block-card',
         stagger === 1 && 'stagger-2',
         stagger === 2 && 'stagger-3',
@@ -317,7 +320,8 @@ export function BlockCard({
 
       <div className="relative z-10 flex items-start pr-6">
         <h4 className={cn(
-          'truncate focus-editorial font-display italic text-[16px] leading-snug flex-1',
+          'truncate focus-editorial font-display italic leading-snug flex-1',
+          isCompact ? 'text-[13px]' : 'text-[16px]',
           isDone ? 'text-text-muted line-through' : 'text-slate-100'
         )}>{block.title}</h4>
         <span className="shrink-0 ml-2 flex items-center gap-1.5 text-[10px] text-[rgba(148,163,184,0.3)] tracking-wider whitespace-nowrap">
@@ -331,6 +335,7 @@ export function BlockCard({
           {formatTimeShort(block.startHour, block.startMin)}
         </span>
       </div>
+      {!isCompact && (
       <div className="relative z-10 flex items-center gap-2 focus-fade-meta">
         {isDone && (
           <span className="flex items-center gap-1 rounded-full border border-white/6 bg-black/15 px-2 py-0.5 text-[10px] normal-case tracking-normal text-text-muted/90">
@@ -344,8 +349,9 @@ export function BlockCard({
           </span>
         )}
       </div>
+      )}
 
-      {nestedTasks.length > 0 && (
+      {!isCompact && nestedTasks.length > 0 && (
         <div className="relative z-10 flex flex-col gap-0.5 mt-1">
           {nestedTasks.map((task) => (
             <div
@@ -381,7 +387,7 @@ export function BlockCard({
       )}
 
       {/* AI Breakdown for focus blocks */}
-      {block.kind === 'focus' && block.linkedTaskId && (
+      {!isCompact && block.kind === 'focus' && block.linkedTaskId && (
         <AIBreakdown block={block} />
       )}
 
@@ -450,6 +456,24 @@ export function BlockCard({
           </div>
         );
       })()}
+      {!locked && (
+        <div
+          ref={nestDropRef}
+          className={cn(
+            'absolute bottom-0 left-0 right-0 h-6 rounded-b-xl flex items-center justify-center',
+            'transition-opacity',
+            isNestOver
+              ? 'opacity-100 bg-accent-warm/12'
+              : 'opacity-0 group-hover/block:opacity-40'
+          )}
+        >
+          {isNestOver && (
+            <span className="text-[9px] uppercase tracking-widest text-accent-warm/70 pointer-events-none">
+              + nest task
+            </span>
+          )}
+        </div>
+      )}
       {!locked && !block.readOnly && !isDone && (
         <div
           onMouseDown={beginResize}

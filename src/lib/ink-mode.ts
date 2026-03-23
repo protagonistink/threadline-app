@@ -40,5 +40,5 @@ export const INK_TOKEN_LIMITS: Record<InkMode, number> = {
   morning: 800,
   midday: 400,
   evening: 600,
-  'sunday-interview': 800,
+  'sunday-interview': 2000,
 };
