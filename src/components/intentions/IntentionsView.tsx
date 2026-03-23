@@ -371,7 +371,7 @@ function MoneySection() {
             {cognitiveState}
           </span>
           <span className="text-text-muted/40">
-            {formatCurrency(permissionNumber)} permission number
+            {formatCurrency(permissionNumber)} safe to spend this week
           </span>
         </div>
       </div>

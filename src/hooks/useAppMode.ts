@@ -49,12 +49,11 @@ export function appModeReducer(state: AppModeState, action: AppModeAction): AppM
   }
 }
 
-const TODAY = format(new Date(), 'yyyy-MM-dd');
-
 async function loadPersistedState(): Promise<AppModeState | null> {
   try {
+    const today = format(new Date(), 'yyyy-MM-dd');
     const storedDate = (await window.api.store.get('appModeDate')) as string | undefined;
-    if (storedDate !== TODAY) return null;
+    if (storedDate !== today) return null;
 
     const mode = (await window.api.store.get('appMode')) as AppMode | undefined;
     const view = (await window.api.store.get('appModeView')) as View | undefined;
@@ -74,7 +73,7 @@ async function loadPersistedState(): Promise<AppModeState | null> {
 
 function persistState(state: AppModeState): void {
   try {
-    void window.api.store.set('appModeDate', TODAY);
+    void window.api.store.set('appModeDate', format(new Date(), 'yyyy-MM-dd'));
     void window.api.store.set('appMode', state.mode);
     void window.api.store.set('appModeView', state.view);
     void window.api.store.set('appModeFocusTaskId', state.focusTaskId);

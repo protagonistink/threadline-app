@@ -29,7 +29,7 @@ export function CommandPalette() {
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const { mode, setMode } = useTheme();
-    const { activeView, setActiveView, toggleTask, committedTasks, selectedInboxId, bringForward, lockDay, unlockDay } = useApp();
+    const { activeView, setActiveView, toggleTask, committedTasks, selectedInboxId, bringForward, lockDay, unlockDay, enterFocus } = useApp();
     const menuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -47,7 +47,7 @@ export function CommandPalette() {
         // Actions
         { id: 'action-done', title: 'Mark active task done', icon: CheckCircle2, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) void toggleTask(active.id); } },
         { id: 'action-bring-forward', title: 'Bring forward from inbox', icon: ArrowRight, category: 'Action', action: () => { if (selectedInboxId) bringForward(selectedInboxId); } },
-        { id: 'action-start-focus', title: 'Start focus block', icon: Play, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) { void window.api.pomodoro.start(active.id, active.title); } } },
+        { id: 'action-start-focus', title: 'Start focus block', icon: Play, category: 'Action', action: () => { const active = committedTasks.find(t => t.active && t.status !== 'done'); if (active) { enterFocus(active.id); } } },
     ];
 
     const filteredCommands = commands.filter(cmd =>

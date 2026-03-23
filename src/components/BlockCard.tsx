@@ -76,7 +76,7 @@ export function BlockCard({
   onSelectNestedTask?: (taskId: string) => void;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, dayCommitInfo } = useApp();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, enterFocus } = useApp();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
 
@@ -225,11 +225,10 @@ export function BlockCard({
   }
 
   function startFocus(event: React.MouseEvent<HTMLButtonElement>) {
-    if (locked || !block.linkedTaskId || block.readOnly || isDone || dayCommitInfo.state !== 'started') return;
+    if (locked || !block.linkedTaskId || block.readOnly || isDone) return;
     event.stopPropagation();
     setActiveTask(block.linkedTaskId);
-    void window.api.pomodoro.start(block.linkedTaskId, block.title);
-    void window.api.window.activate();
+    enterFocus(block.linkedTaskId);
   }
 
   function handleClick(e: React.MouseEvent<HTMLDivElement>) {
