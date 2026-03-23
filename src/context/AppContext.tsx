@@ -36,7 +36,6 @@ import { useDayCommitState } from '@/hooks/useDayCommitState';
 import { useCollectionActions } from '@/hooks/useCollectionActions';
 import { useDayLock } from '@/hooks/useDayLock';
 import { useMonthlyPlanning } from '@/hooks/useMonthlyPlanning';
-import { useWeeklyPlanningModal } from '@/hooks/useWeeklyPlanningModal';
 import { useWorkdayPrompts } from '@/hooks/useWorkdayPrompts';
 import {
   createPlannerFieldSetter,
@@ -110,11 +109,7 @@ interface AppContextValue {
   countdowns: Countdown[];
   addCountdown: (title: string, dueDate: string) => void;
   removeCountdown: (id: string) => void;
-  isWeeklyPlanningOpen: boolean;
   weeklyPlanningLastCompleted: string | null;
-  openWeeklyPlanning: () => void;
-  closeWeeklyPlanning: () => void;
-  completeWeeklyPlanning: () => void;
   migrateOldTasks: () => PlannedTask[];
   workdayStart: { hour: number; min: number };
   setWorkdayStart: (hour: number, min: number) => void;
@@ -134,11 +129,8 @@ interface AppContextValue {
   resetDay: () => Promise<void>;
   monthlyPlan: MonthlyPlan | null;
   monthlyPlanPrompt: boolean;
-  isMonthlyPlanningOpen: boolean;
   setMonthlyPlan: (plan: MonthlyPlan) => void;
   dismissMonthlyPlanPrompt: () => void;
-  openMonthlyPlanning: () => void;
-  closeMonthlyPlanning: () => void;
   updateRitualEstimate: (id: string, mins: number) => void;
   dayEntries: DayEntry[];
   saveDayEntry: (date: string, text: string) => void;
@@ -159,7 +151,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [selectedInboxId, setSelectedInboxId] = useState<string | null>(null);
   const [lastCommitTimestamp, setLastCommitTimestamp] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [weeklyPlanningInit, setWeeklyPlanningInit] = useState<string | null | undefined>(undefined);
+  const [weeklyPlanningLastCompleted, setWeeklyPlanningLastCompleted] = useState<string | null>(null);
   const [monthlyPlanInit, setMonthlyPlanInit] = useState<MonthlyPlan | null | undefined>(undefined);
   const [monthlyPromptInit, setMonthlyPromptInit] = useState<boolean | undefined>(undefined);
   const [workdayPromptsInit, setWorkdayPromptsInit] = useState<{
@@ -175,20 +167,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const { dayLocked, focusResumePrompt, lockDay, unlockDay, resumeFocusMode, dismissFocusPrompt } = useDayLock();
   const {
-    isWeeklyPlanningOpen,
-    weeklyPlanningLastCompleted,
-    openWeeklyPlanning,
-    closeWeeklyPlanning,
-    completeWeeklyPlanning,
-  } = useWeeklyPlanningModal({ initialLastCompleted: weeklyPlanningInit ?? null });
-  const {
     monthlyPlan,
     monthlyPlanPrompt,
-    isMonthlyPlanningOpen,
     setMonthlyPlan,
     dismissMonthlyPlanPrompt,
-    openMonthlyPlanning,
-    closeMonthlyPlanning,
   } = useMonthlyPlanning({
     initialMonthlyPlan: monthlyPlanInit ?? null,
     initialPromptState: monthlyPromptInit,
@@ -277,7 +259,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         // Always start on flow view — don't restore previous view
         setActiveView('flow');
         if (stored?.activeSource) setActiveSource(stored.activeSource);
-        setWeeklyPlanningInit(stored?.weeklyPlanningLastCompleted ?? null);
+        setWeeklyPlanningLastCompleted(stored?.weeklyPlanningLastCompleted ?? null);
         if (stored?.workdayStart) setWorkdayStartState(stored.workdayStart);
         if (stored?.workdayEnd) setWorkdayEndState(stored.workdayEnd);
         const monthlyPlan = stored?.monthlyPlan ?? null;
@@ -647,11 +629,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         countdowns,
         addCountdown,
         removeCountdown,
-        isWeeklyPlanningOpen,
         weeklyPlanningLastCompleted,
-        openWeeklyPlanning,
-        closeWeeklyPlanning,
-        completeWeeklyPlanning,
         migrateOldTasks,
         workdayStart,
         setWorkdayStart,
@@ -670,11 +648,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         resetDay,
         monthlyPlan,
         monthlyPlanPrompt,
-        isMonthlyPlanningOpen,
         setMonthlyPlan,
         dismissMonthlyPlanPrompt,
-        openMonthlyPlanning,
-        closeMonthlyPlanning,
         updateRitualEstimate,
         dayEntries,
         saveDayEntry,

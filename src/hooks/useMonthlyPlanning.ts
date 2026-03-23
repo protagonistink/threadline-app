@@ -11,11 +11,8 @@ interface MonthlyPlanningOptions {
 interface MonthlyPlanningResult {
   monthlyPlan: MonthlyPlan | null;
   monthlyPlanPrompt: boolean;
-  isMonthlyPlanningOpen: boolean;
   setMonthlyPlan: (plan: MonthlyPlan) => void;
   dismissMonthlyPlanPrompt: () => void;
-  openMonthlyPlanning: () => void;
-  closeMonthlyPlanning: () => void;
 }
 
 export function useMonthlyPlanning({
@@ -24,7 +21,6 @@ export function useMonthlyPlanning({
 }: MonthlyPlanningOptions): MonthlyPlanningResult {
   const [monthlyPlan, setMonthlyPlanState] = useState<MonthlyPlan | null>(initialMonthlyPlan);
   const [monthlyPlanPrompt, setMonthlyPlanPrompt] = useState(false);
-  const [isMonthlyPlanningOpen, setIsMonthlyPlanningOpen] = useState(false);
 
   useEffect(() => {
     setMonthlyPlanState(initialMonthlyPlan);
@@ -43,7 +39,6 @@ export function useMonthlyPlanning({
     const planWithTimestamp: MonthlyPlan = { ...plan, completedAt: new Date().toISOString() };
     setMonthlyPlanState(planWithTimestamp);
     setMonthlyPlanPrompt(false);
-    setIsMonthlyPlanningOpen(false);
   }, []);
 
   const dismissMonthlyPlanPrompt = useCallback(() => {
@@ -52,16 +47,10 @@ export function useMonthlyPlanning({
     setMonthlyPlanPrompt(false);
   }, []);
 
-  const openMonthlyPlanning = useCallback(() => setIsMonthlyPlanningOpen(true), []);
-  const closeMonthlyPlanning = useCallback(() => setIsMonthlyPlanningOpen(false), []);
-
   return {
     monthlyPlan,
     monthlyPlanPrompt,
-    isMonthlyPlanningOpen,
     setMonthlyPlan,
     dismissMonthlyPlanPrompt,
-    openMonthlyPlanning,
-    closeMonthlyPlanning,
   };
 }

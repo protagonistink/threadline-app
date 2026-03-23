@@ -7,8 +7,6 @@ import {
   Moon,
   Sun,
   Flame,
-  CalendarClock,
-  CalendarDays,
   ChevronsLeft,
   ChevronsRight,
   Sunrise,
@@ -108,7 +106,7 @@ interface SidebarProps {
 
 export function Sidebar({ onSettingsClick, onShowBriefing, onShowEveningReflection, collapsed, onToggleCollapse }: SidebarProps) {
   const { isLight } = useTheme();
-  const { activeView, setActiveView, openWeeklyPlanning, openMonthlyPlanning } = useApp();
+  const { activeView, setActiveView } = useApp();
 
   return (
     <aside className={cn('focus-dim utility-rail paper-texture column-divider relative flex h-full shrink-0 flex-col transition-[width] duration-[400ms] ease-[cubic-bezier(0.4,0,0.2,1)]', collapsed ? 'w-14' : 'w-52')}>
@@ -190,28 +188,6 @@ export function Sidebar({ onSettingsClick, onShowBriefing, onShowEveningReflecti
           >
             <MoonStar className="w-3.5 h-3.5 shrink-0" />
             <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Evening Reflection</span>
-          </button>
-          <button
-            onClick={openWeeklyPlanning}
-            title={collapsed ? 'Plan Week' : undefined}
-            className={cn(
-              'no-drag w-full flex items-center rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-card/60 transition-all border border-dashed border-border-subtle',
-              collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5'
-            )}
-          >
-            <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-            <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Plan Week</span>
-          </button>
-          <button
-            onClick={openMonthlyPlanning}
-            title={collapsed ? 'Plan Month' : undefined}
-            className={cn(
-              'no-drag w-full flex items-center rounded-md text-[12px] text-text-muted hover:text-text-primary hover:bg-bg-card/60 transition-all border border-dashed border-border-subtle',
-              collapsed ? 'justify-center px-1 py-2' : 'gap-3 px-3 py-1.5'
-            )}
-          >
-            <CalendarDays className="w-3.5 h-3.5 shrink-0" />
-            <span className={cn('transition-opacity duration-150 whitespace-nowrap overflow-hidden', collapsed ? 'opacity-0 w-0' : 'opacity-100')}>Plan Month</span>
           </button>
         </div>
 

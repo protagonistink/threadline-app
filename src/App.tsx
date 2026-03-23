@@ -18,8 +18,6 @@ import { useTheme } from './context/ThemeContext';
 const Settings = lazy(() => import('./components/Settings').then((module) => ({ default: module.Settings })));
 const CommandPalette = lazy(() => import('./components/CommandPalette').then((module) => ({ default: module.CommandPalette })));
 const WeeklyIntentions = lazy(() => import('./components/WeeklyIntentions').then((module) => ({ default: module.WeeklyIntentions })));
-const WeeklyPlanningWizard = lazy(() => import('./components/WeeklyPlanningWizard').then((module) => ({ default: module.WeeklyPlanningWizard })));
-const MonthlyPlanningWizard = lazy(() => import('./components/MonthlyPlanningWizard').then((module) => ({ default: module.MonthlyPlanningWizard })));
 const InkThread = lazy(() => import('./components/Thread').then((module) => ({ default: module.InkThread })));
 const MorningBriefing = lazy(() => import('./components/MorningBriefing').then((module) => ({ default: module.MorningBriefing })));
 const TodaysFlow = lazy(() => import('./components/TodaysFlow').then((module) => ({ default: module.TodaysFlow })));
@@ -157,8 +155,6 @@ function AppLayout() {
       cancelled = true;
     };
   }, [isInitialized, checkAutoBriefing]);
-
-  // Weekly planning wizard is opened manually from the sidebar — no auto-open
 
   const closeBriefing = useCallback(() => {
     const wasEvening = isEveningReflection;
@@ -349,12 +345,6 @@ function AppLayout() {
           <Settings onClose={() => setShowSettings(false)} />
         </Suspense>
       )}
-      <Suspense fallback={null}>
-        <WeeklyPlanningWizard />
-      </Suspense>
-      <Suspense fallback={null}>
-        <MonthlyPlanningWizard />
-      </Suspense>
       <DragOverlay />
       <Suspense fallback={null}>
         <InkThread />

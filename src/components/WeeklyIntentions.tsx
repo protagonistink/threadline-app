@@ -33,8 +33,6 @@ const modeTransition = {
 // ---------------------------------------------------------------------------
 
 function MonthNotSetPrompt() {
-  const { openMonthlyPlanning } = useApp();
-  const monthName = new Date().toLocaleDateString('en-US', { month: 'long' });
   const monthYear = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
@@ -49,12 +47,9 @@ function MonthNotSetPrompt() {
         <p className="mt-3 text-[13px] text-text-muted leading-relaxed">
           The monthly aim frames everything. Set it first, plan the week second.
         </p>
-        <button
-          onClick={openMonthlyPlanning}
-          className="mt-7 px-5 py-2.5 rounded-md bg-accent-warm text-bg text-[13px] font-medium hover:bg-accent-warm/90 transition-colors"
-        >
-          Plan {monthName} now
-        </button>
+        <p className="mt-5 text-[12px] text-text-muted italic">
+          Ask Ink to help you plan the month.
+        </p>
       </div>
     </div>
   );
@@ -65,7 +60,7 @@ function MonthNotSetPrompt() {
 // ---------------------------------------------------------------------------
 
 function WeekNotPlannedPrompt() {
-  const { monthlyPlan, openMonthlyPlanning, openWeeklyPlanning, weeklyGoals } = useApp();
+  const { monthlyPlan, weeklyGoals } = useApp();
   const hasStaleGoals = weeklyGoals.length > 0;
 
   return (
@@ -80,12 +75,6 @@ function WeekNotPlannedPrompt() {
               {monthlyPlan.oneThing}
             </p>
           </div>
-          <button
-            onClick={openMonthlyPlanning}
-            className="shrink-0 mt-1 px-3 py-1.5 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
-          >
-            Edit
-          </button>
         </div>
       )}
 
@@ -99,15 +88,12 @@ function WeekNotPlannedPrompt() {
           </p>
           {hasStaleGoals && (
             <p className="mt-2 text-[12px] text-text-muted italic">
-              You have intentions from last week — the planning wizard will help you review them.
+              You have intentions from last week. Ask Ink to help you review them.
             </p>
           )}
-          <button
-            onClick={openWeeklyPlanning}
-            className="mt-7 px-5 py-2.5 rounded-md bg-accent-warm text-bg text-[13px] font-medium hover:bg-accent-warm/90 transition-colors"
-          >
-            Plan this week
-          </button>
+          <p className="mt-5 text-[12px] text-text-muted italic">
+            Ask Ink to help you plan the week.
+          </p>
         </div>
       </div>
     </div>
@@ -417,7 +403,6 @@ function ActiveWeekContent() {
   const {
     weeklyGoals,
     monthlyPlan,
-    openMonthlyPlanning,
     addWeeklyGoal,
     weeklyPlanningLastCompleted,
     rituals,
@@ -441,12 +426,6 @@ function ActiveWeekContent() {
               <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-text-muted/60">
                 {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </span>
-              <button
-                onClick={openMonthlyPlanning}
-                className="text-[11px] text-text-muted/40 hover:text-text-primary transition-colors"
-              >
-                edit aim
-              </button>
             </div>
             <h3 className="mt-2 font-display italic text-[26px] font-light text-text-primary leading-snug">
               {monthlyPlan.oneThing}
@@ -529,7 +508,6 @@ const MODE_SUBTITLES: Record<string, string> = {
 };
 
 export function WeeklyIntentions() {
-  const { openWeeklyPlanning } = useApp();
   const mode = useWeeklyMode();
 
   return (
@@ -543,14 +521,6 @@ export function WeeklyIntentions() {
             <p className="text-[12px] text-text-muted mt-0.5">{MODE_SUBTITLES[mode]}</p>
           )}
         </div>
-        {mode === 'active-week' && (
-          <button
-            onClick={openWeeklyPlanning}
-            className="px-3 py-1.5 rounded-md border border-border text-[12px] text-text-muted hover:text-text-primary hover:border-border-hover transition-colors"
-          >
-            Replan
-          </button>
-        )}
       </div>
 
       <AnimatePresence mode="wait">
