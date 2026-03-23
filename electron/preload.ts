@@ -107,6 +107,49 @@ contextBridge.exposeInMainWorld('api', {
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
   },
+  // Native menu bar events
+  menu: {
+    onNewTask: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:new-task', handler);
+      return () => ipcRenderer.removeListener('menu:new-task', handler);
+    },
+    onNewEvent: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:new-event', handler);
+      return () => ipcRenderer.removeListener('menu:new-event', handler);
+    },
+    onSetView: (cb: (view: string) => void) => {
+      const handler = (_e: any, view: string) => cb(view);
+      ipcRenderer.on('menu:set-view', handler);
+      return () => ipcRenderer.removeListener('menu:set-view', handler);
+    },
+    onToggleSidebar: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:toggle-sidebar', handler);
+      return () => ipcRenderer.removeListener('menu:toggle-sidebar', handler);
+    },
+    onGoToday: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:go-today', handler);
+      return () => ipcRenderer.removeListener('menu:go-today', handler);
+    },
+    onStartDay: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:start-day', handler);
+      return () => ipcRenderer.removeListener('menu:start-day', handler);
+    },
+    onOpenInk: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:open-ink', handler);
+      return () => ipcRenderer.removeListener('menu:open-ink', handler);
+    },
+    onOpenSettings: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:open-settings', handler);
+      return () => ipcRenderer.removeListener('menu:open-settings', handler);
+    },
+  },
   // Finance (Compass engine)
   finance: {
     getState: () => ipcRenderer.invoke('finance:get-state'),

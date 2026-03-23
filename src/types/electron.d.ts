@@ -213,6 +213,17 @@ interface FinanceAPI {
   plaidExchange: (publicToken: string) => Promise<{ success: boolean }>;
 }
 
+interface MenuAPI {
+  onNewTask: (cb: () => void) => () => void;
+  onNewEvent: (cb: () => void) => () => void;
+  onSetView: (cb: (view: string) => void) => () => void;
+  onToggleSidebar: (cb: () => void) => () => void;
+  onGoToday: (cb: () => void) => () => void;
+  onStartDay: (cb: () => void) => () => void;
+  onOpenInk: (cb: () => void) => () => void;
+  onOpenSettings: (cb: () => void) => () => void;
+}
+
 declare global {
   interface Window {
     api: {
@@ -229,6 +240,7 @@ declare global {
       ink: InkAPI;
       chat: ChatHistoryAPI;
       finance: FinanceAPI;
+      menu: MenuAPI;
     };
   }
 }

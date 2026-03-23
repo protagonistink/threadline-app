@@ -76,6 +76,16 @@ describe('useMonthlyPlanning', () => {
         plaidLink: vi.fn(),
         plaidExchange: vi.fn(),
       },
+      menu: {
+        onNewTask: vi.fn().mockReturnValue(() => {}),
+        onNewEvent: vi.fn().mockReturnValue(() => {}),
+        onSetView: vi.fn().mockReturnValue(() => {}),
+        onToggleSidebar: vi.fn().mockReturnValue(() => {}),
+        onGoToday: vi.fn().mockReturnValue(() => {}),
+        onStartDay: vi.fn().mockReturnValue(() => {}),
+        onOpenInk: vi.fn().mockReturnValue(() => {}),
+        onOpenSettings: vi.fn().mockReturnValue(() => {}),
+      },
     };
   });
 

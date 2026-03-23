@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
 import path from 'node:path';
 import { registerAsanaHandlers } from './asana';
 import { registerGCalHandlers } from './gcal';
@@ -121,35 +121,6 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
-  // Set up native app menu so Cmd+Q (macOS) / Alt+F4 works
-  const appMenu = Menu.buildFromTemplate([
-    {
-      label: app.name,
-      submenu: [
-        { role: 'about' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
-        { type: 'separator' },
-        { label: 'Quit Inked', accelerator: 'CmdOrCtrl+Q', click: () => { app.exit(); } },
-      ],
-    },
-    {
-      label: 'Edit',
-      submenu: [
-        { role: 'undo' },
-        { role: 'redo' },
-        { type: 'separator' },
-        { role: 'cut' },
-        { role: 'copy' },
-        { role: 'paste' },
-        { role: 'selectAll' },
-      ],
-    },
-  ]);
-  Menu.setApplicationMenu(appMenu);
-
   registerAsanaHandlers();
   registerGCalHandlers();
   registerStoreHandlers();
@@ -188,6 +159,48 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+
+  // Build full native menu after mainWindow exists so IPC sends work
+  const menuTemplate: MenuItemConstructorOptions[] = [
+    { role: 'appMenu' },
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Task', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-task') },
+        { label: 'New Event', accelerator: 'CmdOrCtrl+Shift+N', click: () => mainWindow?.webContents.send('menu:new-event') },
+        { type: 'separator' },
+        { role: 'close' },
+      ],
+    },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Flow', accelerator: 'CmdOrCtrl+1', click: () => mainWindow?.webContents.send('menu:set-view', 'flow') },
+        { label: 'Intentions', accelerator: 'CmdOrCtrl+2', click: () => mainWindow?.webContents.send('menu:set-view', 'intentions') },
+        { type: 'separator' },
+        { label: 'Toggle Sidebar', accelerator: 'CmdOrCtrl+\\', click: () => mainWindow?.webContents.send('menu:toggle-sidebar') },
+        { type: 'separator' },
+        { role: 'toggleDevTools' },
+      ],
+    },
+    {
+      label: 'Go',
+      submenu: [
+        { label: 'Today', accelerator: 'CmdOrCtrl+Shift+T', click: () => mainWindow?.webContents.send('menu:go-today') },
+        { label: 'Start Day', click: () => mainWindow?.webContents.send('menu:start-day') },
+        { label: 'Open Ink', accelerator: 'CmdOrCtrl+I', click: () => mainWindow?.webContents.send('menu:open-ink') },
+      ],
+    },
+    { role: 'windowMenu' },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Settings...', accelerator: 'CmdOrCtrl+,', click: () => mainWindow?.webContents.send('menu:open-settings') },
+      ],
+    },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(menuTemplate));
 });
 
 app.on('will-quit', () => {

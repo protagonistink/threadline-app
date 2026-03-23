@@ -33,6 +33,8 @@ function AppLayout() {
     isInitialized,
     dayCommitInfo,
     resetDay,
+    setView,
+    setViewDate,
   } = useApp();
 
   // --- Local UI state ---
@@ -179,6 +181,21 @@ function AppLayout() {
 
   // Cleanup timeout on unmount
   useEffect(() => () => clearAssistantCloseTimeout(), [clearAssistantCloseTimeout]);
+
+  // --- Native menu bar events ---
+  useEffect(() => {
+    const cleanups = [
+      window.api.menu.onSetView((v) => setView(v as import('./types/appMode').View)),
+      window.api.menu.onOpenSettings(() => setShowSettings(true)),
+      window.api.menu.onOpenInk(() => openFullscreenInk()),
+      window.api.menu.onStartDay(() => startDay()),
+      window.api.menu.onGoToday(() => setViewDate(new Date())),
+      window.api.menu.onToggleSidebar(() => { /* sidebar toggle not yet wired */ }),
+      window.api.menu.onNewTask(() => { /* new task modal not yet wired */ }),
+      window.api.menu.onNewEvent(() => { /* new event modal not yet wired */ }),
+    ];
+    return () => cleanups.forEach((fn) => fn());
+  }, [setView, openFullscreenInk, startDay, setViewDate]);
 
   const showInkOverlay = mode === 'briefing';
 
