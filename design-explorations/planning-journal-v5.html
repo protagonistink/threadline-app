@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inked — Planning v5</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap" rel="stylesheet"/>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "ink-bg":      "#0A0A0A",
+        "ink-card":    "#2C2C2C",
+        "ink-elevated":"#353535",
+        "ink-hover":   "#3A3A3A",
+        "parchment":   "#c8c6c2",
+        "muted":       "#828282",
+        "lamy":        "#919fae",
+        "red":         "#E55547",
+        "coral":       "#ff9786",
+        "cobalt":      "#1e3f66",
+        "cobalt-light":"#4a6d8c",
+      },
+      fontFamily: {
+        "cormorant": ["Cormorant Garamond", "serif"],
+        "satoshi":   ["Satoshi", "sans-serif"],
+      },
+    },
+  },
+}
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    background: #0A0A0A;
+    color: #FAFAFA;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+    font-family: 'Satoshi', sans-serif;
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 20;
+  }
+
+  /* Dot grid — very subtle, won't interfere with solid card bgs */
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(250, 250, 250, 0.04) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* App Rail */
+  .app-rail {
+    width: 52px; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 0;
+    border-right: 1px solid rgba(250, 250, 250, 0.07);
+    background: #0A0A0A;
+  }
+  .rail-icon {
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: rgba(130, 130, 130, 0.5);
+    transition: color 0.3s;
+    position: relative;
+    margin-bottom: 2px;
+  }
+  .rail-icon:hover { color: rgba(250, 250, 250, 0.5); }
+  .rail-icon.active { color: rgba(250, 250, 250, 0.75); }
+  .rail-icon.active::after {
+    content: ''; position: absolute;
+    bottom: -2px; left: 50%; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%;
+    background: #E55547; opacity: 0.8;
+  }
+  .rail-icon .material-symbols-outlined { font-size: 20px; }
+
+  /* Inbox entries — no lines, spacing only */
+  .note-entry {
+    position: relative;
+    padding: 14px 16px 14px 20px;
+    cursor: grab; transition: background 0.3s;
+    user-select: none; border-radius: 8px;
+  }
+  .note-entry:hover { background: rgba(250, 250, 250, 0.025); }
+  .note-entry:active { cursor: grabbing; }
+  /* Thread ink stroke — left edge */
+  .note-entry::before {
+    content: ''; position: absolute;
+    left: 0; top: 14px; bottom: 14px;
+    width: 2px; border-radius: 1px;
+  }
+  .note-entry.thread-decoda::before  { background: #E55547; opacity: 0.5; }
+  .note-entry.thread-ethics::before  { background: #4a6d8c; opacity: 0.5; }
+  .note-entry.thread-archive::before { background: #919fae; opacity: 0.4; }
+  .note-entry.thread-general::before { background: rgba(250, 250, 250, 0.07); }
+
+  /* Placed entries */
+  .note-entry.placed { opacity: 0.25; cursor: default; }
+
+  /* Timeline blocks — all get solid backgrounds */
+  .t-gcal {
+    background: #2C2C2C;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border-left: 2px solid rgba(145, 159, 174, 0.3);
+  }
+  .t-ritual {
+    background: #2C2C2C;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border-left: 2px solid rgba(250, 250, 250, 0.07);
+  }
+  .t-draft {
+    background: #353535;
+    border-radius: 10px;
+    padding: 18px 20px;
+    border-left: 3px solid rgba(255, 151, 134, 0.45);
+  }
+  .t-inked {
+    background: #353535;
+    border-radius: 10px;
+    padding: 18px 20px;
+    border-left: 3px solid rgba(229, 85, 71, 0.5);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Triage checkboxes — circle style, ink-bleed fill */
+  .triage-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 5px 0; font-size: 12px;
+    color: rgba(250, 250, 250, 0.45);
+    cursor: pointer; transition: color 0.2s; line-height: 1.4;
+  }
+  .triage-row:hover { color: rgba(250, 250, 250, 0.7); }
+  .triage-box {
+    width: 14px; height: 14px;
+    border: 1.5px solid rgba(255, 151, 134, 0.25);
+    border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+    transition: border-color 0.3s, box-shadow 0.4s;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .triage-box::before {
+    content: ''; position: absolute;
+    width: 0; height: 0; border-radius: 50%;
+    background: rgba(255, 151, 134, 0.5);
+    transition: width 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .triage-row:hover .triage-box { border-color: rgba(255, 151, 134, 0.4); }
+  .triage-row.selected .triage-box {
+    border-color: rgba(255, 151, 134, 0.4);
+    box-shadow: 0 0 8px rgba(255, 151, 134, 0.12);
+  }
+  .triage-row.selected .triage-box::before { width: 8px; height: 8px; }
+
+  /* Time labels */
+  .time-lbl {
+    font-family: 'Satoshi', sans-serif;
+    font-size: 10px; color: rgba(130, 130, 130, 0.45);
+    letter-spacing: 0.04em; text-align: right;
+    width: 36px; flex-shrink: 0; padding-top: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Now pip */
+  .now-pip {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #E55547; flex-shrink: 0;
+    box-shadow: 0 0 10px rgba(229, 85, 71, 0.4);
+    margin-left: -3.5px; z-index: 2;
+  }
+
+  /* Section label */
+  .section-lbl {
+    font-family: 'Satoshi', sans-serif;
+    font-size: 9px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: rgba(145, 159, 174, 0.35);
+    display: block; margin-bottom: 10px;
+  }
+
+  /* Day capacity bar */
+  .capacity-track {
+    height: 3px; background: rgba(250, 250, 250, 0.07);
+    border-radius: 2px; overflow: hidden;
+  }
+  .capacity-fill {
+    height: 100%; border-radius: 2px;
+    transition: width 0.5s;
+  }
+
+  /* Inked badge */
+  .inked-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'Satoshi', sans-serif;
+    font-size: 8px; letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(229, 85, 71, 0.6);
+    padding: 3px 8px; border-radius: 9999px;
+    background: rgba(229, 85, 71, 0.08);
+  }
+  .inked-badge::before { content: '\2726'; font-size: 7px; }
+
+  /* Ink floating icon */
+  .ink-fab {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: #2C2C2C;
+    border: 1px solid rgba(250, 250, 250, 0.07);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: background 0.3s, box-shadow 0.3s, transform 0.2s;
+  }
+  .ink-fab:hover {
+    background: #353535;
+    box-shadow: 0 0 20px rgba(229, 85, 71, 0.15);
+    transform: scale(1.05);
+  }
+  .ink-fab .material-symbols-outlined {
+    font-size: 18px; color: #E55547;
+    font-variation-settings: 'FILL' 1, 'wght' 300;
+  }
+
+  ::-webkit-scrollbar { width: 2px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(250, 250, 250, 0.07); border-radius: 1px; }
+</style>
+</head>
+
+<body class="selection:bg-red/20">
+
+<div class="flex h-screen overflow-hidden">
+
+  <!-- ══════════════════════════════
+       1. APP RAIL (52px)
+       ══════════════════════════════ -->
+  <nav class="app-rail">
+    <div class="font-cormorant mb-7" style="font-size: 19px; font-weight: 400; color: rgba(200, 198, 194, 0.5); letter-spacing: -0.02em; cursor: pointer;" title="Inked">I.</div>
+
+    <div class="flex flex-col items-center gap-1">
+      <div class="rail-icon" title="Today">
+        <span class="material-symbols-outlined">menu_book</span>
+      </div>
+      <div class="rail-icon" title="Inbox">
+        <span class="material-symbols-outlined">note_stack</span>
+      </div>
+      <div class="rail-icon active" title="Plan / Timeline">
+        <span class="material-symbols-outlined">edit_note</span>
+      </div>
+      <div class="rail-icon" title="Archive">
+        <span class="material-symbols-outlined">description</span>
+      </div>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <div class="rail-icon" title="Settings" style="color: rgba(130, 130, 130, 0.25);">
+      <span class="material-symbols-outlined" style="font-size: 18px;">tune</span>
+    </div>
+  </nav>
+
+
+  <!-- ══════════════════════════════
+       2. INBOX (280px)
+       ══════════════════════════════ -->
+  <aside class="w-[280px] flex-shrink-0 flex flex-col border-r border-[rgba(250,250,250,0.07)] overflow-hidden">
+
+    <div class="px-5 pt-6 pb-4">
+      <h2 class="font-cormorant text-[22px] font-normal text-parchment leading-tight">Inbox</h2>
+      <span class="section-lbl mt-2" style="margin-bottom: 0;">Ready to ink</span>
+    </div>
+
+    <div class="flex-1 overflow-y-auto">
+
+      <!-- Decoda — Ink recommended -->
+      <div class="note-entry thread-decoda" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/70 leading-snug">Draft Chapter 4: The Silent Archive</div>
+        <div class="font-satoshi text-[12px] text-muted/45 leading-relaxed mt-1.5 font-light">Focus on the tactile descriptions of paper and the smell of ancient ink.</div>
+        <div class="flex items-center gap-1.5 mt-2.5 font-satoshi text-[10px] text-coral/55">
+          <span style="font-size: 8px;">&#10022;</span> Ink recommends
+        </div>
+      </div>
+
+      <!-- Decoda -->
+      <div class="note-entry thread-decoda" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/60 leading-snug">Write 12 character questions</div>
+        <div class="font-satoshi text-[12px] text-muted/40 leading-relaxed mt-1.5 font-light">Character interview prep for Act 2 rewrite.</div>
+      </div>
+
+      <!-- Ethics -->
+      <div class="note-entry thread-ethics" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/55 leading-snug">Review December Metrics</div>
+        <div class="font-satoshi text-[12px] text-muted/35 leading-relaxed mt-1.5 font-light">Align storage tiers with active user growth.</div>
+      </div>
+
+      <!-- Archive -->
+      <div class="note-entry thread-archive" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/50 leading-snug">Fix Typeface Kerning</div>
+        <div class="font-satoshi text-[12px] text-muted/30 leading-relaxed mt-1.5 font-light">The 'V' and 'A' in Display-LG are drifting too far.</div>
+      </div>
+
+      <!-- General -->
+      <div class="note-entry thread-general" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/45 leading-snug">Schedule follow-up with foundry</div>
+        <div class="font-satoshi text-[12px] text-muted/28 leading-relaxed mt-1.5 font-light">Regarding custom typeface weights.</div>
+      </div>
+
+      <!-- Rituals — reminders only -->
+      <div class="px-5 mt-6 mb-2">
+        <span class="section-lbl">Rituals</span>
+      </div>
+
+      <div class="note-entry thread-general placed">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/40">Morning Pages</div>
+        <div class="font-satoshi text-[11px] text-muted/25 mt-0.5">Placed · 8:00 AM</div>
+      </div>
+
+      <div class="note-entry thread-general placed">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/40">Workout</div>
+        <div class="font-satoshi text-[11px] text-muted/25 mt-0.5">Placed · 9:00 AM</div>
+      </div>
+
+      <div class="note-entry thread-general" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/45">Read 20 min</div>
+      </div>
+
+      <div class="note-entry thread-general" draggable="true">
+        <div class="font-satoshi text-[13px] text-[#FAFAFA]/45">Evening Reflection</div>
+      </div>
+
+      <div class="h-8"></div>
+    </div>
+  </aside>
+
+
+  <!-- ══════════════════════════════
+       3. CENTER TIMELINE (flex-1)
+       ══════════════════════════════ -->
+  <main class="flex-1 overflow-y-auto dot-grid relative">
+
+    <!-- Sticky Header -->
+    <div class="sticky top-0 z-20 px-8 pt-6 pb-5" style="background: rgba(10, 10, 10, 0.85); backdrop-filter: blur(16px);">
+      <div class="flex items-end justify-between">
+        <div>
+          <span class="font-satoshi text-[10px] tracking-[0.25em] uppercase text-lamy/35">Thursday</span>
+          <div class="font-cormorant leading-none mt-1" style="font-size: 2.75rem; font-weight: 400; color: #c8c6c2; letter-spacing: -0.015em;">March 19</div>
+        </div>
+        <div class="text-right pb-1">
+          <div class="font-satoshi text-[10px] tracking-[0.15em] uppercase text-lamy/30 mb-1">Focus today</div>
+          <div class="font-cormorant text-[17px] text-coral/65">4 hours</div>
+        </div>
+      </div>
+      <p class="font-cormorant mt-4 leading-relaxed text-[15px] font-light text-lamy/50">
+        I've held Decoda as your anchor for today. Two drafts are waiting for you.
+      </p>
+    </div>
+
+    <!-- Timeline Body -->
+    <div class="px-8 py-6" style="min-height: 820px;">
+
+      <!-- 8 AM — Morning Pages -->
+      <div class="flex items-start gap-4 mb-7">
+        <div class="time-lbl">8 AM</div>
+        <div class="flex-1 t-ritual">
+          <p class="font-satoshi text-[14px] text-[#FAFAFA]/45 font-light">Morning Pages</p>
+          <span class="font-satoshi text-[11px] text-muted/30 mt-1 block">8:00 – 8:30 · 30 min</span>
+        </div>
+      </div>
+
+      <!-- 9 AM — Workout -->
+      <div class="flex items-start gap-4 mb-7">
+        <div class="time-lbl">9 AM</div>
+        <div class="flex-1 t-ritual">
+          <p class="font-satoshi text-[14px] text-[#FAFAFA]/45 font-light">Workout</p>
+          <span class="font-satoshi text-[11px] text-muted/30 mt-1 block">9:00 – 9:30 · 30 min</span>
+        </div>
+      </div>
+
+      <!-- NOW 9:45 -->
+      <div class="flex items-center gap-4 my-5">
+        <div class="time-lbl" style="color: rgba(229, 85, 71, 0.5);">9:45</div>
+        <div class="flex items-center flex-1">
+          <div class="now-pip"></div>
+          <div class="flex-1 h-px" style="background: linear-gradient(90deg, rgba(229, 85, 71, 0.3), transparent 80%);"></div>
+          <span class="font-satoshi text-[10px] text-red/40 pl-2">now</span>
+        </div>
+      </div>
+
+      <!-- DRAFT — Decoda Narrative -->
+      <div class="flex items-start gap-4 mb-2 mt-2">
+        <div class="time-lbl" style="color: rgba(229, 85, 71, 0.35);">9:30</div>
+        <div class="flex-1 t-draft">
+          <div class="flex items-start justify-between mb-1">
+            <h3 class="font-cormorant leading-tight text-[#FAFAFA]/80" style="font-size: 1.4rem; font-weight: 400;">Decoda Narrative</h3>
+            <span class="font-satoshi text-[10px] text-muted/30 mt-1.5">9:30 – 11:30</span>
+          </div>
+          <p class="font-cormorant text-[14px] font-light text-lamy/45">Rewrite Act 2 — character foundations</p>
+
+          <div class="mt-4 pt-3" style="border-top: 1px solid rgba(250, 250, 250, 0.05);">
+            <span class="font-satoshi text-[9px] tracking-[0.18em] uppercase text-lamy/28 block mb-3">Ink suggests from Asana</span>
+
+            <div class="triage-row selected" onclick="this.classList.toggle('selected')">
+              <div class="triage-box"></div>
+              <span>Write 12 character questions</span>
+            </div>
+            <div class="triage-row" onclick="this.classList.toggle('selected')">
+              <div class="triage-box"></div>
+              <span>Draft Act 2 opening sequence</span>
+            </div>
+            <div class="triage-row" onclick="this.classList.toggle('selected')">
+              <div class="triage-box"></div>
+              <span>Review Act 1 notes for continuity</span>
+            </div>
+            <div class="triage-row" onclick="this.classList.toggle('selected')">
+              <div class="triage-box"></div>
+              <span>Update character arc diagram</span>
+            </div>
+
+            <div class="flex items-center gap-3 mt-4 pt-3" style="border-top: 1px solid rgba(250, 250, 250, 0.04);">
+              <button class="font-satoshi text-[13px] text-red/65 hover:text-red/90 transition-colors cursor-pointer font-medium">Ink it →</button>
+              <span class="text-muted/20 text-[10px]">·</span>
+              <button class="font-satoshi text-[11px] text-muted/30 hover:text-muted/50 transition-colors cursor-pointer">skip for now</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="h-8"></div>
+
+      <!-- 1 PM — Site Positioning -->
+      <div class="flex items-start gap-4 mb-7">
+        <div class="time-lbl">1 PM</div>
+        <div class="flex-1 t-draft" style="cursor: pointer; background: #2C2C2C;">
+          <div class="flex items-center justify-between">
+            <h3 class="font-cormorant text-[1.2rem] font-light text-[#FAFAFA]/50">Site Positioning</h3>
+            <span class="font-satoshi text-[10px] text-muted/25">1:00 – 2:30</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2:30 PM — INKED: DRIVR -->
+      <div class="flex items-start gap-4 mb-7">
+        <div class="time-lbl">2:30</div>
+        <div class="flex-1 t-inked">
+          <div class="flex items-start justify-between mb-2">
+            <span class="inked-badge">Inked</span>
+            <span class="font-satoshi text-[9px] tracking-[0.12em] uppercase text-muted/35">90 mins</span>
+          </div>
+          <h3 class="font-cormorant leading-snug text-[#FAFAFA]/90" style="font-size: 1.65rem; font-weight: 400;">DRIVR Character Deck</h3>
+          <p class="font-cormorant mt-1 mb-3 text-[14px] font-light text-lamy/40">For Drew — final deliverable</p>
+          <div class="space-y-1.5">
+            <p class="font-satoshi text-[12px] text-[#FAFAFA]/45">— Finalize 6 character profiles</p>
+            <p class="font-satoshi text-[12px] text-[#FAFAFA]/45">— Write motivational copy for each</p>
+            <p class="font-satoshi text-[12px] text-[#FAFAFA]/45">— Export deck as PDF</p>
+          </div>
+          <div class="mt-3 pt-3" style="border-top: 1px solid rgba(250, 250, 250, 0.05);">
+            <span class="font-satoshi text-[10px] tracking-[0.1em] uppercase text-muted/30">2:30 – 4:00 PM</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4:30 PM — Client Check-in -->
+      <div class="flex items-start gap-4 mb-7">
+        <div class="time-lbl">4:30</div>
+        <div class="flex-1 t-gcal">
+          <p class="font-satoshi text-[14px] text-[#FAFAFA]/45">Client Check-in</p>
+          <span class="font-satoshi text-[11px] text-muted/30 mt-1 block">4:30 – 5:00 · 30 min</span>
+        </div>
+      </div>
+
+      <!-- 6 PM -->
+      <div class="flex items-center gap-4 mt-4 mb-7">
+        <div class="time-lbl">6 PM</div>
+        <div class="flex-1 h-px" style="background: rgba(250, 250, 250, 0.035);"></div>
+      </div>
+    </div>
+  </main>
+
+
+  <!-- ══════════════════════════════
+       4. RIGHT PANEL (240px)
+       ══════════════════════════════ -->
+  <aside class="w-[240px] flex-shrink-0 flex flex-col border-l border-[rgba(250,250,250,0.07)] overflow-y-auto relative">
+
+    <div class="px-5 pt-6">
+
+      <!-- Day Capacity -->
+      <span class="section-lbl">Day Capacity</span>
+      <div class="mb-2">
+        <p class="font-satoshi text-[14px] text-[#FAFAFA]/70">Thursday, March 19</p>
+        <p class="font-satoshi text-[12px] text-muted/40 mt-1">9 AM – 6 PM · <span class="text-coral/65">4h focus</span></p>
+      </div>
+      <!-- Capacity bar — green means space left -->
+      <div class="mt-3 mb-1.5 flex items-center justify-between">
+        <span class="font-satoshi text-[10px] text-muted/35">Planned</span>
+        <span class="font-satoshi text-[10px] text-muted/35">6.5h / 9h</span>
+      </div>
+      <div class="capacity-track">
+        <div class="capacity-fill" style="width: 72%; background: oklch(55% 0.10 155);"></div>
+      </div>
+      <p class="font-satoshi text-[11px] mt-2" style="color: oklch(55% 0.10 155);">2.5h open — room to breathe</p>
+
+      <!-- Awareness -->
+      <div class="mt-9">
+        <span class="section-lbl">Awareness</span>
+        <div class="space-y-3">
+          <div class="flex items-start gap-2.5">
+            <div class="w-[4px] h-[4px] rounded-full bg-red/50 mt-[5px] flex-shrink-0"></div>
+            <div>
+              <p class="font-satoshi text-[12px] text-[#FAFAFA]/55">Send DRIVR to Drew</p>
+              <span class="font-satoshi text-[10px] text-muted/30">Today · Asana</span>
+            </div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <div class="w-[4px] h-[4px] rounded-full bg-coral/35 mt-[5px] flex-shrink-0"></div>
+            <div>
+              <p class="font-satoshi text-[12px] text-[#FAFAFA]/45">Ethan's birthday party</p>
+              <span class="font-satoshi text-[10px] text-muted/25">Tomorrow · Calendar</span>
+            </div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <div class="w-[4px] h-[4px] rounded-full bg-lamy/28 mt-[5px] flex-shrink-0"></div>
+            <div>
+              <p class="font-satoshi text-[12px] text-[#FAFAFA]/40">Amy's birthday</p>
+              <span class="font-satoshi text-[10px] text-muted/22">2 days · Calendar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Threads — color-coded to match tasks -->
+      <div class="mt-9">
+        <span class="section-lbl">This week's threads</span>
+        <div class="space-y-3">
+          <div class="flex items-center gap-2.5">
+            <div class="w-[5px] h-[5px] rounded-sm bg-red/50 flex-shrink-0"></div>
+            <span class="font-satoshi text-[13px] text-[#FAFAFA]/55">Decoda Narrative</span>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-[5px] h-[5px] rounded-sm bg-cobalt-light/45 flex-shrink-0"></div>
+            <span class="font-satoshi text-[13px] text-[#FAFAFA]/45">Digital Ethics</span>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <div class="w-[5px] h-[5px] rounded-sm bg-lamy/35 flex-shrink-0"></div>
+            <span class="font-satoshi text-[13px] text-[#FAFAFA]/38">Archive Curation</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="flex-1 min-h-8"></div>
+
+    <!-- Ink floating icon — bottom of panel -->
+    <div class="px-5 pb-5 flex justify-end">
+      <div class="ink-fab" title="Ask Ink">
+        <span class="material-symbols-outlined">auto_fix_high</span>
+      </div>
+    </div>
+
+  </aside>
+
+</div>
+
+</body>
+</html>

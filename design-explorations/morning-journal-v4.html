@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Inked — Morning</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&display=swap" rel="stylesheet"/>
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "void":       "#0a0a0a",
+        "surface":    "#151515",
+        "raised":     "#202020",
+        "lifted":     "#2a2a2a",
+        "hover":      "#333333",
+        "text":       "#e8e8e6",
+        "text-dim":   "#c8c8c5",
+        "slate":      "#858585",
+        "slate-dim":  "#5c5c5c",
+        "rust":       "#c97853",
+        "coral":      "#ff9786",
+        "cobalt":     "#60748a",
+        "cobalt-light":"#8ba3c0",
+        "sage":       "#697269",
+        "wheat":      "#b5a67d",
+      },
+      fontFamily: {
+        "cormorant": ["Cormorant Garamond", "serif"],
+        "satoshi":   ["Satoshi", "sans-serif"],
+      },
+    },
+  },
+}
+</script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  body { background: #0a0a0a; color: #e8e8e6; margin: 0; height: 100vh; overflow: hidden; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 20; }
+
+  .dawn-mesh {
+    background:
+      radial-gradient(ellipse at 18% 28%, rgba(201, 120, 83, 0.025) 0%, transparent 50%),
+      radial-gradient(ellipse at 82% 72%, rgba(96, 116, 138, 0.025) 0%, transparent 50%);
+  }
+
+  .ink-underline {
+    position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+    width: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(201, 120, 83, 0.4), transparent);
+    transition: width 1.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  .ink-input-group:focus-within .ink-underline { width: 100%; }
+
+  .begin-action { opacity: 0.3; transition: opacity 0.8s, color 0.4s; }
+  .begin-action:hover { opacity: 0.9; }
+
+  .sidebar-item {
+    padding: 5px 7px; margin: -5px -7px; border-radius: 0.4rem;
+    transition: background 0.25s; cursor: pointer;
+  }
+  .sidebar-item:hover { background: rgba(138, 136, 128, 0.06); }
+
+  /* Ink suggestion card */
+  .ink-card {
+    background: #141416;
+    border: 1px solid rgba(180, 178, 170, 0.06);
+    border-radius: 0.75rem;
+    padding: 22px 24px;
+    position: relative;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .ink-card:hover {
+    border-color: rgba(180, 178, 170, 0.12);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  }
+
+  ::-webkit-scrollbar { width: 2px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(138, 136, 128, 0.12); border-radius: 1px; }
+</style>
+</head>
+
+<body class="font-satoshi selection:bg-rust/20">
+<main class="h-screen flex dawn-mesh">
+
+  <!-- LEFT: Morning Canvas -->
+  <section class="flex-1 flex flex-col justify-center py-16 overflow-y-auto" style="padding-left: clamp(3.5rem, 7vw, 9rem); padding-right: clamp(2.5rem, 4vw, 5rem);">
+
+    <!-- Greeting -->
+    <div class="mb-8">
+      <span class="font-satoshi text-[10px] tracking-[0.22em] uppercase text-slate/40 block mb-5">This week's threads</span>
+      <h1 class="font-cormorant text-[4.5rem] md:text-[5.5rem] leading-[1.06] text-text tracking-tight font-light italic">
+        Good morning, Patrick.
+      </h1>
+    </div>
+
+    <!-- Threads -->
+    <ul class="space-y-3 mb-12 ml-0.5">
+      <li class="flex items-center gap-3">
+        <span class="w-[6px] h-[6px] rounded-full bg-rust/55"></span>
+        <span class="font-cormorant text-[1.45rem] text-text/45 font-light">Decoda Narrative</span>
+      </li>
+      <li class="flex items-center gap-3">
+        <span class="w-[6px] h-[6px] rounded-full bg-cobalt-light/45"></span>
+        <span class="font-cormorant text-[1.45rem] text-text/35 font-light">Digital Ethics</span>
+      </li>
+      <li class="flex items-center gap-3">
+        <span class="w-[6px] h-[6px] rounded-full bg-wheat/40"></span>
+        <span class="font-cormorant text-[1.45rem] text-text/30 font-light">Archive Curation</span>
+      </li>
+    </ul>
+
+    <!-- Ink Surfaces ONE Task -->
+    <div class="ink-card max-w-2xl mb-12" style="border-left: 3px solid rgba(201, 120, 83, 0.35);">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-rust/50" style="font-size: 16px; font-variation-settings: 'FILL' 1;">auto_fix_high</span>
+          <span class="font-satoshi text-[10px] tracking-[0.15em] uppercase text-rust/50">Ink suggests</span>
+        </div>
+        <span class="font-satoshi text-[10px] tracking-[0.12em] uppercase text-slate/30">From Asana</span>
+      </div>
+      <h3 class="font-cormorant text-[1.5rem] text-text/75 font-medium leading-snug mb-2">Review Project 'Loom' Architecture</h3>
+      <p class="font-satoshi text-[13px] text-slate/60 leading-relaxed mb-4">The structural grid needs your eye before the 2PM sync. This moves your Decoda thread forward.</p>
+      <div class="flex items-center gap-3">
+        <span class="font-satoshi text-[10px] tracking-[0.1em] uppercase text-text/30 bg-text/[0.04] px-3 py-1 rounded-full">Refinement</span>
+        <span class="font-satoshi text-[11px] text-slate/30">15 min</span>
+      </div>
+    </div>
+
+    <!-- Ink's conversational prompt -->
+    <div class="max-w-xl space-y-8">
+      <p class="font-cormorant text-[1.25rem] text-slate leading-[1.6] font-light">
+        You have 4 focus hours today. Your Decoda intention is clear — does <span class="text-rust/75">"Rewrite Act 2"</span> still serve this, or has it shifted?
+      </p>
+
+      <div class="relative ink-input-group">
+        <label class="font-satoshi text-[10px] text-slate/25 tracking-[0.2em] uppercase block mb-4">Ink your response...</label>
+        <input type="text" autocomplete="off" spellcheck="false"
+          class="w-full bg-transparent border-0 border-b border-slate/10 py-3 font-cormorant text-[1.2rem] text-text/70 focus:ring-0 focus:border-rust/30 transition-colors duration-1000 placeholder:text-slate/15 placeholder:font-light"
+          placeholder="Type your first stroke..." />
+        <div class="ink-underline"></div>
+      </div>
+
+      <button class="begin-action group flex items-center gap-3 font-cormorant text-[1.05rem] text-rust/55 font-light">
+        Begin today.
+        <span class="material-symbols-outlined transition-transform duration-700 group-hover:translate-x-2" style="font-size: 15px;">arrow_right_alt</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- RIGHT: Sidebar -->
+  <aside class="w-72 flex flex-col px-7 py-8 overflow-y-auto" style="border-left: 1px solid rgba(180, 178, 170, 0.06);">
+
+    <div class="flex justify-end gap-5 mb-10">
+      <span class="font-satoshi text-text/40 text-[12px] cursor-pointer hover:text-text/60 transition-colors">Rituals</span>
+      <span class="font-satoshi text-slate/25 text-[12px] cursor-pointer hover:text-text/40 transition-colors">Archive</span>
+    </div>
+
+    <!-- Today -->
+    <div class="mb-9">
+      <span class="font-satoshi text-[9px] tracking-[0.22em] uppercase text-slate/30 block mb-3">Today</span>
+      <h4 class="font-satoshi text-text/65 text-[15px] font-medium leading-snug">Thursday, March 19</h4>
+      <div class="flex items-center justify-between mt-2.5">
+        <span class="font-satoshi text-[12px] text-slate/30">9 AM – 6 PM</span>
+        <span class="font-satoshi text-[12px] text-rust/50 font-medium">4h focus</span>
+      </div>
+    </div>
+
+    <!-- Calendar -->
+    <div class="mb-9">
+      <span class="font-satoshi text-[9px] tracking-[0.22em] uppercase text-slate/30 block mb-4">On the Calendar</span>
+      <div class="space-y-3.5">
+        <div class="sidebar-item">
+          <p class="font-satoshi text-text/50 text-[13px]">Workout</p>
+          <p class="font-satoshi text-[11px] text-slate/25 mt-0.5">9:00 – 9:30 AM</p>
+        </div>
+        <div class="sidebar-item">
+          <p class="font-satoshi text-text/50 text-[13px]">Writing</p>
+          <p class="font-satoshi text-[11px] text-slate/25 mt-0.5">9:30 – 11:30 AM</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Awareness -->
+    <div class="mb-9">
+      <span class="font-satoshi text-[9px] tracking-[0.22em] uppercase text-slate/30 block mb-4">Awareness</span>
+      <ul class="space-y-3">
+        <li class="flex items-start gap-2.5">
+          <span class="w-[4px] h-[4px] rounded-full bg-rust/45 mt-[5px] flex-shrink-0"></span>
+          <span class="font-satoshi text-[12px] text-text/42 leading-snug">1d to Ethan's birthday party</span>
+        </li>
+        <li class="flex items-start gap-2.5">
+          <span class="w-[4px] h-[4px] rounded-full bg-coral/30 mt-[5px] flex-shrink-0"></span>
+          <span class="font-satoshi text-[12px] text-text/35 leading-snug">2d to Amy's birthday</span>
+        </li>
+        <li class="flex items-start gap-2.5">
+          <span class="w-[4px] h-[4px] rounded-full bg-cobalt/35 mt-[5px] flex-shrink-0"></span>
+          <span class="font-satoshi text-[12px] text-text/35 leading-snug">Send DRIVR to Drew today</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Rituals (just reminders, no states) -->
+    <div class="mb-9">
+      <span class="font-satoshi text-[9px] tracking-[0.22em] uppercase text-slate/30 block mb-4">Rituals</span>
+      <ul class="space-y-2.5">
+        <li class="sidebar-item font-satoshi text-[13px] text-text/38 hover:text-text/55 transition-colors">Morning Pages</li>
+        <li class="sidebar-item font-satoshi text-[13px] text-text/38 hover:text-text/55 transition-colors">Workout</li>
+        <li class="sidebar-item font-satoshi text-[13px] text-text/38 hover:text-text/55 transition-colors">Read 20 min</li>
+      </ul>
+    </div>
+
+    <div class="flex-1"></div>
+
+    <div class="flex items-center gap-2 text-slate/15 hover:text-slate/30 transition-colors cursor-pointer pt-4">
+      <span class="material-symbols-outlined" style="font-size: 16px;">settings</span>
+      <span class="font-satoshi text-[10px] tracking-[0.2em] uppercase">Settings</span>
+    </div>
+  </aside>
+
+</main>
+
+<div class="fixed top-[20%] left-[10%] w-[26rem] h-[26rem] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(201, 120, 83, 0.02) 0%, transparent 65%);"></div>
+<div class="fixed bottom-[10%] right-[18%] w-[30rem] h-[30rem] rounded-full pointer-events-none" style="background: radial-gradient(circle, rgba(96, 116, 138, 0.02) 0%, transparent 60%);"></div>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300..700;1,300..700&family=Satoshi:ital,wght@0,300..900;1,300..900&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL,GRAD@100..700,0..1,-50..50&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+  darkMode: "class",
+  theme: {
+    extend: {
+      colors: {
+        "carbon": "#080908",
+        "carbon-light": "#0F110F",
+        "parchment": "#E8E3D9",
+        "ink": "#C8C6C2",
+        "ink-faded": "#8C8B88",
+        "rust": "#D26955",
+        "sage": "#7A8B7C",
+        "border-subtle": "rgba(200, 198, 194, 0.08)",
+        "surface-raised": "rgba(200, 198, 194, 0.02)",
+      },
+      fontFamily: {
+        "serif": ["Cormorant Garamond", "serif"],
+        "sans": ["Satoshi", "sans-serif"],
+      }
+    }
+  }
+}
+</script>
+<style>
+  body {
+    background-color: #080908;
+    color: #C8C6C2;
+    overflow: hidden;
+  }
+  .paper-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+  }
+  .dot-grid {
+    background-image: radial-gradient(circle, rgba(200, 198, 194, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: center;
+  }
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 200, 'GRAD' 0, 'opsz' 20;
+  }
+  
+  /* Scrollbar hides */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(200, 198, 194, 0.1); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(200, 198, 194, 0.2); }
+  
+</style>
+</head>
+<body class="font-sans paper-texture selection:bg-rust/20 h-screen flex flex-col border-t-8 border-rust">
+
+<!-- Top Navigation -->
+<header class="h-16 flex justify-between items-center px-6 border-b border-border-subtle z-50 bg-carbon">
+  <div class="flex items-center gap-8">
+    <div class="font-serif italic text-2xl text-parchment opacity-90 tracking-tight">I.</div>
+    <nav class="hidden md:flex items-center gap-6 pt-1">
+      <a class="text-ink-faded hover:text-parchment font-sans text-xs tracking-[0.1em] uppercase transition-colors" href="#">Today</a>
+      <a class="text-ink-faded hover:text-parchment font-sans text-xs tracking-[0.1em] uppercase transition-colors" href="#">Inbox</a>
+      <a class="text-parchment border-b-[1.5px] border-rust pb-1 font-sans text-xs tracking-[0.1em] uppercase" href="#">Timeline</a>
+    </nav>
+  </div>
+  <div class="flex items-center gap-5 text-ink-faded">
+    <button class="font-serif italic text-sm hover:text-parchment transition-colors">Archive</button>
+    <div class="h-4 w-[1px] bg-border-subtle"></div>
+    <button class="material-symbols-outlined scale-90 hover:text-parchment transition-colors">account_circle</button>
+  </div>
+</header>
+
+<main class="flex-1 flex overflow-hidden">
+  
+  <!-- Left Condensed Drawer (Inbox) -->
+  <aside class="w-16 border-r border-border-subtle bg-carbon flex flex-col items-center py-6 gap-6 z-40">
+      <button class="w-10 h-10 flex items-center justify-center rounded-sm hover:bg-surface-raised text-ink-faded hover:text-parchment transition-colors group relative">
+          <span class="material-symbols-outlined text-[20px]">menu_book</span>
+      </button>
+      <button class="w-10 h-10 flex items-center justify-center rounded-sm hover:bg-surface-raised text-ink-faded hover:text-parchment transition-colors group relative">
+          <span class="material-symbols-outlined text-[20px]">inventory_2</span>
+      </button>
+      <button class="w-10 h-10 flex items-center justify-center rounded-sm bg-surface-raised text-parchment transition-colors group relative">
+          <span class="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-rust rounded-r-full"></span>
+          <span class="material-symbols-outlined text-[20px]">calendar_view_day</span>
+      </button>
+      <div class="mt-auto flex flex-col gap-6">
+        <button class="w-10 h-10 flex items-center justify-center rounded-sm hover:bg-surface-raised text-ink-faded hover:text-parchment transition-colors">
+            <span class="material-symbols-outlined text-[20px]">delete</span>
+        </button>
+      </div>
+  </aside>
+
+  <!-- Pending Notes Strip -->
+  <section class="w-80 border-r border-border-subtle bg-carbon flex flex-col">
+    <div class="p-6 border-b border-border-subtle">
+      <h3 class="font-serif italic text-2xl text-parchment">Pending</h3>
+      <p class="text-[9px] text-ink-faded font-sans tracking-[0.2em] uppercase mt-2">Ready to Ink</p>
+    </div>
+    
+    <div class="flex-1 overflow-y-auto px-5 py-6 space-y-4">
+      
+      <!-- Task Card 1 (Tactile index card metaphor) -->
+      <div class="bg-surface-raised border border-border-subtle p-5 cursor-grab active:cursor-grabbing hover:border-rust/30 transition-colors group relative">
+        <div class="absolute top-0 left-0 w-full h-[1px] bg-rust opacity-50"></div>
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-[8px] font-sans tracking-[0.2em] uppercase text-rust">Decoda</span>
+          <span class="material-symbols-outlined text-[14px] text-ink-faded opacity-0 group-hover:opacity-100 transition-opacity">drag_indicator</span>
+        </div>
+        <h4 class="text-[17px] font-serif italic text-parchment leading-tight">Draft Chapter 4: The Silent Archive</h4>
+        <p class="text-[11px] text-ink-faded mt-2 line-clamp-2 leading-relaxed font-sans">Focus on the tactile descriptions of paper and the smell of ancient ink.</p>
+      </div>
+
+      <!-- Task Card 2 -->
+      <div class="bg-surface-raised border border-border-subtle p-5 cursor-grab active:cursor-grabbing hover:border-ink-faded/30 transition-colors group relative">
+        <div class="absolute top-0 left-0 w-full h-[1px] bg-ink-faded opacity-30"></div>
+        <div class="flex justify-between items-start mb-3">
+          <span class="text-[8px] font-sans tracking-[0.2em] uppercase text-ink-faded">Ethics</span>
+          <span class="material-symbols-outlined text-[14px] text-ink-faded opacity-0 group-hover:opacity-100 transition-opacity">drag_indicator</span>
+        </div>
+        <h4 class="text-[17px] font-serif italic text-parchment leading-tight">Review December Metrics</h4>
+        <p class="text-[11px] text-ink-faded mt-2 leading-relaxed font-sans">Align storage tiers with active user growth.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Canvas: The Dot Grid Timeline -->
+  <section class="flex-1 dot-grid relative overflow-y-auto bg-carbon">
+    
+    <!-- Floating Sticky Header -->
+    <div class="sticky top-0 bg-carbon/80 backdrop-blur-xl z-20 px-12 py-8 border-b border-border-subtle flex items-end justify-between">
+      <div>
+        <span class="text-[10px] font-sans tracking-[0.2em] uppercase text-ink-faded">Thursday</span>
+        <h2 class="text-[40px] leading-none font-serif italic text-parchment mt-1">12 December 2024</h2>
+      </div>
+      <div class="flex items-center gap-6 pb-1">
+        <button class="font-serif italic text-lg text-ink-faded hover:text-parchment transition-colors">Plan Week</button>
+      </div>
+    </div>
+
+    <!-- Timeline Ledgers -->
+    <div class="px-12 py-12 max-w-4xl space-y-16 relative">
+      
+      <!-- Current Time Line -->
+      <div class="absolute left-10 right-10 border-t border-rust/40 flex items-center z-10 pointer-events-none" style="top: 240px;">
+        <span class="bg-carbon text-rust font-sans text-[9px] tracking-[0.1em] px-2 -mt-[7px] ml-4 font-bold">NOW</span>
+      </div>
+
+      <!-- 08:00 Segment -->
+      <div class="flex gap-10">
+        <div class="w-16 text-right pt-1 shrink-0">
+          <span class="text-[10px] font-sans text-ink-faded tracking-[0.2em] uppercase">08:00</span>
+        </div>
+        <div class="flex-1 border-l border-border-subtle pl-6 pb-8">
+           <div class="group flex items-center gap-4 py-2 opacity-60">
+             <span class="material-symbols-outlined text-[16px] text-ink-faded">done</span>
+             <span class="font-serif italic text-xl text-ink line-through decoration-ink-faded/40">Read & Coffee</span>
+           </div>
+        </div>
+      </div>
+
+      <!-- 09:00 Segment: Focus Block -->
+      <div class="flex gap-10 relative z-20">
+        <div class="w-16 text-right pt-1 shrink-0">
+          <span class="text-[10px] font-sans text-ink-faded tracking-[0.2em] uppercase">09:00</span>
+        </div>
+        
+        <!-- Large Tactile Card for Focus Block -->
+        <div class="flex-1 bg-parchment text-carbon rounded-sm p-8 shadow-2xl relative group hover:-translate-y-0.5 transition-transform">
+           <!-- Hand drawn aesthetic: slight misalignment of border or a thin inner line -->
+           <div class="absolute inset-2 border border-carbon/10 pointer-events-none rounded-sm"></div>
+           
+           <div class="flex justify-between items-start mb-6">
+              <span class="text-[9px] font-sans tracking-[0.2em] uppercase text-carbon/60 border border-carbon/20 px-2 py-1 rounded-sm">Focus Block</span>
+              <span class="text-[11px] font-sans tracking-wide text-carbon/80 font-medium">90 MINS</span>
+           </div>
+           
+           <h3 class="text-3xl font-serif italic text-carbon leading-tight w-2/3">Product Architecture Deep Dive</h3>
+           <p class="text-[13px] font-sans text-carbon/80 mt-4 max-w-md leading-relaxed">Iterating on the "Humanistic Digital Architecture" framework for v2.0.</p>
+           
+           <div class="mt-8 pt-6 border-t border-carbon/10 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                 <span class="material-symbols-outlined text-[14px] text-carbon/50">subject</span>
+                 <span class="text-[10px] font-sans tracking-[0.1em] uppercase text-carbon/70">Asana notes linked</span>
+              </div>
+           </div>
+        </div>
+      </div>
+
+      <!-- 11:00 Segment: Empty Drop Zone -->
+      <div class="flex gap-10">
+        <div class="w-16 text-right pt-1 shrink-0">
+          <span class="text-[10px] font-sans text-ink-faded tracking-[0.2em] uppercase">11:00</span>
+        </div>
+        <div class="flex-1 border-l border-border-subtle pl-6">
+           <div class="h-32 border border-dashed border-border-subtle bg-carbon/20 flex items-center justify-center rounded-sm group-hover:bg-rust/5 transition-colors cursor-pointer group">
+              <span class="font-serif italic text-xl text-ink-faded group-hover:text-parchment transition-colors">Drop task to commit...</span>
+           </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Contextual Ink Column (Ambient Advisor) -->
+  <section class="w-80 border-l border-border-subtle bg-carbon flex flex-col p-8 xl:block hidden relative">
+     <div class="flex items-center gap-3 mb-10 pb-6 border-b border-border-subtle">
+       <span class="material-symbols-outlined text-[16px] text-rust">edit</span>
+       <h3 class="font-serif italic text-xl text-parchment">Ink</h3>
+     </div>
+
+     <!-- Ink Message Toast -->
+     <div class="bg-surface-raised border border-border-subtle p-5 rounded-sm relative">
+       <!-- Subtle hand drawn line -->
+       <div class="absolute top-0 left-0 w-[2px] h-full bg-rust opacity-70"></div>
+       <p class="text-[15px] font-serif italic leading-relaxed text-parchment/90">
+           "Your afternoon seems heavy on communication. Shall I reserve a 20-minute <span class="text-rust">Stillness</span> block after the Q&A?"
+       </p>
+       <div class="mt-6 flex flex-col gap-2">
+         <button class="text-[10px] font-sans font-medium uppercase tracking-[0.15em] border border-rust text-rust hover:bg-rust hover:text-carbon px-4 py-2 transition-colors text-center">
+           ink it
+         </button>
+         <button class="text-[10px] font-sans font-medium uppercase tracking-[0.15em] text-ink-faded hover:text-parchment px-4 py-2 transition-colors text-center opacity-60">
+           not today
+         </button>
+       </div>
+     </div>
+
+     <div class="absolute bottom-8 left-8 right-8 text-center border-t border-border-subtle pt-6">
+        <p class="font-sans text-[9px] tracking-[0.2em] text-ink-faded uppercase opacity-50">Story Engine V2</p>
+     </div>
+  </section>
+
+</main>
+
+</body>
+</html>
