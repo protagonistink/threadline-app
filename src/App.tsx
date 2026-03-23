@@ -5,17 +5,17 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
-import { DragOverlay } from './components/DragOverlay';
+import { DragOverlay } from './components/shared/DragOverlay';
 import { AtmosphereLayer } from './components/AtmosphereLayer';
-import { Sidebar } from './components/Sidebar';
+import { Sidebar } from './components/chrome/Sidebar';
 import { BriefingMode } from './modes/BriefingMode';
 import { PlanningMode } from './modes/PlanningMode';
 import { ExecutingMode } from './modes/ExecutingMode';
 import { FocusMode } from './modes/FocusMode';
 
-const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
-const CommandPalette = lazy(() => import('./components/CommandPalette').then((m) => ({ default: m.CommandPalette })));
-const InkThread = lazy(() => import('./components/Thread').then((m) => ({ default: m.InkThread })));
+const Settings = lazy(() => import('./components/chrome/Settings').then((m) => ({ default: m.Settings })));
+const CommandPalette = lazy(() => import('./components/chrome/CommandPalette').then((m) => ({ default: m.CommandPalette })));
+const InkThread = lazy(() => import('./components/ink/Thread').then((m) => ({ default: m.InkThread })));
 const IntentionsView = lazy(() => import('./components/intentions/IntentionsView').then((m) => ({ default: m.IntentionsView })));
 
 const ASSISTANT_CLOSE_DELAY_MS = 140;

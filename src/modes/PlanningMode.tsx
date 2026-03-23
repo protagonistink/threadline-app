@@ -1,12 +1,12 @@
 import { lazy, Suspense, useState } from 'react';
 import { ChevronsLeft, ChevronsRight, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { UnifiedInbox } from '@/components/UnifiedInbox';
-import { Timeline } from '@/components/Timeline';
+import { UnifiedInbox } from '@/components/inbox/UnifiedInbox';
+import { Timeline } from '@/components/timeline/Timeline';
 import { RightRail } from '@/components/rail/RightRail';
 
 const MorningBriefing = lazy(() =>
-  import('@/components/MorningBriefing').then((m) => ({ default: m.MorningBriefing }))
+  import('@/components/ink/MorningBriefing').then((m) => ({ default: m.MorningBriefing }))
 );
 
 export interface PlanningModeProps {

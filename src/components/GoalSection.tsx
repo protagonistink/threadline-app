@@ -4,7 +4,7 @@ import { useApp } from '@/context/AppContext';
 import { useDrop } from 'react-dnd';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import type { PlannedTask, WeeklyGoal } from '@/types';
-import { TaskCard, type DeadlineState } from './TaskCard';
+import { TaskCard, type DeadlineState } from '@/components/shared/TaskCard';
 
 export function GoalSection({
   goal,

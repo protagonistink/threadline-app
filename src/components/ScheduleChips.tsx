@@ -1,7 +1,7 @@
 // src/components/ScheduleChips.tsx
 import { Check, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ScheduleChip } from './morningBriefingUtils';
+import type { ScheduleChip } from '@/components/ink/morningBriefingUtils';
 
 export function ScheduleChips({
   chips,

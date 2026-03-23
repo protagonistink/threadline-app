@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react';
 
 const MorningBriefing = lazy(() =>
-  import('@/components/MorningBriefing').then((m) => ({ default: m.MorningBriefing }))
+  import('@/components/ink/MorningBriefing').then((m) => ({ default: m.MorningBriefing }))
 );
 const TodaysFlow = lazy(() =>
-  import('@/components/TodaysFlow').then((m) => ({ default: m.TodaysFlow }))
+  import('@/components/timeline/TodaysFlow').then((m) => ({ default: m.TodaysFlow }))
 );
 
 export interface BriefingModeProps {

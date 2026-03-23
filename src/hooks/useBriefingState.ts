@@ -4,7 +4,7 @@ import { format, parseISO } from 'date-fns';
 import { useApp } from '@/context/AppContext';
 import { useBriefingStream } from '@/hooks/useBriefingStream';
 import { detectInkMode } from '@/lib/ink-mode';
-import { stripStructuredAssistantBlocks, buildBriefingContext, inferPlanningDateFromContent, parseCommitChips, parseRitualSuggestions, parseScheduleProposal, type CommitChip, type ScheduleChip } from '@/components/morningBriefingUtils';
+import { stripStructuredAssistantBlocks, buildBriefingContext, inferPlanningDateFromContent, parseCommitChips, parseRitualSuggestions, parseScheduleProposal, type CommitChip, type ScheduleChip } from '@/components/ink/morningBriefingUtils';
 import type { ChatMessage } from '@/types/electron';
 import type { InkMode } from '@/types';
 import type { Phase, BriefingVariant } from '@/types/briefing';

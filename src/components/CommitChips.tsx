@@ -1,7 +1,7 @@
 // src/components/CommitChips.tsx
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { CommitChip } from './morningBriefingUtils';
+import type { CommitChip } from '@/components/ink/morningBriefingUtils';
 
 export function CommitChips({
   chips,
