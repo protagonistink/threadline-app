@@ -17,20 +17,13 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              external: (id) => ['better-sqlite3', 'plaid'].includes(id) || id.startsWith('drizzle-orm'),
+              external: ['better-sqlite3'],
             },
           },
         },
       },
       preload: {
         input: 'electron/preload.ts',
-        vite: {
-          build: {
-            rollupOptions: {
-              external: (id: string) => ['better-sqlite3', 'plaid'].includes(id) || id.startsWith('drizzle-orm'),
-            },
-          },
-        },
       },
     }),
   ],
