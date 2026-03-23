@@ -65,6 +65,9 @@ const store = new Store({
     },
     finance: {
       configured: false,
+      provider: 'plaid' as 'plaid' | 'ynab',
+      ynabPlanId: '',
+      ynabPlanName: '',
       weeklyPattern: [] as number[],
     },
     financeConfig: {
@@ -157,10 +160,14 @@ export function registerStoreHandlers() {
       },
       finance: {
         configured: Boolean(store.get('plaid.accessToken')),
+        provider: (String(store.get('finance.provider') || 'plaid') as 'plaid' | 'ynab'),
         institutionName: String(store.get('plaid.institutionName') || ''),
         lastSync: String(store.get('plaid.lastSync') || ''),
         plaidClientIdConfigured: Boolean(store.get('plaid.clientId')),
         plaidSecretConfigured: Boolean(store.get('plaid.secret')),
+        ynabPlanId: String(store.get('finance.ynabPlanId') || ''),
+        ynabPlanName: String(store.get('finance.ynabPlanName') || ''),
+        ynabTokenConfigured: Boolean(getSecure('ynab.token')),
       },
       day: {
         startHour: Number(prefs.day?.startHour ?? 9),
@@ -210,6 +217,10 @@ export function registerStoreHandlers() {
     if ('blockedSites' in payload) store.set('focus.blockedSites', payload.blockedSites);
     if ('plaidClientId' in payload) store.set('plaid.clientId', payload.plaidClientId);
     if ('plaidSecret' in payload) store.set('plaid.secret', payload.plaidSecret);
+    if ('ynabToken' in payload) setSecure('ynab.token', String(payload.ynabToken ?? ''));
+    if ('financeProvider' in payload) store.set('finance.provider', payload.financeProvider);
+    if ('ynabPlanId' in payload) store.set('finance.ynabPlanId', payload.ynabPlanId);
+    if ('ynabPlanName' in payload) store.set('finance.ynabPlanName', payload.ynabPlanName);
     // User preferences
     if ('dayStartHour' in payload) store.set('userPrefs.day.startHour', payload.dayStartHour);
     if ('dayStartMin' in payload) store.set('userPrefs.day.startMin', payload.dayStartMin);

@@ -75,6 +75,12 @@ export function Settings({ onClose }: SettingsProps) {
   const [plaidSecret, setPlaidSecret] = useState('');
   const [plaidClientIdDirty, setPlaidClientIdDirty] = useState(false);
   const [plaidSecretDirty, setPlaidSecretDirty] = useState(false);
+  const [ynabToken, setYnabToken] = useState('');
+  const [ynabPlanId, setYnabPlanId] = useState('');
+  const [ynabPlanName, setYnabPlanName] = useState('');
+  const [ynabTokenDirty, setYnabTokenDirty] = useState(false);
+  const [ynabPlanIdDirty, setYnabPlanIdDirty] = useState(false);
+  const [financeProvider, setFinanceProvider] = useState<'plaid' | 'ynab'>('plaid');
 
   async function loadCalendars() {
     setLoadingCalendars(true);
@@ -133,6 +139,9 @@ export function Settings({ onClose }: SettingsProps) {
       if (s.gcal.calendarIds.length > 0) setGcalCalendarIds(s.gcal.calendarIds);
       if (s.gcal.writeCalendarId) setGcalWriteCalendarId(s.gcal.writeCalendarId);
       if (s.gcal.clientId && s.gcal.clientSecretConfigured) await loadCalendars();
+      setFinanceProvider(s.finance.provider ?? 'plaid');
+      setYnabPlanId(s.finance.ynabPlanId);
+      setYnabPlanName(s.finance.ynabPlanName);
     }
     void load();
   }, []);
@@ -175,6 +184,9 @@ export function Settings({ onClose }: SettingsProps) {
       gcalWriteCalendarId: writeCalendarId,
       ...(plaidClientIdDirty && plaidClientId ? { plaidClientId } : {}),
       ...(plaidSecretDirty && plaidSecret ? { plaidSecret } : {}),
+      ...(ynabTokenDirty && ynabToken ? { ynabToken } : {}),
+      ...(ynabPlanIdDirty ? { ynabPlanId, ynabPlanName } : {}),
+      financeProvider,
       // Day
       dayStartHour, dayStartMin, dayEndHour, dayEndMin, timeboxDefault, syncFrequencyMins,
       workMins, breakMins, longBreakMins,
@@ -434,7 +446,20 @@ export function Settings({ onClose }: SettingsProps) {
 
           {tab === 'money' && (
             <>
-              <Section title="Plaid Connection">
+              <Section title="Finance Provider">
+                <Field label="Primary provider">
+                  <SegmentedControl
+                    options={[
+                      { value: 'plaid', label: 'Plaid' },
+                      { value: 'ynab', label: 'YNAB' },
+                    ]}
+                    value={financeProvider}
+                    onChange={(v) => setFinanceProvider(v as 'plaid' | 'ynab')}
+                  />
+                </Field>
+              </Section>
+
+              <Section title={financeProvider === 'plaid' ? 'Plaid Connection' : 'YNAB Connection'}>
                 <div className="rounded-lg border border-border bg-bg px-4 py-3 text-[12px] text-text-muted">
                   {settings.finance.configured ? (
                     <div className="flex flex-col gap-1">
@@ -443,15 +468,50 @@ export function Settings({ onClose }: SettingsProps) {
                     </div>
                   ) : <span>Not connected</span>}
                 </div>
-                <Field label="Plaid Client ID">
-                  <div className="relative">
-                    <input value={plaidClientId} onChange={(e) => { setPlaidClientId(e.target.value); setPlaidClientIdDirty(true); }} placeholder={settings.finance.plaidClientIdConfigured ? '' : 'client_id...'} className="input-field" />
-                    {settings.finance.plaidClientIdConfigured && !plaidClientId && <ConfiguredBadge />}
-                  </div>
-                </Field>
-                <Field label="Plaid Secret">
-                  <input type="password" value={plaidSecret} onChange={(e) => { setPlaidSecret(e.target.value); setPlaidSecretDirty(true); }} placeholder={settings.finance.plaidSecretConfigured ? 'Saved secret' : ''} className="input-field" />
-                </Field>
+                {financeProvider === 'plaid' ? (
+                  <>
+                    <Field label="Plaid Client ID">
+                      <div className="relative">
+                        <input value={plaidClientId} onChange={(e) => { setPlaidClientId(e.target.value); setPlaidClientIdDirty(true); }} placeholder={settings.finance.plaidClientIdConfigured ? '' : 'client_id...'} className="input-field" />
+                        {settings.finance.plaidClientIdConfigured && !plaidClientId && <ConfiguredBadge />}
+                      </div>
+                    </Field>
+                    <Field label="Plaid Secret">
+                      <input type="password" value={plaidSecret} onChange={(e) => { setPlaidSecret(e.target.value); setPlaidSecretDirty(true); }} placeholder={settings.finance.plaidSecretConfigured ? 'Saved secret' : ''} className="input-field" />
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label="YNAB personal access token">
+                      <div className="relative">
+                        <input
+                          type="password"
+                          value={ynabToken}
+                          onChange={(e) => { setYnabToken(e.target.value); setYnabTokenDirty(true); }}
+                          placeholder={settings.finance.ynabTokenConfigured ? 'Saved token' : 'ynab-token...'}
+                          className="input-field"
+                        />
+                        {settings.finance.ynabTokenConfigured && !ynabToken && <ConfiguredBadge />}
+                      </div>
+                    </Field>
+                    <Field label="YNAB plan">
+                      <input
+                        value={ynabPlanName}
+                        onChange={(e) => { setYnabPlanName(e.target.value); setYnabPlanIdDirty(true); }}
+                        placeholder="Q1 2026"
+                        className="input-field"
+                      />
+                    </Field>
+                    <Field label="YNAB plan ID">
+                      <input
+                        value={ynabPlanId}
+                        onChange={(e) => { setYnabPlanId(e.target.value); setYnabPlanIdDirty(true); }}
+                        placeholder="ac78009a-..."
+                        className="input-field font-mono text-[12px]"
+                      />
+                    </Field>
+                  </>
+                )}
               </Section>
 
               <Section title="Financial Awareness">

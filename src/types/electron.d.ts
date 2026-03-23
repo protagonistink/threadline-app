@@ -107,10 +107,14 @@ export interface LoadedSettings {
   };
   finance: {
     configured: boolean;
+    provider: 'plaid' | 'ynab';
     institutionName: string;
     lastSync: string;
     plaidClientIdConfigured: boolean;
     plaidSecretConfigured: boolean;
+    ynabPlanId: string;
+    ynabPlanName: string;
+    ynabTokenConfigured: boolean;
   };
   // User preferences
   day: {
@@ -157,6 +161,10 @@ export interface SettingsUpdate {
   blockedSites?: string[];
   plaidClientId?: string;
   plaidSecret?: string;
+  ynabToken?: string;
+  ynabPlanId?: string;
+  ynabPlanName?: string;
+  financeProvider?: 'plaid' | 'ynab';
   // User preferences
   dayStartHour?: number;
   dayStartMin?: number;
