@@ -14,6 +14,13 @@ export default defineConfig({
     electron({
       main: {
         entry: 'electron/main.ts',
+        vite: {
+          build: {
+            rollupOptions: {
+              external: ['better-sqlite3', 'drizzle-orm', 'drizzle-orm/better-sqlite3', 'drizzle-orm/sqlite-core', 'plaid'],
+            },
+          },
+        },
       },
       preload: {
         input: 'electron/preload.ts',
