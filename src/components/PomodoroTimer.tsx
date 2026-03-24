@@ -210,7 +210,7 @@ export function PomodoroTimer() {
             'uppercase tracking-widest max-w-[170px] text-[10px]',
             state.isBreak ? 'text-sky-300' : state.isRunning ? 'text-accent-warm' : 'text-text-muted'
           )}>
-            {state.isBreak ? 'Take a breather' : state.isRunning ? (state.currentTaskTitle || 'Focus') : 'Ready'}
+            {state.isBreak ? 'Take a breather' : state.isRunning ? (state.currentTaskTitle || 'Focus') : (state.currentTaskTitle || 'Ready')}
           </span>
 
           <div className="flex items-center gap-2 mt-1 no-drag">

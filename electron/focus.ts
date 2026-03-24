@@ -5,7 +5,9 @@ import { store } from './store';
 
 const HOSTS_PATH = '/etc/hosts';
 const HOSTS_MARKER = '# Inked Focus Mode';
-const STAGE_MANAGER_STORE_KEY = 'focus.stageManagerWasEnabled';
+
+// Strict hostname validation — only allow valid DNS names through to shell commands
+const VALID_HOSTNAME = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/;
 
 function shellQuote(value: string) {
   return `'${value.replace(/'/g, `'\\''`)}'`;
@@ -22,46 +24,9 @@ async function runPrivilegedShell(command: string) {
   });
 }
 
-async function readStageManagerEnabled() {
-  return new Promise<boolean>((resolve, reject) => {
-    exec(`defaults read com.apple.WindowManager GloballyEnabled`, (error, stdout) => {
-      if (error) {
-        reject(error);
-        return;
-      }
-
-      const normalized = stdout.trim().toLowerCase();
-      resolve(normalized === '1' || normalized === 'true');
-    });
-  });
-}
-
-async function enableStageManager() {
-  return new Promise<void>((resolve, reject) => {
-    exec(
-      `defaults write com.apple.WindowManager GloballyEnabled -bool true && killall Dock`,
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
-    );
-  });
-}
-
-async function disableStageManager() {
-  return new Promise<void>((resolve, reject) => {
-    exec(
-      `defaults write com.apple.WindowManager GloballyEnabled -bool false && killall Dock`,
-      (error) => {
-        if (error) reject(error);
-        else resolve();
-      }
-    );
-  });
-}
-
 async function blockSites() {
-  const sites = (store.get('focus.blockedSites') as string[]) || [];
+  const rawSites = (store.get('focus.blockedSites') as string[]) || [];
+  const sites = rawSites.filter(site => VALID_HOSTNAME.test(site) && site.length <= 253);
   if (sites.length === 0) return;
 
   const hostsContent = await readFile(HOSTS_PATH, 'utf-8');
@@ -96,9 +61,7 @@ async function unblockSites() {
 export function registerFocusHandlers() {
   ipcMain.handle('focus:enable', async () => {
     try {
-      const wasEnabled = await readStageManagerEnabled();
-      store.set(STAGE_MANAGER_STORE_KEY, wasEnabled);
-      await Promise.all([enableStageManager(), blockSites()]);
+      await blockSites();
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };
@@ -107,12 +70,7 @@ export function registerFocusHandlers() {
 
   ipcMain.handle('focus:disable', async () => {
     try {
-      const shouldRestoreEnabled = (store.get(STAGE_MANAGER_STORE_KEY) as boolean | undefined) ?? false;
-      await Promise.all([
-        shouldRestoreEnabled ? enableStageManager() : disableStageManager(),
-        unblockSites(),
-      ]);
-      store.delete(STAGE_MANAGER_STORE_KEY);
+      await unblockSites();
       return { success: true };
     } catch (error) {
       return { success: false, error: (error as Error).message };

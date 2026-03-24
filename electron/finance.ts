@@ -7,6 +7,18 @@ import type { Obligation, RevenueEntry, EngineState } from '../engine/types';
 import * as plaid from './plaid';
 import { openPlaidLink } from './plaid-link';
 import { eq } from 'drizzle-orm';
+import { getFinanceProvider } from './finance-provider';
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().split('T')[0];
+}
+
+function getDaysUntil(dateStr: string, today: Date): number {
+  const target = new Date(`${dateStr}T00:00:00`);
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const diff = target.getTime() - start.getTime();
+  return Math.round(diff / (1000 * 60 * 60 * 24));
+}
 
 // ---------------------------------------------------------------------------
 // Data assembly
@@ -98,9 +110,13 @@ function assembleFinancialData(): FinancialData {
 
 async function syncPlaidData(): Promise<void> {
   const db = getDb();
+  const provider = getFinanceProvider();
+  if (provider.connect) {
+    await provider.connect();
+  }
 
   // 1. Fetch and upsert balances
-  const balances = await plaid.getBalances();
+  const balances = await provider.getBalances();
   const now = new Date().toISOString();
 
   for (const acct of balances) {
@@ -132,38 +148,47 @@ async function syncPlaidData(): Promise<void> {
   const accountIds = balances.map(a => a.id);
 
   // 3. Fetch and upsert recurring outflow streams as obligations
-  const recurring = await plaid.getRecurring(accountIds);
   const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  const todayStr = toIsoDate(today);
+  const horizonEnd = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14));
+  const recurring = await provider.getRecurring(accountIds, todayStr, horizonEnd);
 
-  for (const stream of recurring.outflow) {
-    const id = `plaid-${stream.stream_id}`;
-    const name = stream.merchant_name ?? stream.description ?? 'Unknown';
-    const amount = Math.abs(stream.average_amount?.amount ?? 0);
+  for (const stream of recurring) {
+    const id = `${provider.name}-${stream.id}`;
+    const name = stream.name;
+    const amount = stream.amount;
+    const dueDate = stream.nextDate ?? todayStr;
+    const daysUntilDue = getDaysUntil(dueDate, today);
 
     db.insert(obligations)
       .values({
         id,
         name,
         amount,
-        due_date: todayStr,
+        due_date: dueDate,
         severity_tier: 'annoyance_reputational',
-        time_pressure: 'flexible_if_contacted',
+        time_pressure: daysUntilDue <= 0 ? 'due_today' : daysUntilDue <= 7 ? 'due_this_week' : 'flexible_if_contacted',
         relief_per_dollar: 0.5,
         negotiability: 0.5,
         best_action: 'pay',
         consequence_if_ignored: '',
-        is_past_due: false,
-        days_until_due: 0,
+        is_past_due: daysUntilDue < 0,
+        days_until_due: daysUntilDue,
         category: 'personal',
-        frequency: 'monthly',
-        source: 'plaid',
+        frequency: stream.frequency ?? 'monthly',
+        source: provider.name,
       })
       .onConflictDoUpdate({
         target: obligations.id,
         set: {
           name,
           amount,
+          due_date: dueDate,
+          time_pressure: daysUntilDue <= 0 ? 'due_today' : daysUntilDue <= 7 ? 'due_this_week' : 'flexible_if_contacted',
+          is_past_due: daysUntilDue < 0,
+          days_until_due: daysUntilDue,
+          frequency: stream.frequency ?? 'monthly',
+          source: provider.name,
         },
       })
       .run();
@@ -171,13 +196,13 @@ async function syncPlaidData(): Promise<void> {
 
   // 4. Fetch and upsert category spend
   const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-  const monthStartStr = monthStart.toISOString().split('T')[0];
-  const todayDateStr = today.toISOString().split('T')[0];
+  const monthStartStr = toIsoDate(monthStart);
+  const todayDateStr = toIsoDate(today);
 
-  const categorySpendData = await plaid.getCategorySpend(monthStartStr, todayDateStr);
+  const categorySpendData = await provider.getCategorySpend(monthStartStr, todayDateStr, accountIds);
 
   for (const item of categorySpendData) {
-    const id = `plaid-${item.category}-${monthStartStr}`;
+    const id = `${provider.name}-${item.category}-${monthStartStr}`;
 
     db.insert(category_spend)
       .values({
@@ -202,6 +227,7 @@ async function syncPlaidData(): Promise<void> {
   }
 
   // 5. Update store with sync metadata
+  store.set('finance.configured', provider.isConfigured());
   store.set('plaid.lastSync', now);
 
   // Attempt to get institution name from first account
@@ -251,6 +277,10 @@ export function registerFinanceHandlers(): void {
   // finance:plaid-link — full Plaid Link OAuth flow
   ipcMain.handle('finance:plaid-link', async () => {
     try {
+      const provider = getFinanceProvider();
+      if (provider.name !== 'plaid') {
+        return { success: false };
+      }
       const linkToken = await plaid.createLinkToken();
       const publicToken = await openPlaidLink(linkToken);
       await plaid.exchangePublicToken(publicToken);
@@ -265,7 +295,11 @@ export function registerFinanceHandlers(): void {
   // finance:plaid-exchange — exchange a public token received externally
   ipcMain.handle('finance:plaid-exchange', async (_event, publicToken: string) => {
     try {
-      await plaid.exchangePublicToken(publicToken);
+      const provider = getFinanceProvider();
+      if (provider.name !== 'plaid' || !provider.exchangePublicToken) {
+        return { success: false };
+      }
+      await provider.exchangePublicToken(publicToken);
       await syncPlaidData();
       return { success: true };
     } catch (err) {

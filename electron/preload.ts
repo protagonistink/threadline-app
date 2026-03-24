@@ -33,6 +33,7 @@ contextBridge.exposeInMainWorld('api', {
   // Pomodoro
   pomodoro: {
     start: (taskId: string, taskTitle?: string) => ipcRenderer.invoke('pomodoro:start', taskId, taskTitle),
+    load: (taskId: string, taskTitle?: string) => ipcRenderer.invoke('pomodoro:load', taskId, taskTitle),
     pause: () => ipcRenderer.invoke('pomodoro:pause'),
     stop: () => ipcRenderer.invoke('pomodoro:stop'),
     skip: () => ipcRenderer.invoke('pomodoro:skip'),

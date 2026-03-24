@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import electron from 'vite-plugin-electron/simple';
+import electron from 'vite-plugin-electron';
 import path from 'node:path';
 
 export default defineConfig({
@@ -11,8 +11,8 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
-    electron({
-      main: {
+    electron([
+      {
         entry: 'electron/main.ts',
         vite: {
           build: {
@@ -22,10 +22,13 @@ export default defineConfig({
           },
         },
       },
-      preload: {
-        input: 'electron/preload.ts',
+      {
+        entry: 'electron/preload.ts',
       },
-    }),
+      {
+        entry: 'electron/plaid-link-preload.ts',
+      },
+    ]),
   ],
   server: {
     watch: {

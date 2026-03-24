@@ -150,4 +150,19 @@ export function registerTimerHandlers() {
   ipcMain.handle('pomodoro:skip', () => {
     state.timeRemaining = 0; // triggers completion on next tick
   });
+
+  ipcMain.handle('pomodoro:load', (_event, taskId: string, taskTitle?: string) => {
+    const config = getConfig();
+    state = {
+      ...state,
+      isRunning: false,
+      isPaused: false,
+      isBreak: false,
+      timeRemaining: config.workMins * 60,
+      totalTime: config.workMins * 60,
+      currentTaskId: taskId,
+      currentTaskTitle: taskTitle ?? null,
+    };
+    broadcast();
+  });
 }

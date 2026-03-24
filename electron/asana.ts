@@ -1,12 +1,10 @@
 import { ipcMain } from 'electron';
-import Store from 'electron-store';
-
-const store = new Store();
+import { getSecure } from './secure-store';
 
 const ASANA_BASE_URL = 'https://app.asana.com/api/1.0';
 
 export async function asanaFetch(path: string, options: RequestInit = {}) {
-  const token = store.get('asana.token') as string;
+  const token = getSecure('asana.token');
   if (!token) throw new Error('Asana token not configured. Go to Settings.');
 
   const response = await fetch(`${ASANA_BASE_URL}${path}`, {

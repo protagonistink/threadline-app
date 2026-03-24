@@ -1,9 +1,10 @@
 import { Configuration, PlaidApi, PlaidEnvironments, Products, CountryCode } from 'plaid';
 import { store } from './store';
+import { getSecure, setSecure } from './secure-store';
 
 function getClient(): PlaidApi {
-  const clientId = store.get('plaid.clientId') as string;
-  const secret = store.get('plaid.secret') as string;
+  const clientId = getSecure('plaid.clientId');
+  const secret = getSecure('plaid.secret');
 
   if (!clientId || !secret) {
     throw new Error('Plaid credentials not configured');
@@ -39,14 +40,14 @@ export async function exchangePublicToken(publicToken: string): Promise<void> {
   const response = await client.itemPublicTokenExchange({
     public_token: publicToken,
   });
-  store.set('plaid.accessToken', response.data.access_token);
+  setSecure('plaid.accessToken', response.data.access_token);
   store.set('plaid.itemId', response.data.item_id);
   store.set('finance.configured', true);
 }
 
 export async function getBalances() {
   const client = getClient();
-  const accessToken = store.get('plaid.accessToken') as string;
+  const accessToken = getSecure('plaid.accessToken');
   if (!accessToken) throw new Error('No Plaid access token');
 
   const response = await client.accountsBalanceGet({ access_token: accessToken });
@@ -62,7 +63,7 @@ export async function getBalances() {
 
 export async function getRecurring(accountIds: string[]) {
   const client = getClient();
-  const accessToken = store.get('plaid.accessToken') as string;
+  const accessToken = getSecure('plaid.accessToken');
   if (!accessToken) throw new Error('No Plaid access token');
 
   const response = await client.transactionsRecurringGet({
@@ -77,7 +78,7 @@ export async function getRecurring(accountIds: string[]) {
 
 export async function getCategorySpend(startDate: string, endDate: string) {
   const client = getClient();
-  const accessToken = store.get('plaid.accessToken') as string;
+  const accessToken = getSecure('plaid.accessToken');
   if (!accessToken) throw new Error('No Plaid access token');
 
   const response = await client.transactionsGet({

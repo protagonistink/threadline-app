@@ -1,49 +1,57 @@
+import path from 'node:path';
 import { BrowserWindow, ipcMain } from 'electron';
 
 export function openPlaidLink(linkToken: string): Promise<string> {
   return new Promise((resolve, reject) => {
+    let settled = false;
     const win = new BrowserWindow({
       width: 500,
       height: 700,
       title: 'Connect your bank',
       webPreferences: {
-        contextIsolation: false,
-        nodeIntegration: true,
+        contextIsolation: true,
+        nodeIntegration: false,
+        sandbox: false, // Plaid SDK uses iframes that may break with sandbox: true
+        preload: path.join(__dirname, 'plaid-link-preload.js'),
       },
     });
 
+    // Use JSON.stringify for safe injection of the link token
     const html = `<!DOCTYPE html>
 <html>
 <head>
   <style>body { margin: 0; background: #0A0A0A; }</style>
-  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
+  <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"><\/script>
 </head>
 <body>
   <script>
-    const { ipcRenderer } = require('electron');
     const handler = Plaid.create({
-      token: '${linkToken}',
+      token: ${JSON.stringify(linkToken)},
       onSuccess: (publicToken) => {
-        ipcRenderer.send('plaid-link:success', publicToken);
+        window.plaidBridge.onSuccess(publicToken);
       },
       onExit: (err) => {
-        ipcRenderer.send('plaid-link:exit', err ? err.error_message : null);
+        window.plaidBridge.onExit(err ? err.error_message : null);
       },
     });
     handler.open();
-  </script>
+  <\/script>
 </body>
 </html>`;
 
     win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
     const onSuccess = (_event: unknown, publicToken: string) => {
+      if (settled) return;
+      settled = true;
       cleanup();
       win.close();
       resolve(publicToken);
     };
 
     const onExit = (_event: unknown, errorMessage: string | null) => {
+      if (settled) return;
+      settled = true;
       cleanup();
       win.close();
       if (errorMessage) reject(new Error(errorMessage));
@@ -60,6 +68,8 @@ export function openPlaidLink(linkToken: string): Promise<string> {
 
     win.on('closed', () => {
       cleanup();
+      if (settled) return;
+      settled = true;
       reject(new Error('Window closed'));
     });
   });

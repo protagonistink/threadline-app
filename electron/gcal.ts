@@ -1,23 +1,23 @@
-import { ipcMain, BrowserWindow } from 'electron';
-import Store from 'electron-store';
+import crypto from 'node:crypto';
+import http from 'node:http';
+import { ipcMain, BrowserWindow, shell } from 'electron';
+import { store } from './store';
+import { getSecure, setSecure } from './secure-store';
 import { buildLocalDayWindow } from './gcalDayWindow';
-
-const store = new Store();
 
 const GCAL_BASE_URL = 'https://www.googleapis.com/calendar/v3';
 
 // OAuth 2.0 config — user provides client ID/secret in Settings
 function getOAuthConfig() {
   return {
-    clientId: store.get('gcal.clientId') as string,
-    clientSecret: store.get('gcal.clientSecret') as string,
-    redirectUri: 'http://localhost:8234/callback',
+    clientId: getSecure('gcal.clientId'),
+    clientSecret: getSecure('gcal.clientSecret'),
     scope: 'https://www.googleapis.com/auth/calendar',
   };
 }
 
 async function getAccessToken(): Promise<string> {
-  const token = store.get('gcal.accessToken') as string;
+  const token = getSecure('gcal.accessToken');
   const expiry = store.get('gcal.tokenExpiry') as number;
 
   if (token && expiry && Date.now() < expiry) {
@@ -25,7 +25,7 @@ async function getAccessToken(): Promise<string> {
   }
 
   // Try refresh
-  const refreshToken = store.get('gcal.refreshToken') as string;
+  const refreshToken = getSecure('gcal.refreshToken');
   if (refreshToken) {
     const config = getOAuthConfig();
     const response = await fetch('https://oauth2.googleapis.com/token', {
@@ -41,7 +41,7 @@ async function getAccessToken(): Promise<string> {
 
     if (response.ok) {
       const data = await response.json();
-      store.set('gcal.accessToken', data.access_token);
+      setSecure('gcal.accessToken', data.access_token);
       store.set('gcal.tokenExpiry', Date.now() + data.expires_in * 1000);
       return data.access_token;
     }
@@ -168,62 +168,105 @@ export function registerGCalHandlers() {
     }
   });
 
-  // OAuth flow — opens browser window for Google sign-in
+  // OAuth flow with PKCE — opens system browser, listens on a temporary local server
   ipcMain.handle('gcal:auth', async () => {
     const config = getOAuthConfig();
     if (!config.clientId || !config.clientSecret) {
       return { success: false, error: 'GCal client ID/secret not configured' };
     }
 
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${config.clientId}&redirect_uri=${encodeURIComponent(config.redirectUri)}&response_type=code&scope=${encodeURIComponent(config.scope)}&access_type=offline&prompt=consent`;
-
-    // Open auth window
-    const authWindow = new BrowserWindow({
-      width: 500,
-      height: 700,
-      show: true,
-      webPreferences: { nodeIntegration: false },
-    });
-
-    authWindow.loadURL(authUrl);
+    // Generate PKCE code verifier and challenge
+    const codeVerifier = crypto.randomBytes(32).toString('base64url');
+    const codeChallenge = crypto
+      .createHash('sha256')
+      .update(codeVerifier)
+      .digest('base64url');
 
     return new Promise((resolve) => {
-      // Listen for redirect with code
-      authWindow.webContents.on('will-redirect', async (_event, url) => {
-        const urlObj = new URL(url);
-        const code = urlObj.searchParams.get('code');
+      let settled = false;
+      function settle(result: { success: boolean; error?: string }) {
+        if (settled) return;
+        settled = true;
+        server.close();
+        resolve(result);
+      }
 
-        if (code) {
-          authWindow.close();
+      // Create a temporary HTTP server on a random port
+      const server = http.createServer(async (req, res) => {
+        const reqUrl = new URL(req.url ?? '/', `http://127.0.0.1`);
+        if (!reqUrl.pathname.startsWith('/callback')) {
+          res.writeHead(404);
+          res.end();
+          return;
+        }
 
-          // Exchange code for tokens
-          const response = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              client_id: config.clientId,
-              client_secret: config.clientSecret,
-              code,
-              grant_type: 'authorization_code',
-              redirect_uri: config.redirectUri,
-            }),
-          });
+        const code = reqUrl.searchParams.get('code');
+        const error = reqUrl.searchParams.get('error');
 
-          if (response.ok) {
-            const data = await response.json();
-            store.set('gcal.accessToken', data.access_token);
-            store.set('gcal.refreshToken', data.refresh_token);
-            store.set('gcal.tokenExpiry', Date.now() + data.expires_in * 1000);
-            resolve({ success: true });
-          } else {
-            resolve({ success: false, error: 'Token exchange failed' });
-          }
+        if (error || !code) {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body style="font-family:system-ui;text-align:center;padding:40px"><h2>Authentication failed</h2><p>You can close this tab.</p></body></html>');
+          settle({ success: false, error: error || 'No auth code received' });
+          return;
+        }
+
+        // Exchange code for tokens with PKCE verifier
+        const address = server.address();
+        const port = typeof address === 'object' && address ? address.port : 0;
+        const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+        const response = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            code,
+            grant_type: 'authorization_code',
+            redirect_uri: redirectUri,
+            code_verifier: codeVerifier,
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSecure('gcal.accessToken', data.access_token);
+          setSecure('gcal.refreshToken', data.refresh_token);
+          store.set('gcal.tokenExpiry', Date.now() + data.expires_in * 1000);
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body style="font-family:system-ui;text-align:center;padding:40px"><h2>Connected to Google Calendar</h2><p>You can close this tab and return to Inked.</p></body></html>');
+          settle({ success: true });
+        } else {
+          res.writeHead(200, { 'Content-Type': 'text/html' });
+          res.end('<html><body style="font-family:system-ui;text-align:center;padding:40px"><h2>Token exchange failed</h2><p>You can close this tab.</p></body></html>');
+          settle({ success: false, error: 'Token exchange failed' });
         }
       });
 
-      authWindow.on('closed', () => {
-        resolve({ success: false, error: 'Auth window closed' });
+      // Listen on random port on loopback only
+      server.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        const port = typeof address === 'object' && address ? address.port : 0;
+        const redirectUri = `http://127.0.0.1:${port}/callback`;
+
+        const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+        authUrl.searchParams.set('client_id', config.clientId);
+        authUrl.searchParams.set('redirect_uri', redirectUri);
+        authUrl.searchParams.set('response_type', 'code');
+        authUrl.searchParams.set('scope', config.scope);
+        authUrl.searchParams.set('access_type', 'offline');
+        authUrl.searchParams.set('prompt', 'consent');
+        authUrl.searchParams.set('code_challenge', codeChallenge);
+        authUrl.searchParams.set('code_challenge_method', 'S256');
+
+        // Open in system browser instead of an Electron BrowserWindow
+        shell.openExternal(authUrl.toString());
       });
+
+      // Auto-close after 5 minutes if no callback received
+      setTimeout(() => {
+        settle({ success: false, error: 'OAuth timed out' });
+      }, 5 * 60 * 1000);
     });
   });
 }

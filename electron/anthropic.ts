@@ -1,5 +1,6 @@
 import { ipcMain, IpcMainInvokeEvent } from 'electron';
 import { store } from './store';
+import { getSecure } from './secure-store';
 import type { BriefingContext, ChatMessage, InkContext, InkMode, UserPhysics } from '../src/types';
 import { INK_TOKEN_LIMITS } from '../src/lib/ink-mode';
 import { getEngineState } from './finance';
@@ -576,7 +577,7 @@ export function registerAnthropicHandlers() {
   // Non-streaming chat
   ipcMain.handle('ai:chat', async (_event, messages: ChatMessage[], context: BriefingContext) => {
     try {
-      const apiKey = store.get('anthropic.apiKey') as string;
+      const apiKey = getSecure('anthropic.apiKey');
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
       const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
@@ -620,7 +621,7 @@ export function registerAnthropicHandlers() {
   ipcMain.handle('ai:stream:start', async (event: IpcMainInvokeEvent, messages: ChatMessage[], context: BriefingContext) => {
     try {
       logAI('[AI] stream:start handler called');
-      const apiKey = store.get('anthropic.apiKey') as string;
+      const apiKey = getSecure('anthropic.apiKey');
       logAI('[AI] API key present:', !!apiKey, '| length:', apiKey?.length ?? 0);
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
