@@ -65,19 +65,23 @@
 
 /* === LIGHT MODE === */
 [data-theme="light"] {
-  --color-bg: #f5f4f1;
-  --color-bg-card: #ffffff;
-  --color-bg-elevated: #ffffff;
+  --color-bg: #FAFAFA;
+  --color-bg-card: #EFEBE5;
+  --color-bg-elevated: #F5F2EE;
   --color-bg-hover: #f0eeeb;
-  --color-border: rgba(120, 113, 100, 0.15);
+  --color-border: rgba(60, 50, 40, 0.08);
   --color-border-hover: rgba(120, 113, 100, 0.28);
-  --color-border-subtle: rgba(120, 113, 100, 0.075);
-  --color-accent-warm: #E55547;
+  --color-border-subtle: rgba(60, 50, 40, 0.06);
+  --color-accent-warm: #C83C2F;
+  --color-accent-warm-hover: #f47252;
   --color-accent-green: oklch(48% 0.10 155);
-  --color-text-muted: #a8a29e;
-  --color-text-primary: #44403c;
-  --color-text-emphasis: #1c1917;
-  --color-active: #E55547;
+  --color-text-muted: rgba(60, 50, 40, 0.4);
+  --color-text-primary: rgba(40, 30, 20, 0.9);
+  --color-text-emphasis: rgba(40, 30, 20, 0.95);
+  --color-text-secondary: rgba(60, 50, 40, 0.5);
+  --color-text-whisper: rgba(60, 50, 40, 0.2);
+  --color-surface: rgba(60, 50, 40, 0.03);
+  --color-active: #C83C2F;
   --color-done: #828282;
 }
 
