@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, SkipForward, Square } from 'lucide-react';
+import { Play, Pause, SkipForward, Square, RotateCcw, Check } from 'lucide-react';
 import type { PomodoroState } from '@/types';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
@@ -115,7 +115,13 @@ export function PomodoroTimer() {
   const progress = state.totalTime > 0 ? 1 - state.timeRemaining / state.totalTime : 0;
   const circumference = 2 * Math.PI * 80;
   const strokeDashoffset = circumference * (1 - progress);
-  const ringColor = state.isBreak ? '#38bdf8' : '#dc2626';
+
+  // Last-5-minutes urgency shift
+  const ringColor = state.isBreak
+    ? 'rgba(45,212,191,0.5)'
+    : (state.timeRemaining <= 300 && state.timeRemaining > 0)
+      ? 'rgba(244,114,82,0.6)'
+      : 'rgba(200,60,47,0.5)';
 
   return (
     <>
@@ -128,7 +134,24 @@ export function PomodoroTimer() {
                 {timeboxDecision.taskTitle}
               </div>
             </div>
-            <div className="flex shrink-0 gap-2">
+            <div className="flex shrink-0 gap-3 items-center">
+              {/* Pause/Play toggle */}
+              <button
+                onClick={() => void window.api.pomodoro.pause()}
+                className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+              >
+                {state.isPaused
+                  ? <Play className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
+                  : <Pause className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />}
+              </button>
+              {/* Reset */}
+              <button
+                onClick={() => void window.api.pomodoro.stop()}
+                className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
+              </button>
+              {/* Done — larger, rust-styled */}
               <button
                 onClick={() => {
                   void toggleTask(timeboxDecision.taskId);
@@ -136,29 +159,9 @@ export function PomodoroTimer() {
                   setMode('dark');
                   setTimeboxDecision(null);
                 }}
-                className="rounded-full border border-border px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-text-muted transition-colors hover:bg-bg-elevated hover:text-text-primary"
+                className="w-11 h-11 rounded-full bg-[rgba(200,60,47,0.1)] border border-[rgba(200,60,47,0.25)] flex items-center justify-center hover:bg-[rgba(200,60,47,0.15)] transition-colors"
               >
-                I&apos;m done
-              </button>
-              <button
-                onClick={() => {
-                  void window.api.pomodoro.start(timeboxDecision.taskId, timeboxDecision.taskTitle);
-                  setMode('focus');
-                  setTimeboxDecision(null);
-                }}
-                className="rounded-full bg-accent-warm px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-white transition-colors hover:bg-accent-warm/90"
-              >
-                Keep going
-              </button>
-              <button
-                onClick={() => {
-                  setView('flow');
-                  setMode('dark');
-                  setTimeboxDecision(null);
-                }}
-                className="rounded-full border border-border px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-text-muted transition-colors hover:bg-bg-elevated hover:text-text-primary"
-              >
-                Re-scope
+                <Check className="w-[18px] h-[18px] text-[rgba(220,100,85,0.9)]" strokeWidth={2.5} />
               </button>
             </div>
           </div>
@@ -169,7 +172,7 @@ export function PomodoroTimer() {
         {state.isBreak && (
           <>
             <div
-              className="pointer-events-none absolute rounded-full animate-breathe h-[176px] w-[176px] bg-[radial-gradient(circle,rgba(56,189,248,0.24),rgba(56,189,248,0.08)_44%,transparent_74%)]"
+              className="pointer-events-none absolute rounded-full animate-breathe h-[176px] w-[176px] bg-[radial-gradient(circle,rgba(45,212,191,0.24),rgba(45,212,191,0.08)_44%,transparent_74%)]"
             />
             <div
               className="pointer-events-none absolute rounded-full border border-sky-400/25 h-[152px] w-[152px]"
@@ -182,7 +185,7 @@ export function PomodoroTimer() {
             cy="90"
             r="80"
             fill={state.isBreak ? '#07111c' : '#111214'}
-            stroke={state.isBreak ? '#16324a' : '#2C3035'}
+            stroke="rgba(255,240,220,0.03)"
             strokeWidth="3"
           />
           <circle
@@ -191,13 +194,13 @@ export function PomodoroTimer() {
             r="80"
             fill="none"
             stroke={ringColor}
-            strokeWidth="4"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             className={cn(
               'transition-all duration-700',
-              state.isBreak && 'drop-shadow-[0_0_8px_rgba(56,189,248,0.45)]'
+              state.isBreak && 'drop-shadow-[0_0_8px_rgba(45,212,191,0.45)]'
             )}
           />
         </svg>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { Pause, Play, RotateCcw, Check } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { cn } from '@/lib/utils';
@@ -23,6 +24,25 @@ function formatMinsLeft(minsLeft: number): string {
 
 export function FocusView({ taskId, onExit }: FocusViewProps) {
   const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = useApp();
+
+  const [timerProgress, setTimerProgress] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [isRunning, setIsRunning] = useState(false);
+
+  useEffect(() => {
+    const cleanup = window.api.pomodoro.onTick((state) => {
+      setIsPaused(state.isPaused);
+      setIsRunning(state.isRunning);
+      setTimeRemaining(state.timeRemaining);
+      if (state.isRunning && state.totalTime > 0) {
+        setTimerProgress(1 - state.timeRemaining / state.totalTime);
+      } else {
+        setTimerProgress(0);
+      }
+    });
+    return cleanup;
+  }, []);
 
   const task = useMemo(
     () => plannedTasks.find((t) => t.id === taskId) ?? null,
@@ -64,10 +84,34 @@ export function FocusView({ taskId, onExit }: FocusViewProps) {
     onExit();
   }
 
+  // Last 5 minutes: intensify bleed slightly
+  const isUrgent = timeRemaining <= 300 && timeRemaining > 0 && isRunning;
+
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg">
+    <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-bg overflow-hidden">
+      {/* Ink bleed background */}
+      <div
+        className="absolute inset-y-0 left-0 transition-[width] duration-1000 ease-linear pointer-events-none"
+        style={{
+          width: `${timerProgress * 100}%`,
+          background: isUrgent
+            ? 'linear-gradient(90deg, rgba(200,60,47,0.11) 0%, rgba(200,60,47,0.07) 70%, transparent 100%)'
+            : 'linear-gradient(90deg, rgba(200,60,47,0.07) 0%, rgba(200,60,47,0.04) 70%, transparent 100%)',
+        }}
+      />
+      <div
+        className="absolute inset-y-0 blur-[8px] transition-[left] duration-1000 ease-linear pointer-events-none"
+        style={{
+          left: `${timerProgress * 100}%`,
+          width: '40px',
+          background: isUrgent
+            ? 'linear-gradient(90deg, rgba(200,60,47,0.07), transparent)'
+            : 'linear-gradient(90deg, rgba(200,60,47,0.04), transparent)',
+        }}
+      />
+
       {/* Center stage */}
-      <div className="flex flex-col items-center gap-8 max-w-xl w-full px-8 text-center">
+      <div className="relative z-10 flex flex-col items-center gap-8 max-w-xl w-full px-8 text-center">
 
         {/* Task title — the hero */}
         <div className="flex flex-col items-center gap-3">
@@ -109,19 +153,32 @@ export function FocusView({ taskId, onExit }: FocusViewProps) {
           )}
         </div>
 
-        {/* I'm done button */}
-        <button
-          onClick={() => void handleDone()}
-          className={cn(
-            'rounded-full px-6 py-2.5',
-            'text-[13px] uppercase tracking-[0.16em] font-medium',
-            'bg-accent-warm/20 text-accent-warm',
-            'border border-accent-warm/30',
-            'hover:bg-accent-warm/30 transition-colors'
-          )}
-        >
-          I&apos;m done
-        </button>
+        {/* Icon controls */}
+        <div className="flex gap-5 items-center justify-center">
+          {/* Pause/Play toggle */}
+          <button
+            onClick={() => void window.api.pomodoro.pause()}
+            className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+          >
+            {isPaused
+              ? <Play className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
+              : <Pause className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />}
+          </button>
+          {/* Reset */}
+          <button
+            onClick={() => void window.api.pomodoro.stop()}
+            className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
+          </button>
+          {/* Done — larger, rust-styled */}
+          <button
+            onClick={() => void handleDone()}
+            className="w-11 h-11 rounded-full bg-[rgba(200,60,47,0.1)] border border-[rgba(200,60,47,0.25)] flex items-center justify-center hover:bg-[rgba(200,60,47,0.15)] transition-colors"
+          >
+            <Check className="w-[18px] h-[18px] text-[rgba(220,100,85,0.9)]" strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       {/* ESC hint */}
