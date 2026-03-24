@@ -245,7 +245,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
           </svg>
           <button
             onClick={() => { lockDay(); play('paper'); }}
-            className="w-full flex items-center justify-between px-6 py-3 bg-[#E55547]/10 hover:bg-[#E55547] text-[#E55547] hover:text-[#FAFAFA] transition-all duration-300 group"
+            className="w-full flex items-center justify-between px-6 py-3 bg-[#C83C2F]/10 hover:bg-[#C83C2F] text-[#C83C2F] hover:text-[#FAFAFA] transition-all duration-300 group"
           >
             <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium">
               <Lock className="w-3 h-3" />

@@ -26,7 +26,7 @@ export function RitualSuggestions({
           <button
             onClick={() => { onAdd(title); onSkip(i); }}
             className="text-[10px] uppercase tracking-wider font-medium shrink-0 transition-colors"
-            style={{ color: '#E55547' }}
+            style={{ color: '#C83C2F' }}
           >
             Add
           </button>

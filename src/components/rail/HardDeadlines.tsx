@@ -19,7 +19,7 @@ function relativeDate(dueDate: string): string {
 
 function dotColor(dueDate: string): string {
   const days = differenceInCalendarDays(parseISO(dueDate), new Date());
-  if (days <= 0) return '#E55547';
+  if (days <= 0) return '#C83C2F';
   if (days === 1) return '#E8825A';
   return 'rgba(148,163,184,0.5)';
 }

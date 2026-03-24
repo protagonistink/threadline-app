@@ -57,7 +57,7 @@ export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
     <div
       className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[4px] border shadow-[0_4px_12px_rgba(0,0,0,0.3)] animate-fade-in"
       style={{
-        background: '#1A1A1A',
+        background: '#252430',
         borderColor: 'rgba(255,255,255,0.08)',
         animationDuration: '80ms',
         animationTimingFunction: 'ease-out',
@@ -91,7 +91,7 @@ export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
                 <span>today</span>
               </span>
             );
-            indicatorColor = '#E55547';
+            indicatorColor = '#C83C2F';
           } else if (hoursLabel) {
             indicator = (
               <span className="inline-flex items-center gap-1.5">
@@ -115,7 +115,7 @@ export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
               className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
               style={{
                 background: isActive ? 'rgba(250,250,250,0.05)' : 'transparent',
-                borderLeft: isToday ? '2px solid rgba(229,85,71,0.85)' : '2px solid transparent',
+                borderLeft: isToday ? '2px solid rgba(200,60,47,0.85)' : '2px solid transparent',
               }}
             >
               <span className="text-[13px]" style={{ color: '#D2D6DB' }}>

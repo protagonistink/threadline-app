@@ -72,7 +72,7 @@ export function BriefingInput({
           disabled={!inputValue.trim() || isStreaming}
           className="p-3 rounded-lg transition-all shrink-0"
           style={{
-            background: inputValue.trim() && !isStreaming ? '#E55547' : '#1E293B',
+            background: inputValue.trim() && !isStreaming ? '#C83C2F' : '#1E293B',
             color: inputValue.trim() && !isStreaming ? '#FFFFFF' : '#475569',
             cursor: inputValue.trim() && !isStreaming ? 'pointer' : 'not-allowed',
           }}

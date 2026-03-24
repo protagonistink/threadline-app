@@ -11,7 +11,7 @@ import { useFinance } from '@/hooks/useFinance';
 import type { WeeklyGoal } from '@/types';
 
 const THREAD_HEX: Record<string, string> = {
-  'bg-accent-warm': '#E55547',
+  'bg-accent-warm': '#C83C2F',
   'bg-done': '#828282',
   'bg-accent-green': '#5B8A5E',
 };
@@ -181,7 +181,7 @@ function ThreadCard({
   index: number;
 }) {
   const { renameWeeklyGoal, updateGoalWhy, plannedTasks } = useApp();
-  const hex = THREAD_HEX[goal.color] || '#E55547';
+  const hex = THREAD_HEX[goal.color] || '#C83C2F';
 
   // Tasks linked to this goal (candidate + committed + scheduled)
   const linkedTasks = plannedTasks.filter(
@@ -333,7 +333,7 @@ function MoneySection() {
 
   const stateColor: Record<string, string> = {
     calm: '#5B8A5E',
-    alert: '#E55547',
+    alert: '#C83C2F',
     compressed: '#C08A3E',
   };
   const color = stateColor[cognitiveState] ?? '#828282';

@@ -177,7 +177,7 @@ export function TaskCard({
         isNestOver && canNest && 'ring-1 ring-accent-warm/40 ring-inset rounded-lg',
         staggerClass
       )}
-      style={{ borderLeftColor: deadlineInfo?.state === 'overdue' ? 'rgba(229,85,71,0.8)' : threadBorderColor }}
+      style={{ borderLeftColor: deadlineInfo?.state === 'overdue' ? 'rgba(200,60,47,0.8)' : threadBorderColor }}
     >
       <div className={cn('flex items-center gap-2.5 py-5 cursor-grab active:cursor-grabbing', !task.active && 'hover:-translate-y-0.5')}>
         <button

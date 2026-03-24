@@ -30,23 +30,23 @@ export function CommitChips({
             chip.selected ? 'border' : 'border border-transparent'
           )}
           style={{
-            background: chip.selected ? 'rgba(229,85,71,0.15)' : 'rgba(30,41,59,0.5)',
-            borderColor: chip.selected ? 'rgba(229,85,71,0.3)' : 'transparent',
+            background: chip.selected ? 'rgba(200,60,47,0.15)' : 'rgba(30,41,59,0.5)',
+            borderColor: chip.selected ? 'rgba(200,60,47,0.3)' : 'transparent',
             color: chip.selected ? '#F8FAFC' : '#94A3B8',
           }}
         >
           <div
             className="w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0"
             style={{
-              borderColor: chip.selected ? '#E55547' : '#475569',
-              background: chip.selected ? '#E55547' : 'transparent',
+              borderColor: chip.selected ? '#C83C2F' : '#475569',
+              background: chip.selected ? '#C83C2F' : 'transparent',
             }}
           >
             {chip.selected && <Check className="w-2.5 h-2.5 text-white" />}
           </div>
           <span className="flex-1 min-w-0 truncate">{chip.title}</span>
           {chip.matchedTaskId ? (
-            <span className="text-[9px] uppercase tracking-wider font-medium shrink-0" style={{ color: '#E55547' }}>
+            <span className="text-[9px] uppercase tracking-wider font-medium shrink-0" style={{ color: '#C83C2F' }}>
               matched
             </span>
           ) : (
@@ -61,7 +61,7 @@ export function CommitChips({
         disabled={chips.every((c) => !c.selected)}
         className={cn('mt-2 rounded-lg text-[13px] font-medium transition-all', isOverlay ? 'px-3.5 py-2' : 'px-4 py-2')}
         style={{
-          background: chips.some((c) => c.selected) ? '#E55547' : '#1E293B',
+          background: chips.some((c) => c.selected) ? '#C83C2F' : '#1E293B',
           color: chips.some((c) => c.selected) ? '#FFFFFF' : '#475569',
           cursor: chips.some((c) => c.selected) ? 'pointer' : 'not-allowed',
         }}

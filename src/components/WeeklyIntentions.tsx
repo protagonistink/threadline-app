@@ -16,7 +16,7 @@ import type { WeeklyGoal } from '@/types';
 
 const THREAD_COLORS = ['bg-accent-warm', 'bg-done', 'bg-accent-green'];
 const THREAD_HEX: Record<string, string> = {
-  'bg-accent-warm': '#E55547',
+  'bg-accent-warm': '#C83C2F',
   'bg-done': '#828282',
   'bg-accent-green': '#5B8A5E',
 };
@@ -128,7 +128,7 @@ function ThreadEntry({
     if (editingField === 'why') whyRef.current?.focus();
   }, [editingField]);
 
-  const hex = THREAD_HEX[goal.color] || '#E55547';
+  const hex = THREAD_HEX[goal.color] || '#C83C2F';
   const linkedDeadline = goal.countdownId
     ? countdowns.find((c) => c.id === goal.countdownId)
     : null;
@@ -298,7 +298,7 @@ function CommittedWeekMap() {
   const countdownColorMap = useMemo(() => {
     const map: Record<string, string> = {};
     weeklyGoals.forEach((g) => {
-      if (g.countdownId) map[g.countdownId] = THREAD_HEX[g.color] || '#E55547';
+      if (g.countdownId) map[g.countdownId] = THREAD_HEX[g.color] || '#C83C2F';
     });
     return map;
   }, [weeklyGoals]);
@@ -347,7 +347,7 @@ function CommittedWeekMap() {
               {format(day, 'd')}
             </span>
             {deadlines.map((d) => {
-              const color = countdownColorMap[d.id] || '#E55547';
+              const color = countdownColorMap[d.id] || '#C83C2F';
               return (
                 <span
                   key={d.id}
@@ -369,7 +369,7 @@ function CommittedWeekMap() {
             Ahead:
           </span>
           {upcomingDeadlines.map((d) => {
-            const color = countdownColorMap[d.id] || '#E55547';
+            const color = countdownColorMap[d.id] || '#C83C2F';
             return (
               <span
                 key={d.id}

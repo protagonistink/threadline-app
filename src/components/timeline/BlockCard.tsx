@@ -431,7 +431,7 @@ export function BlockCard({
         <div className="flex items-center gap-3 mt-4 pt-3" style={{ borderTop: '1px solid rgba(250,250,250,0.04)' }}>
           <button
             onClick={(e) => { e.stopPropagation(); acceptProposal(block.id); }}
-            className="font-sans text-[13px] text-[#E55547]/65 hover:text-[#E55547]/90 transition-colors cursor-pointer font-medium"
+            className="font-sans text-[13px] text-[#C83C2F]/65 hover:text-[#C83C2F]/90 transition-colors cursor-pointer font-medium"
           >
             Ink it →
           </button>
