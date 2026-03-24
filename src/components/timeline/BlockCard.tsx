@@ -101,20 +101,20 @@ export function BlockCard({
 
   // Style sets per block type
   const blockBorderLeft = isRitual
-    ? '3px dashed rgba(255,240,220,0.1)'
+    ? '3px dashed rgba(255,255,255,0.1)'
     : isGcal
-      ? '3px solid rgba(255,240,220,0.05)'
+      ? '3px solid rgba(255,255,255,0.05)'
       : `3px solid ${intentionColor}`;
   const blockBackground = isGcal
-    ? 'rgba(255,240,220,0.02)'
+    ? 'rgba(255,255,255,0.02)'
     : isRitual
-      ? 'rgba(255,240,220,0.015)'
-      : `linear-gradient(90deg, ${intentionColorAt6Percent} 0%, rgba(255,240,220,0.02) 40%)`;
+      ? 'rgba(255,255,255,0.015)'
+      : `linear-gradient(90deg, ${intentionColorAt6Percent} 0%, rgba(255,255,255,0.02) 40%)`;
   const blockBorder = isRitual
-    ? '1px dashed rgba(255,240,220,0.06)'
+    ? '1px dashed rgba(255,255,255,0.06)'
     : isGcal
-      ? '1px solid rgba(255,240,220,0.05)'
-      : '1px solid rgba(255,240,220,0.04)';
+      ? '1px solid rgba(255,255,255,0.05)'
+      : '1px solid rgba(255,255,255,0.04)';
   const blockBorderRadius = isTaskBlock ? '2px 8px 8px 2px' : undefined;
   const nestedTasks = useMemo(
     () => (block.nestedTaskIds ?? [])

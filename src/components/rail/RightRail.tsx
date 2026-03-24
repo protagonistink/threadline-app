@@ -135,8 +135,8 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
   const isAfterWorkday = currentHour >= workdayEnd.hour;
 
   return (
-    <aside className="w-[240px] flex-shrink-0 flex flex-col border-l border-[rgba(255,240,220,0.04)] overflow-y-auto">
-      <div className="px-5 pt-6 flex flex-col">
+    <aside className="w-[240px] flex-shrink-0 flex flex-col border-l border-[rgba(255,255,255,0.06)] overflow-y-auto">
+      <div className="px-5 pt-[40px] flex flex-col">
 
         {/* Focus capacity */}
         <FocusCapacity
@@ -147,9 +147,9 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
         {/* This week's intentions */}
         {intentions.length > 0 && (
           <>
-            <div className="h-px bg-[rgba(255,240,220,0.04)] my-5" />
+            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,240,220,0.3)] mb-2 block">This week's threads</span>
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Intentions</span>
               <IntentionsSummary intentions={intentions} />
             </div>
           </>
@@ -158,7 +158,7 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
         {/* Balance awareness nudge */}
         {balanceAwareness.message && (
           <>
-            <div className="h-px bg-[rgba(255,240,220,0.04)] my-5" />
+            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
             <BalanceAwareness message={balanceAwareness.message} />
           </>
         )}
@@ -166,9 +166,9 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
         {/* Upcoming money obligations */}
         {moneyObligations && moneyObligations.length > 0 && (
           <>
-            <div className="h-px bg-[rgba(255,240,220,0.04)] my-5" />
+            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,240,220,0.3)] mb-2 block">Coming up</span>
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Coming up</span>
               <MoneyMoves obligations={moneyObligations} />
             </div>
           </>
@@ -177,9 +177,9 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
         {/* Hard deadlines */}
         {deadlines.length > 0 && (
           <>
-            <div className="h-px bg-[rgba(255,240,220,0.04)] my-5" />
+            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,240,220,0.3)] mb-2 block">Deadlines</span>
+              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Deadlines</span>
               <HardDeadlines deadlines={deadlines} />
             </div>
           </>

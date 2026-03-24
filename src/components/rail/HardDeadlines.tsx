@@ -44,7 +44,7 @@ export function HardDeadlines({ deadlines }: HardDeadlinesProps) {
               style={{
                 color: differenceInCalendarDays(parseISO(deadline.dueDate), new Date()) <= 1
                   ? 'rgba(200,60,47,0.8)'
-                  : 'rgba(255,240,220,0.25)',
+                  : 'rgba(255,255,255,0.25)',
               }}
             >
               {relativeDate(deadline.dueDate)}

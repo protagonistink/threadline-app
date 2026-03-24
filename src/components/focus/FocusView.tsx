@@ -158,18 +158,18 @@ export function FocusView({ taskId, onExit }: FocusViewProps) {
           {/* Pause/Play toggle */}
           <button
             onClick={() => void window.api.pomodoro.pause()}
-            className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+            className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
           >
             {isPaused
-              ? <Play className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
-              : <Pause className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />}
+              ? <Play className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
+              : <Pause className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />}
           </button>
           {/* Reset */}
           <button
             onClick={() => void window.api.pomodoro.stop()}
-            className="w-9 h-9 rounded-full bg-[rgba(255,240,220,0.03)] border border-[rgba(255,240,220,0.06)] flex items-center justify-center hover:border-[rgba(255,240,220,0.12)] transition-colors"
+            className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,240,220,0.4)]" />
+            <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
           </button>
           {/* Done — larger, rust-styled */}
           <button

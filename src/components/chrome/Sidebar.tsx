@@ -39,7 +39,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
         className={cn(
           'absolute inset-0 transition-all duration-200 ease-out border-r',
           hovered
-            ? 'w-[200px] backdrop-blur-[16px] bg-[rgba(28,27,34,0.85)] border-[rgba(255,240,220,0.06)] shadow-[4px_0_24px_rgba(0,0,0,0.2)]'
+            ? 'w-[200px] backdrop-blur-[16px] bg-[rgba(26,26,26,0.88)] border-[rgba(255,255,255,0.08)] shadow-[4px_0_24px_rgba(0,0,0,0.3)]'
             : 'w-12 bg-bg-elevated border-border-subtle'
         )}
       />
@@ -47,7 +47,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       {/* Content */}
       <div className="relative flex flex-col h-full overflow-hidden">
         {/* Logo area — drag region */}
-        <div className="drag-region shrink-0 flex items-center pt-[72px] pb-4 px-3">
+        <div className="drag-region shrink-0 flex items-center pt-[40px] pb-4 px-3">
           <InkedLogo
             collapsed={!hovered}
             className={hovered ? 'ml-1 w-full max-w-[140px]' : 'mx-auto h-[32px] w-[32px] p-0.5'}
