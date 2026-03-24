@@ -1,30 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { TrendingUp, Target } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
+import { resolveGoalColor } from '@/lib/goalColors';
 import type { EngineState } from '../../../engine/types';
 import { computeBalanceAwareness, computeFocusCapacity } from './railUtils';
 import { BalanceAwareness } from './BalanceAwareness';
 import { EndOfDayNudge } from './EndOfDayNudge';
 import { FocusCapacity } from './FocusCapacity';
 import { HardDeadlines } from './HardDeadlines';
-import { InkLink } from './InkLink';
 import { IntentionsSummary } from './IntentionsSummary';
 import { MoneyMoves } from './MoneyMoves';
-
-// Goal color palette — matches the rest of the app's right-rail patterns
-const INTENTION_COLORS = [
-  'rgba(167,139,250,0.7)',
-  'rgba(45,212,191,0.6)',
-  'rgba(251,191,36,0.6)',
-];
 
 interface RightRailProps {
   onOpenInk: () => void;
   onEndDay: () => void;
 }
 
-export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
+export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
   const {
+    mode,
     weeklyGoals,
     plannedTasks,
     scheduleBlocks,
@@ -91,9 +86,8 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
   // Intentions for display
   const intentions = weeklyGoals.map((goal, i) => ({
     title: goal.title,
-    color: goal.color && goal.color !== 'bg-text-muted'
-      ? goal.color
-      : INTENTION_COLORS[i % INTENTION_COLORS.length],
+    color: resolveGoalColor(goal.color, i),
+    totalTasks: plannedTasks.filter(t => t.weeklyGoalId === goal.id).length,
   }));
 
   // Hard deadlines: Asana tasks with due dates within 3 days
@@ -134,22 +128,43 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
   // End-of-day nudge: show when we're past the workday end
   const isAfterWorkday = currentHour >= workdayEnd.hour;
 
-  return (
-    <aside className="w-[240px] flex-shrink-0 flex flex-col border-l border-[rgba(255,255,255,0.06)] overflow-y-auto">
-      <div className="px-5 pt-[40px] flex flex-col">
+  const heroMode = mode === 'planning';
 
-        {/* Focus capacity */}
+  return (
+    <aside className="w-[280px] flex-shrink-0 flex flex-col border-l border-border-subtle bg-bg-elevated overflow-y-auto">
+      <div className="px-7 pt-[74px] pb-6 flex flex-col">
+        <div>
+          <h3 className="flex items-center gap-2 font-serif text-[13px] uppercase tracking-[0.18em] text-text-whisper mb-4">
+            <TrendingUp size={12} strokeWidth={1.5} />
+            The Ledger
+          </h3>
+          {moneyObligations && moneyObligations.length > 0 ? (
+            <MoneyMoves obligations={moneyObligations} heroMode={heroMode} />
+          ) : (
+            <span className="text-[12px] text-text-muted/35 italic">No obligations this week</span>
+          )}
+        </div>
+
+        <div className="h-px bg-border-subtle my-6" />
+
+        {/* Focus capacity — editorial italic statement */}
         <FocusCapacity
           hoursRemaining={focusCapacity.hoursRemaining}
+          scheduledHours={focusCapacity.scheduledHours}
+          totalHours={focusCapacity.totalHours}
+          occupancyRatio={focusCapacity.occupancyRatio}
           label={focusCapacity.label}
         />
 
-        {/* This week's intentions */}
+        {/* Intentions */}
         {intentions.length > 0 && (
           <>
-            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
+            <div className="h-px bg-border-subtle my-6" />
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Intentions</span>
+              <h3 className="flex items-center gap-2 font-serif text-[13px] uppercase tracking-[0.18em] text-text-whisper mb-4">
+                <Target size={12} strokeWidth={1.5} />
+                Intentions
+              </h3>
               <IntentionsSummary intentions={intentions} />
             </div>
           </>
@@ -158,28 +173,17 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
         {/* Balance awareness nudge */}
         {balanceAwareness.message && (
           <>
-            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
+            <div className="h-px bg-border-subtle my-6" />
             <BalanceAwareness message={balanceAwareness.message} />
-          </>
-        )}
-
-        {/* Upcoming money obligations */}
-        {moneyObligations && moneyObligations.length > 0 && (
-          <>
-            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
-            <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Coming up</span>
-              <MoneyMoves obligations={moneyObligations} />
-            </div>
           </>
         )}
 
         {/* Hard deadlines */}
         {deadlines.length > 0 && (
           <>
-            <div className="h-px bg-[rgba(255,255,255,0.06)] my-5" />
+            <div className="h-px bg-border-subtle my-6" />
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-[0.08em] text-[rgba(255,255,255,0.4)] mb-2 block">Deadlines</span>
+              <h3 className="font-serif text-[13px] uppercase tracking-[0.18em] text-text-whisper mb-4">Deadlines</h3>
               <HardDeadlines deadlines={deadlines} />
             </div>
           </>
@@ -191,9 +195,8 @@ export function RightRail({ onOpenInk, onEndDay }: RightRailProps) {
       <div className="flex-1 min-h-8" />
 
       {/* Footer */}
-      <div className="px-5 pb-6 flex flex-col gap-3">
+      <div className="px-7 pb-8 flex flex-col gap-3">
         <EndOfDayNudge visible={isAfterWorkday} onClick={onEndDay} />
-        <InkLink onClick={onOpenInk} />
       </div>
     </aside>
   );

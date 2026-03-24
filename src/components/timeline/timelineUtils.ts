@@ -4,7 +4,7 @@ import type { ScheduleBlock } from '@/types';
 
 export const BASE_HOUR_HEIGHT = 96;
 export const GRID_SNAP_MINS = CALENDAR_GRID_SNAP_MINS;
-export const MIN_VISIBLE_DAY_HOURS = 16;
+export const MIN_VISIBLE_DAY_HOURS = 12;
 
 export function clampMinutes(totalMinutes: number, dayStartMins: number, dayEndMins: number, maxDurationMins = 0): number {
   return Math.min(Math.max(totalMinutes, dayStartMins), dayEndMins - maxDurationMins);

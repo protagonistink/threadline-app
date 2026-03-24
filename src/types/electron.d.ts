@@ -216,6 +216,7 @@ interface ChatHistoryAPI {
 
 interface FinanceAPI {
   getState: () => Promise<import('../../engine/types').EngineState | null>;
+  getAccounts: () => Promise<{ id: string; name: string; type: string; current_balance: number; available_balance: number; institution: string; last_synced: string }[]>;
   refresh: () => Promise<import('../../engine/types').EngineState | null>;
   plaidLink: () => Promise<{ success: boolean }>;
   plaidExchange: (publicToken: string) => Promise<{ success: boolean }>;

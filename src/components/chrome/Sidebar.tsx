@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, Target, Settings } from 'lucide-react';
+import { CalendarDays, Menu, Target, Settings, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { InkedLogo } from '../shared/InkedLogo';
@@ -9,7 +9,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ onSettingsClick }: SidebarProps) {
-  const [hovered, setHovered] = useState(false);
+  const [open, setOpen] = useState(false);
   const { view, setView } = useApp();
 
   const navItems = [
@@ -17,96 +17,114 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
       icon: CalendarDays,
       label: 'Flow',
       active: view === 'flow',
-      onClick: () => setView('flow'),
+      onClick: () => { setView('flow'); setOpen(false); },
     },
     {
       icon: Target,
       label: 'Intentions',
       active: view === 'intentions',
-      onClick: () => setView('intentions'),
+      onClick: () => { setView('intentions'); setOpen(false); },
     },
   ];
 
   return (
-    <aside
-      className="fixed left-0 top-0 bottom-0 z-50 flex flex-col"
-      style={{ width: hovered ? 200 : 48 }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Background panel — solid when collapsed, glassmorphic when expanded */}
-      <div
-        className={cn(
-          'absolute inset-0 transition-all duration-200 ease-out border-r',
-          hovered
-            ? 'w-[200px] backdrop-blur-[16px] bg-[rgba(26,26,26,0.88)] border-[rgba(255,255,255,0.08)] shadow-[4px_0_24px_rgba(0,0,0,0.3)]'
-            : 'w-12 bg-bg-elevated border-border-subtle'
-        )}
-      />
+    <>
+      {/* Collapsed strip — always visible */}
+      <aside
+        className="fixed left-0 top-0 bottom-0 z-50 w-12 flex flex-col items-center bg-bg-elevated border-r border-border-subtle"
+        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
+      >
+        {/* Hamburger toggle */}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="no-drag mt-[40px] mb-4 p-2 rounded-md text-text-muted/60 hover:text-text-primary hover:bg-surface/50 transition-colors"
+          title={open ? 'Close menu' : 'Open menu'}
+        >
+          {open ? <X className="w-[18px] h-[18px] stroke-[1.5]" /> : <Menu className="w-[18px] h-[18px] stroke-[1.5]" />}
+        </button>
 
-      {/* Content */}
-      <div className="relative flex flex-col h-full overflow-hidden">
-        {/* Logo area — drag region */}
-        <div className="drag-region shrink-0 flex items-center pt-[40px] pb-4 px-3">
-          <InkedLogo
-            collapsed={!hovered}
-            className={hovered ? 'ml-1 w-full max-w-[140px]' : 'mx-auto h-[32px] w-[32px] p-0.5'}
-          />
-        </div>
-
-        {/* Nav items */}
-        <nav className="flex flex-col gap-0.5 px-2 flex-1">
+        {/* Collapsed nav icons */}
+        <nav className="flex flex-col gap-1.5 items-center">
           {navItems.map(({ icon: Icon, label, active, onClick }) => (
             <button
               key={label}
               onClick={onClick}
-              title={!hovered ? label : undefined}
+              title={label}
               className={cn(
-                'no-drag flex items-center rounded-md text-[13px] transition-all duration-150',
-                hovered ? 'gap-3 px-3 py-2' : 'justify-center px-1 py-2.5',
+                'no-drag relative flex items-center justify-center rounded-md p-2 transition-colors',
                 active
                   ? 'text-accent-warm bg-accent-warm/8'
-                  : 'text-text-muted/70 hover:text-accent-warm-hover hover:bg-bg-card/60'
+                  : 'text-text-muted/60 hover:text-accent-warm-hover hover:bg-bg-card/60'
               )}
             >
-              <Icon
-                className={cn(
-                  'shrink-0 stroke-[1.5]',
-                  hovered ? 'w-4 h-4' : 'w-[18px] h-[18px]',
-                  active && 'text-accent-warm'
-                )}
-              />
-              {hovered && (
-                <span className="whitespace-nowrap overflow-hidden">{label}</span>
-              )}
-              {/* Active indicator dot — visible in collapsed state */}
-              {!hovered && active && (
+              <Icon className={cn('w-[18px] h-[18px] stroke-[1.5]', active && 'text-accent-warm')} />
+              {active && (
                 <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-accent-warm rounded-r-full" />
               )}
             </button>
           ))}
         </nav>
 
-        {/* Bottom: Settings */}
-        <div className="shrink-0 border-t border-border-subtle px-2 py-3">
+        {/* Settings — bottom */}
+        <div className="mt-auto mb-3">
           <button
             onClick={onSettingsClick}
-            title={!hovered ? 'Settings' : undefined}
-            className={cn(
-              'no-drag w-full flex items-center rounded-md text-[13px] text-text-muted/70 transition-all duration-150 hover:text-text-primary hover:bg-bg-card/60',
-              hovered ? 'gap-3 px-3 py-2' : 'justify-center px-1 py-2.5'
-            )}
+            title="Settings"
+            className="no-drag flex items-center justify-center rounded-md p-2 text-text-muted/60 hover:text-text-primary hover:bg-bg-card/60 transition-colors"
           >
-            <Settings
-              className={cn(
-                'shrink-0 stroke-[1.5]',
-                hovered ? 'w-4 h-4' : 'w-[18px] h-[18px]'
-              )}
-            />
-            {hovered && <span className="whitespace-nowrap overflow-hidden">Settings</span>}
+            <Settings className="w-[18px] h-[18px] stroke-[1.5]" />
           </button>
         </div>
-      </div>
-    </aside>
+      </aside>
+
+      {/* Expanded overlay panel */}
+      {open && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-[55] bg-black/40"
+            onClick={() => setOpen(false)}
+          />
+
+          {/* Panel */}
+          <div className="fixed left-12 top-0 bottom-0 z-[60] w-[200px] bg-[rgba(26,26,26,0.95)] backdrop-blur-[16px] border-r border-[rgba(255,255,255,0.08)] shadow-[4px_0_24px_rgba(0,0,0,0.4)] flex flex-col animate-slide-in-left">
+            {/* Logo */}
+            <div className="pt-[58px] pb-6 px-5">
+              <InkedLogo collapsed={false} className="w-full max-w-[140px]" />
+            </div>
+
+            {/* Nav */}
+            <nav className="flex flex-col gap-1 px-3 flex-1">
+              {navItems.map(({ icon: Icon, label, active, onClick }) => (
+                <button
+                  key={label}
+                  onClick={onClick}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] transition-colors',
+                    active
+                      ? 'text-accent-warm bg-accent-warm/8'
+                      : 'text-text-muted/70 hover:text-accent-warm-hover hover:bg-bg-card/60'
+                  )}
+                >
+                  <Icon className={cn('w-4 h-4 shrink-0 stroke-[1.5]', active && 'text-accent-warm')} />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </nav>
+
+            {/* Settings */}
+            <div className="border-t border-border-subtle px-3 py-3">
+              <button
+                onClick={() => { onSettingsClick(); setOpen(false); }}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-[13px] text-text-muted/70 hover:text-text-primary hover:bg-bg-card/60 transition-colors"
+              >
+                <Settings className="w-4 h-4 shrink-0 stroke-[1.5]" />
+                <span>Settings</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </>
   );
 }

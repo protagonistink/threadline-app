@@ -1,12 +1,13 @@
 // src/components/BlockCard.tsx
 import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { GripVertical, Play, Check } from 'lucide-react';
+import { GripVertical, Play, Check, X } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn, formatRoundedHours } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
+import { resolveGoalColor, withAlpha } from '@/lib/goalColors';
 import type { PlannedTask, ScheduleBlock } from '@/types';
 import { AIBreakdown } from '../AIBreakdown';
 import { timeToTop, formatTimeShort, GRID_SNAP_MINS, getStepMins } from './timelineUtils';
@@ -76,22 +77,18 @@ export function BlockCard({
   onSelectNestedTask?: (taskId: string) => void;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, enterFocus } = useApp();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, enterFocus, returnTaskToInbox } = useApp();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
+  const blockSubtitle = linkedTask?.notes
+    ? linkedTask.notes.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim()
+    : linkedTask?.asanaProject ?? '';
 
   // Dynamic thread color for border-left based on weekly goal
   const goalId = linkedTask?.weeklyGoalId ?? null;
   const goalIndex = goalId ? weeklyGoals.findIndex((g) => g.id === goalId) : -1;
-  // Intention colors: purple / teal / amber
-  const intentionColor = goalIndex === 0 ? 'rgb(167,139,250)'
-    : goalIndex === 1 ? 'rgb(45,212,191)'
-    : goalIndex === 2 ? 'rgb(251,191,36)'
-    : 'rgb(100,116,139)';
-  const intentionColorAt6Percent = goalIndex === 0 ? 'rgba(167,139,250,0.06)'
-    : goalIndex === 1 ? 'rgba(45,212,191,0.06)'
-    : goalIndex === 2 ? 'rgba(251,191,36,0.06)'
-    : 'rgba(100,116,139,0.04)';
+  const goal = goalIndex >= 0 ? weeklyGoals[goalIndex] : null;
+  const intentionColor = resolveGoalColor(goal?.color, goalIndex);
 
   // Derive block style based on kind
   const isAdHocEarly = block.kind === 'hard' && !block.readOnly && block.source === 'local';
@@ -104,18 +101,18 @@ export function BlockCard({
     ? '3px dashed rgba(255,255,255,0.1)'
     : isGcal
       ? '3px solid rgba(255,255,255,0.05)'
-      : `3px solid ${intentionColor}`;
+      : `4px solid ${intentionColor}`;
   const blockBackground = isGcal
     ? 'rgba(255,255,255,0.02)'
     : isRitual
       ? 'rgba(255,255,255,0.015)'
-      : `linear-gradient(90deg, ${intentionColorAt6Percent} 0%, rgba(255,255,255,0.02) 40%)`;
+      : `linear-gradient(90deg, ${withAlpha(intentionColor, 0.2)} 0%, ${withAlpha(intentionColor, 0.11)} 42%, rgba(255,255,255,0.025) 100%)`;
   const blockBorder = isRitual
     ? '1px dashed rgba(255,255,255,0.06)'
     : isGcal
       ? '1px solid rgba(255,255,255,0.05)'
-      : '1px solid rgba(255,255,255,0.04)';
-  const blockBorderRadius = isTaskBlock ? '2px 8px 8px 2px' : undefined;
+      : `1px solid ${withAlpha(intentionColor, 0.22)}`;
+  const blockBorderRadius = isTaskBlock ? '3px 10px 10px 3px' : undefined;
   const nestedTasks = useMemo(
     () => (block.nestedTaskIds ?? [])
       .map((id) => plannedTasks.find((t) => t.id === id))
@@ -154,7 +151,9 @@ export function BlockCard({
   // Box shadow for NOW/active block (computed after isDragging is available)
   const blockBoxShadow = isNow && !isDragging && isTaskBlock
     ? '0 0 0 1px rgba(200,60,47,0.3), 0 2px 10px rgba(200,60,47,0.05)'
-    : undefined;
+    : isTaskBlock
+      ? `0 10px 28px ${withAlpha(intentionColor, 0.08)}`
+      : undefined;
 
   const [draft, setDraft] = useState<{ startHour: number; startMin: number; durationMins: number } | null>(null);
   const draftRef = useRef<{ startHour: number; startMin: number; durationMins: number } | null>(null);
@@ -170,6 +169,7 @@ export function BlockCard({
     : MIN_BLOCK_HEIGHT;
   const height = Math.max(rawHeight, nestedMinHeight, MIN_BLOCK_HEIGHT);
   const isCompact = rawHeight < 48;
+  const isExpanded = isSelected;
   const actualLabel = actualMins > 0 ? formatRoundedHours(actualMins, true) : null;
 
   // Determine block variant class
@@ -334,6 +334,25 @@ export function BlockCard({
           <Play className="w-3 h-3 fill-current" />
         </button>
       )}
+      {/* Remove from calendar — returns task to inbox */}
+      {!locked && !block.readOnly && block.linkedTaskId && !isDone && block.proposal !== 'draft' && (
+        <button
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (block.linkedTaskId) {
+              void returnTaskToInbox(block.linkedTaskId);
+            }
+          }}
+          className="absolute top-2 right-[4.5rem] rounded-md bg-black/15 p-1 text-text-muted/80 hover:text-accent-warm hover:bg-bg-card opacity-0 group-hover/block:opacity-100 transition-all"
+          title="Remove from calendar"
+        >
+          <X className="w-3 h-3" />
+        </button>
+      )}
       {!locked && !block.readOnly && block.linkedTaskId && (
         <button
           onMouseDown={(event) => {
@@ -355,8 +374,8 @@ export function BlockCard({
 
       <div className="relative z-10 flex items-start pr-6">
         <h4 className={cn(
-          'truncate focus-editorial font-display font-bold leading-snug flex-1',
-          isCompact ? 'text-[13px]' : 'text-[16px]',
+          'truncate focus-editorial font-display font-medium leading-snug flex-1',
+          isCompact ? 'text-[12px]' : 'text-[14px]',
           isDone ? 'text-text-muted line-through' : 'text-slate-100'
         )}>{block.title}</h4>
         <span className="shrink-0 ml-2 flex items-center gap-1.5 text-[10px] text-[rgba(148,163,184,0.3)] tracking-wider whitespace-nowrap">
@@ -370,6 +389,21 @@ export function BlockCard({
           {formatTimeShort(block.startHour, block.startMin)}
         </span>
       </div>
+      {draft && (
+        <div className="relative z-10 mt-1">
+          <span className="inline-flex items-center rounded-[3px] border border-white/8 bg-black/20 px-2 py-1 text-[9px] uppercase tracking-[0.18em] text-text-muted/90">
+            {formatTimeShort(draft.startHour, draft.startMin)}
+          </span>
+        </div>
+      )}
+      {isTaskBlock && blockSubtitle && (
+        <div className={cn(
+          'relative z-10 pr-6 text-text-secondary/75 line-clamp-1',
+          isCompact ? 'text-[9px] leading-tight' : 'text-[10px] leading-snug'
+        )}>
+          {blockSubtitle}
+        </div>
+      )}
       {!isCompact && (
       <div className="relative z-10 flex items-center gap-2 focus-fade-meta">
         {isDone && (
@@ -386,7 +420,7 @@ export function BlockCard({
       </div>
       )}
 
-      {(block.kind === 'break' || !isCompact) && nestedTasks.length > 0 && (
+      {(block.kind === 'break' || !isCompact) && nestedTasks.length > 0 && isExpanded && (
         <div className="relative z-10 flex flex-col gap-0.5 mt-1">
           {nestedTasks.map((task) => (
             <div
@@ -422,7 +456,7 @@ export function BlockCard({
       )}
 
       {/* AI Breakdown for focus blocks */}
-      {!isCompact && block.kind === 'focus' && block.linkedTaskId && (
+      {!isCompact && isExpanded && block.kind === 'focus' && block.linkedTaskId && (
         <AIBreakdown block={block} />
       )}
 
@@ -445,7 +479,7 @@ export function BlockCard({
         </div>
       )}
 
-      {!locked && onUpdateDuration && !isDone && block.durationMins >= 15 && (
+      {!locked && isExpanded && onUpdateDuration && !isDone && block.durationMins >= 15 && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
           className="absolute bottom-4 left-0 right-0 flex items-center justify-center gap-2 opacity-0 group-hover/block:opacity-100 transition-opacity z-10"
@@ -468,7 +502,7 @@ export function BlockCard({
           </button>
         </div>
       )}
-      {!locked && !block.readOnly && !isDone && block.linkedTaskId && block.durationMins >= 15 && !onUpdateDuration && (() => {
+      {!locked && isExpanded && !block.readOnly && !isDone && block.linkedTaskId && block.durationMins >= 15 && !onUpdateDuration && (() => {
         return (
           <div
             onMouseDown={(e) => e.stopPropagation()}
@@ -512,7 +546,10 @@ export function BlockCard({
       {!locked && !block.readOnly && !isDone && (
         <div
           onMouseDown={beginResize}
-          className="absolute left-3 right-3 bottom-1 h-2 cursor-row-resize rounded-full bg-accent-warm/20 opacity-0 group-hover/block:opacity-100 transition-opacity"
+          className={cn(
+            'absolute left-3 right-3 bottom-1 h-2 cursor-row-resize rounded-full bg-accent-warm/20 transition-opacity',
+            (isDragging || draft) ? 'opacity-0' : 'opacity-0 group-hover/block:opacity-100'
+          )}
         />
       )}
     </div>

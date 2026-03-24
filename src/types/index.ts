@@ -199,6 +199,8 @@ export interface MonthlyPlan {
   oneThing: string;
   why: string;
   completedAt?: string;
+  /** Revenue target for the month (USD). Used on the Intentions screen. */
+  monthlyTarget?: number;
 }
 
 export interface DayEntry {

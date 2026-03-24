@@ -49,7 +49,7 @@ export function Timeline() {
   const { getWarning } = usePhysicsWarnings();
   const gridRef = useRef<HTMLDivElement>(null);
   const [gridViewportHeight, setGridViewportHeight] = useState(0);
-  const [timelineDensity, setTimelineDensity] = useState<'day' | 'now'>('day');
+  const [timelineDensity, _setTimelineDensity] = useState<'day' | 'now'>('day');
   const currentMinute = useCurrentMinute();
   const isTodayView = format(viewDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   // Keep a ref so useDrop collect/drop always see the latest blocks (avoids stale closure)
@@ -174,12 +174,12 @@ export function Timeline() {
     return layout;
   }, [scheduleBlocks]);
 
-  const [isEditingStart, setIsEditingStart] = useState(false);
-  const [isEditingEnd, setIsEditingEnd] = useState(false);
-  const [timeLeft, setTimeLeft] = useState('');
+  const [_isEditingStart, setIsEditingStart] = useState(false);
+  const [_isEditingEnd, setIsEditingEnd] = useState(false);
+  const [_timeLeft, setTimeLeft] = useState('');
   const [minutesPastClose, setMinutesPastClose] = useState(0);
   const [livePomodoro, setLivePomodoro] = useState<PomodoroState | null>(null);
-  const [inkMessage, setInkMessage] = useState('');
+  const [_inkMessage, setInkMessage] = useState('');
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
   const [selectedNestedTaskId, setSelectedNestedTaskId] = useState<string | null>(null);
   const [adHocInput, setAdHocInput] = useState<{ startMins: number; top: number } | null>(null);
@@ -354,8 +354,8 @@ export function Timeline() {
 
   const currentBlockId = currentBlock?.id ?? null;
 
-  // Daily Arc summary
-  const dailyArc = useMemo(() => {
+  // Daily Arc summary (kept for future use, display removed from header)
+  useMemo(() => {
     const focusBlocks = scheduleBlocks.filter((b) => b.kind === 'focus');
     const ritualBlocks = scheduleBlocks.filter((b) => b.kind === 'break');
     const totalMins = scheduleBlocks.reduce((sum, b) => sum + b.durationMins, 0);
@@ -534,125 +534,33 @@ export function Timeline() {
   }, [currentMinute, dayStartMins, hourHeight, isTodayView, timelineDensity]);
 
   return (
-    <div className="focus-spotlight stage-bloom relative w-full min-w-0 bg-[#111111] border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
+    <div className="focus-spotlight stage-bloom relative w-full min-w-0 bg-bg border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
       {/* Sticky Date Header */}
-      <div className="sticky top-0 z-20 px-8 pt-6 pb-5" style={{ background: 'rgba(10, 10, 10, 0.85)', backdropFilter: 'blur(16px)' }}>
-        <div className="flex items-end justify-between">
+      <div className="sticky top-0 z-20 px-8 pt-4 pb-4 relative" style={{ background: 'rgba(18, 18, 18, 0.85)', backdropFilter: 'blur(16px)' }}>
+        <div className="flex items-center justify-center">
           <DateHeader />
-          {dailyArc && (
-            <span className="text-[11px] text-slate-500 tracking-wider font-mono pb-1">
-              {dailyArc}
-            </span>
-          )}
         </div>
-        {inkMessage && isTodayView && (
-          <p className="font-display mt-4 leading-relaxed text-[15px] font-light text-[#919fae]/50">
-            {inkMessage}
-          </p>
-        )}
-        {/* Sync + time controls row */}
-        <div className="flex items-center justify-between mt-4 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-          <div className="flex items-center gap-2">
-            <span className="font-sans text-[11px]" style={{ color: 'rgba(148,163,184,0.6)' }}>
-              {isTodayView ? timeLeft : ''}
-            </span>
-            <button
-              onClick={() => void refreshExternalData()}
-              title="Sync calendar"
-              className="no-drag opacity-30 hover:opacity-80 transition-opacity"
-              style={{ color: 'rgba(150,140,120,0.8)' }}
-            >
-              <RefreshCw className={cn('w-2.5 h-2.5', syncStatus.loading && 'animate-spin')} />
-            </button>
-            <div className="ml-3 inline-flex rounded-full border border-border-subtle bg-bg-card/40 p-1">
-              <button
-                onClick={() => setTimelineDensity('day')}
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors',
-                  timelineDensity === 'day' ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'
-                )}
-              >
-                Day
-              </button>
-              <button
-                onClick={() => setTimelineDensity('now')}
-                className={cn(
-                  'rounded-full px-2.5 py-1 text-[10px] uppercase tracking-[0.14em] transition-colors',
-                  timelineDensity === 'now' ? 'bg-bg-elevated text-text-primary' : 'text-text-muted hover:text-text-primary'
-                )}
-              >
-                Now
-              </button>
-            </div>
-          </div>
-          <div className="flex items-baseline gap-0">
-            {isEditingStart ? (
-              <input
-                type="time"
-                defaultValue={`${String(workdayStart.hour).padStart(2, '0')}:${String(workdayStart.min).padStart(2, '0')}`}
-                autoFocus
-                onBlur={(e) => {
-                  const [h, m] = e.target.value.split(':').map(Number);
-                  if (!isNaN(h) && !isNaN(m)) setWorkdayStart(h, m);
-                  setIsEditingStart(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') setIsEditingStart(false);
-                }}
-                className="bg-transparent border-none outline-none font-display font-medium text-[15px] w-[80px] text-right"
-                style={{ color: 'rgba(225,215,200,0.88)' }}
-              />
-            ) : (
-              <button
-                onClick={() => setIsEditingStart(true)}
-                className="font-display font-medium text-[15px] leading-none hover:opacity-70 transition-opacity"
-                style={{ color: 'rgba(225,215,200,0.6)' }}
-              >
-                {formatTimeShort(workdayStart.hour, workdayStart.min)}
-              </button>
-            )}
-            <span className="font-display font-medium text-[15px] leading-none mx-1" style={{ color: 'rgba(225,215,200,0.2)' }}>–</span>
-            {isEditingEnd ? (
-              <input
-                type="time"
-                defaultValue={`${String(workdayEnd.hour).padStart(2, '0')}:${String(workdayEnd.min).padStart(2, '0')}`}
-                autoFocus
-                onBlur={(e) => {
-                  const [h, m] = e.target.value.split(':').map(Number);
-                  if (!isNaN(h) && !isNaN(m)) setWorkdayEnd(h, m);
-                  setIsEditingEnd(false);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') e.currentTarget.blur();
-                  if (e.key === 'Escape') setIsEditingEnd(false);
-                }}
-                className="bg-transparent border-none outline-none font-display font-medium text-[15px] w-[80px]"
-                style={{ color: 'rgba(225,215,200,0.88)' }}
-              />
-            ) : (
-              <button
-                onClick={() => setIsEditingEnd(true)}
-                className="font-display font-medium text-[15px] leading-none hover:opacity-70 transition-opacity"
-                style={{ color: 'rgba(225,215,200,0.6)' }}
-              >
-                {formatTimeShort(workdayEnd.hour, workdayEnd.min)}
-              </button>
-            )}
-          </div>
-        </div>
+        <button
+          onClick={() => void refreshExternalData()}
+          title="Sync calendar"
+          className="absolute right-4 top-4 no-drag opacity-20 hover:opacity-60 transition-opacity text-text-muted"
+        >
+          <RefreshCw className={cn('w-3 h-3', syncStatus.loading && 'animate-spin')} />
+        </button>
       </div>
 
-      {/* Start Day button — shown when tasks are committed but day not started */}
+      {/* "Get to work" — sticky bottom-right of calendar column */}
       {dayCommitInfo.state === 'committed' && dayCommitInfo.totalBlocks > 0 && (
-        <div className="px-8 pb-4">
-          <button
-            onClick={startDay}
-            className="w-full rounded-xl border border-accent-warm/25 bg-accent-warm/[0.06] px-4 py-3 text-[13px] font-medium tracking-[0.06em] text-accent-warm/80 hover:bg-accent-warm/[0.12] hover:text-accent-warm transition-colors"
-          >
-            Start Day →
-          </button>
-        </div>
+        <button
+          onClick={startDay}
+          className="absolute bottom-6 right-6 z-30 border border-accent-warm/35 bg-[rgba(20,16,15,0.8)] px-4 py-3 text-[10px] font-sans font-semibold uppercase tracking-[0.28em] text-text-emphasis shadow-[0_18px_38px_rgba(0,0,0,0.34)] backdrop-blur-md transition-colors hover:border-accent-warm-hover hover:text-white"
+        >
+          <span className="flex items-center gap-3">
+            <span className="h-px w-5 bg-accent-warm/70" />
+            <span>Get To Work</span>
+            <span className="text-accent-warm">→</span>
+          </span>
+        </button>
       )}
 
       {/* Deadline strip above calendar (normal mode) */}

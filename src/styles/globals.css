@@ -3,12 +3,12 @@
 
 
 @theme {
-  /* === DARK MODE (default) — Neutral dark, Craft-inspired === */
+  /* === DARK MODE (default) — Neutral dark, editorial === */
   /* Note: Tailwind v4 maps `--color-bg` to `bg-bg`, etc. */
-  --color-bg: #1A1A1A;           /* neutral dark gray */
-  --color-bg-card: #2A2A2A;      /* card surface */
-  --color-bg-elevated: #222222;  /* panels, sidebars */
-  --color-bg-hover: #333333;
+  --color-bg: #121212;           /* editorial dark */
+  --color-bg-card: #1C1C1C;      /* card surface */
+  --color-bg-elevated: #181818;  /* panels, sidebars */
+  --color-bg-hover: #2A2A2A;
   --color-border: rgba(255, 255, 255, 0.08);
   --color-border-hover: rgba(255, 255, 255, 0.16);
   --color-border-subtle: rgba(255, 255, 255, 0.05);
@@ -31,15 +31,16 @@
   --font-sans: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   --font-display: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif: 'Cormorant Garamond', 'Georgia', serif;
 
 }
 
 @layer base {
   :root {
-    --color-bg: #1A1A1A;
-    --color-bg-card: #2A2A2A;
-    --color-bg-elevated: #222222;
-    --color-bg-hover: #333333;
+    --color-bg: #121212;
+    --color-bg-card: #1C1C1C;
+    --color-bg-elevated: #181818;
+    --color-bg-hover: #2A2A2A;
     --color-border: rgba(255, 255, 255, 0.08);
     --color-border-hover: rgba(255, 255, 255, 0.16);
     --color-border-subtle: rgba(255, 255, 255, 0.05);
@@ -89,8 +90,8 @@
    Same palette as dark mode. Dimming handled by .focus-dim / .focus-dim-soft,
    not color shifts. Only override: editorial display font. */
 [data-theme="focus"] {
-  --color-bg: #141414;
-  --color-bg-elevated: #1A1A1A;
+  --color-bg: #0E0E0E;
+  --color-bg-elevated: #141414;
   --color-accent-green: oklch(55% 0.10 155);
   --font-display: 'Satoshi', -apple-system, BlinkMacSystemFont, sans-serif;
 }
@@ -141,7 +142,7 @@
   justify-content: space-between;
   gap: 1rem;
   min-height: 4.75rem;
-  padding: 1rem 1.5rem 0.95rem;
+  padding: 1rem 1.75rem 0.95rem;
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -222,7 +223,7 @@
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  opacity: 0.025;
+  opacity: 0.015;
   /* feTurbulence removed — was forcing a full-screen GPU tile raster on every paint */
   transition: opacity 1s ease-in-out;
 }
@@ -582,6 +583,15 @@
   animation: slideInRight 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-100%); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Prose styling for briefing chat messages */
 /* Morning Welcome */
 .morning-welcome-input::placeholder {
@@ -646,16 +656,15 @@
   50% { transform: scale(1.04); }
 }
 
-/* Hover: subtle wobble */
+/* Hover: scale + glow */
 .ink-fab:hover .ink-fab__icon {
-  animation: inkWobble 0.5s ease-in-out;
+  animation: none;
+  transform: scale(1.08) rotate(12deg);
+  transition: transform 0.3s ease-out;
 }
 
-@keyframes inkWobble {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  25% { transform: scale(1.04) rotate(-3deg); }
-  50% { transform: scale(1.04) rotate(3deg); }
-  75% { transform: scale(1.04) rotate(-1.5deg); }
+.ink-fab:hover {
+  box-shadow: 0 0 30px rgba(200,60,47,0.3);
 }
 
 /* Thinking: concentric rings expanding outward */

@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { format } from 'date-fns';
-import { ChevronDown } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { format, addDays, subDays } from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { DaySwitcherDropdown } from './DaySwitcherDropdown';
 
+function formatEditorialWeekday(date: Date) {
+  const abbreviated = format(date, 'EEE');
+  if (abbreviated === 'Tue') return 'Tues';
+  if (abbreviated === 'Thu') return 'Thurs';
+  return abbreviated;
+}
+
 export function DateHeader() {
-  const { viewDate } = useApp();
+  const { viewDate, setViewDate } = useApp();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const yesterday = subDays(viewDate, 1);
+  const tomorrow = addDays(viewDate, 1);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -32,29 +41,63 @@ export function DateHeader() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative inline-flex flex-col items-start">
+    <div ref={containerRef} className="relative flex items-center justify-center w-full py-5">
+      {/* Left chevron */}
       <button
-        onClick={() => setOpen((value) => !value)}
-        className="group flex flex-col items-start text-left"
+        onClick={() => setViewDate(subDays(viewDate, 1))}
+        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors"
       >
-        <span className="font-sans text-[10px] tracking-[0.25em] uppercase text-[#919fae]/35">
-          {format(viewDate, 'EEEE')}
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+
+      {/* Yesterday */}
+      <button
+        onClick={() => setViewDate(yesterday)}
+        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px]"
+      >
+        <span className="text-[9px] uppercase tracking-[0.2em] text-text-muted font-sans">
+          {formatEditorialWeekday(yesterday)}
         </span>
-        <span className="mt-1 inline-flex items-center gap-2">
-          <span
-            className="font-display leading-none"
-            style={{ fontSize: '2.75rem', fontWeight: 400, color: '#c8c6c2', letterSpacing: '-0.015em' }}
-          >
-            {format(viewDate, 'MMMM d')}
-          </span>
-          <ChevronDown
-            className={cn(
-              'mt-1 h-4 w-4 text-[#9C9EA2] transition-[transform,color] duration-150 group-hover:text-[#FAFAFA]',
-              open && 'rotate-180'
-            )}
-          />
+        <span className="text-3xl font-serif font-light text-text-secondary tracking-tight mt-1">
+          {format(yesterday, 'd')}
         </span>
       </button>
+
+      {/* Today (hero) */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex flex-col items-center px-12 mx-5"
+      >
+        <span className="text-[64px] font-serif font-light text-text-emphasis tracking-[-0.02em] leading-none">
+          {format(viewDate, 'EEEE')}
+        </span>
+        <span className="mt-1 text-[13px] uppercase tracking-[0.18em] text-accent-warm/85 font-sans">
+          {format(viewDate, 'MMM d')}
+        </span>
+      </button>
+
+      {/* Tomorrow */}
+      <button
+        onClick={() => setViewDate(tomorrow)}
+        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px]"
+      >
+        <span className="text-[9px] uppercase tracking-[0.2em] text-text-muted font-sans">
+          {formatEditorialWeekday(tomorrow)}
+        </span>
+        <span className="text-3xl font-serif font-light text-text-secondary tracking-tight mt-1">
+          {format(tomorrow, 'd')}
+        </span>
+      </button>
+
+      {/* Right chevron */}
+      <button
+        onClick={() => setViewDate(addDays(viewDate, 1))}
+        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors"
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+
+      {/* Dropdown */}
       {open && <DaySwitcherDropdown onSelect={() => setOpen(false)} />}
     </div>
   );

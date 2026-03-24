@@ -263,6 +263,17 @@ export function registerFinanceHandlers(): void {
     }
   });
 
+  // finance:get-accounts — raw account balances for UI
+  ipcMain.handle('finance:get-accounts', async () => {
+    try {
+      const db = getDb();
+      return db.select().from(accounts).all();
+    } catch (err) {
+      console.error('[finance:get-accounts]', err);
+      return [];
+    }
+  });
+
   // finance:refresh — sync Plaid then return engine state
   ipcMain.handle('finance:refresh', async () => {
     try {

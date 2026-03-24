@@ -5,6 +5,9 @@
 
 export interface FocusCapacityResult {
   hoursRemaining: number;
+  scheduledHours: number;
+  totalHours: number;
+  occupancyRatio: number;
   label: string;
 }
 
@@ -20,6 +23,10 @@ export function computeFocusCapacity(params: {
   const hoursFromNow = workdayEndHour - currentHour;
   const effectiveHours = Math.min(hoursFromNow, totalWorkdayHours) - scheduledMinutes / 60;
   const hoursRemaining = Math.max(0, effectiveHours);
+  const scheduledHours = Math.max(0, scheduledMinutes / 60);
+  const occupancyRatio = totalWorkdayHours > 0
+    ? Math.min(1, scheduledHours / totalWorkdayHours)
+    : 0;
 
   // Round to nearest half-hour for the label
   const roundedHalf = Math.round(hoursRemaining * 2) / 2;
@@ -35,7 +42,7 @@ export function computeFocusCapacity(params: {
     label = `You have about ${display} of deep work today`;
   }
 
-  return { hoursRemaining, label };
+  return { hoursRemaining, scheduledHours, totalHours: totalWorkdayHours, occupancyRatio, label };
 }
 
 export interface BalanceAwarenessResult {

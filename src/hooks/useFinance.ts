@@ -11,9 +11,20 @@ interface ActionItem {
   completedAt: string | null;
 }
 
+export interface Account {
+  id: string;
+  name: string;
+  type: string;
+  current_balance: number;
+  available_balance: number;
+  institution: string;
+  last_synced: string;
+}
+
 export function useFinance() {
   const [state, setState] = useState<EngineState | null>(null);
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
 
   const processResult = useCallback((result: unknown) => {
@@ -27,8 +38,12 @@ export function useFinance() {
   const fetchState = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await window.api.finance.getState();
+      const [result, accts] = await Promise.all([
+        window.api.finance.getState(),
+        window.api.finance.getAccounts().catch(() => []),
+      ]);
       processResult(result);
+      if (Array.isArray(accts)) setAccounts(accts);
     } catch (error) {
       console.error('Failed to fetch finance state:', error);
     } finally {
@@ -41,6 +56,9 @@ export function useFinance() {
     try {
       const result = await window.api.finance.refresh();
       processResult(result);
+      // Also refresh accounts after sync
+      const accts = await window.api.finance.getAccounts().catch(() => []);
+      if (Array.isArray(accts)) setAccounts(accts);
     } catch (error) {
       console.error('Failed to refresh finance state:', error);
     } finally {
@@ -52,5 +70,5 @@ export function useFinance() {
     fetchState();
   }, [fetchState]);
 
-  return { state, actionItems, loading, refresh };
+  return { state, actionItems, accounts, loading, refresh };
 }

@@ -72,6 +72,7 @@ describe('useMonthlyPlanning', () => {
       },
       finance: {
         getState: vi.fn(),
+        getAccounts: vi.fn().mockResolvedValue([]),
         refresh: vi.fn(),
         plaidLink: vi.fn(),
         plaidExchange: vi.fn(),

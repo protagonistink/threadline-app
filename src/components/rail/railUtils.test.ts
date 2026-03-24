@@ -15,6 +15,8 @@ describe('computeFocusCapacity', () => {
     });
     // min(17-7, 17-9) = min(10, 8) = 8 hours
     expect(result.hoursRemaining).toBe(8);
+    expect(result.scheduledHours).toBe(0);
+    expect(result.totalHours).toBe(8);
     expect(result.label).toContain('8 hours');
   });
 
@@ -27,6 +29,7 @@ describe('computeFocusCapacity', () => {
     });
     // min(17-13, 17-9) = min(4, 8) = 4 hours
     expect(result.hoursRemaining).toBe(4);
+    expect(result.occupancyRatio).toBe(0);
     expect(result.label).toContain('4 hours');
     expect(result.label).toContain('deep work');
   });
@@ -39,6 +42,8 @@ describe('computeFocusCapacity', () => {
       currentHour: 9,
     });
     expect(result.hoursRemaining).toBe(6);
+    expect(result.scheduledHours).toBe(2);
+    expect(result.occupancyRatio).toBeCloseTo(0.25);
   });
 
   it('returns 0 and "fully booked" label when scheduled minutes exceed available time', () => {
@@ -85,6 +90,7 @@ describe('computeFocusCapacity', () => {
     });
     // 8 - 0.75 = 7.25 → rounded to 7.5
     expect(result.hoursRemaining).toBeCloseTo(7.25);
+    expect(result.scheduledHours).toBeCloseTo(0.75);
     expect(result.label).toContain('7.5 hours');
   });
 

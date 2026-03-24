@@ -120,6 +120,7 @@ interface AppContextValue {
   rituals: DailyRitual[];
   addRitual: (title: string) => void;
   removeRitual: (id: string) => void;
+  renameRitual: (id: string, title: string) => void;
   toggleRitualSkipped: (id: string, date: string) => void;
   toggleRitualComplete: (id: string) => void;
   countdowns: Countdown[];
@@ -222,6 +223,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const {
     addRitual,
     removeRitual,
+    renameRitual,
     toggleRitualSkipped,
     toggleRitualComplete,
     updateRitualEstimate,
@@ -651,6 +653,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         rituals,
         addRitual,
         removeRitual,
+        renameRitual,
         toggleRitualSkipped,
         toggleRitualComplete,
         countdowns,

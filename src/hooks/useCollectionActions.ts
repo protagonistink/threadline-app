@@ -10,6 +10,7 @@ interface CollectionActionsOptions {
 interface CollectionActionsResult {
   addRitual: (title: string) => void;
   removeRitual: (id: string) => void;
+  renameRitual: (id: string, title: string) => void;
   toggleRitualSkipped: (id: string, date: string) => void;
   toggleRitualComplete: (id: string) => void;
   updateRitualEstimate: (id: string, mins: number) => void;
@@ -31,6 +32,11 @@ export function useCollectionActions({
 
   const removeRitual = useCallback((id: string) => {
     setRituals((prev) => prev.filter((r) => r.id !== id));
+  }, [setRituals]);
+
+  const renameRitual = useCallback((id: string, title: string) => {
+    if (!title.trim()) return;
+    setRituals((prev) => prev.map((r) => (r.id === id ? { ...r, title: title.trim() } : r)));
   }, [setRituals]);
 
   const toggleRitualSkipped = useCallback((id: string, date: string) => {
@@ -84,6 +90,7 @@ export function useCollectionActions({
   return {
     addRitual,
     removeRitual,
+    renameRitual,
     toggleRitualSkipped,
     toggleRitualComplete,
     updateRitualEstimate,

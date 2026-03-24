@@ -2,12 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
-import { Plus, X } from 'lucide-react';
+import { Filter, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
+import { resolveGoalColor } from '@/lib/goalColors';
 import type { InboxItem } from '@/types';
-import { WORK_MODE_COLORS, WORK_MODE_LABELS } from '@/constants/workModes';
+
 
 function summarizeSyncIssue(message: string) {
   const jsonStart = message.indexOf('{');
@@ -82,30 +83,21 @@ function IncomingCard({
   onSelect: () => void;
   stagger: number;
 }) {
-  const { plannedTasks, weeklyGoals, scheduleBlocks } = useApp();
+  const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = useApp();
 
   const task = plannedTasks.find((t) => t.id === item.id);
-  const rawNotes = task?.notes ?? '';
-  const cleanNotes = rawNotes.replace(/https?:\/\/\S+/g, '').replace(/\s+/g, ' ').trim();
-  const notesPreview = cleanNotes.length > 80 ? cleanNotes.slice(0, 80) + '…' : cleanNotes;
   const isPlaced = task?.status === 'scheduled';
+  const isDone = task?.status === 'done';
 
-  // Determine thread class from weeklyGoalId
+  // Determine intention color from weeklyGoalId
   const goalId = task?.weeklyGoalId ?? null;
-  let threadClass = 'thread-general';
-  if (goalId && weeklyGoals.length > 0) {
-    const goalIndex = weeklyGoals.findIndex((g) => g.id === goalId);
-    if (goalIndex === 0) threadClass = 'thread-primary';
-    else if (goalIndex === 1) threadClass = 'thread-secondary';
-    else if (goalIndex === 2) threadClass = 'thread-tertiary';
-  }
+  const goalIndex = goalId && weeklyGoals.length > 0 ? weeklyGoals.findIndex((g) => g.id === goalId) : -1;
+  const goal = goalIndex >= 0 ? weeklyGoals[goalIndex] : null;
+  const intentionColor = resolveGoalColor(goal?.color, goalIndex);
 
-  // "Ink recommends" — task matches the day's primary goal
-  const isPrimaryGoal = goalId != null && weeklyGoals.length > 0 && weeklyGoals[0].id === goalId;
-
-  const workMode = item.workMode;
-  const workModeColor = workMode ? WORK_MODE_COLORS[workMode] : undefined;
-  const workModeLabel = workMode ? WORK_MODE_LABELS[workMode] : undefined;
+  // High priority uses rust accent
+  const isHighPriority = item.priority?.toLowerCase() === 'high';
+  const circleColor = isHighPriority ? 'var(--color-accent-warm)' : intentionColor;
 
   // Placed time lookup
   let placedTime = '';
@@ -130,7 +122,7 @@ function IncomingCard({
     <div
       ref={dragRef}
       className={cn(
-        'animate-fade-in relative',
+        'animate-fade-in relative group',
         stagger === 1 && 'stagger-1',
         stagger === 2 && 'stagger-2',
         stagger === 3 && 'stagger-3',
@@ -141,49 +133,41 @@ function IncomingCard({
       <div
         onClick={onSelect}
         className={cn(
-          'note-entry',
-          threadClass,
-          isPlaced && 'placed',
+          'relative py-2.5 px-4 cursor-grab rounded-md hover:bg-surface transition-all',
+          isPlaced && 'opacity-30 cursor-default',
           selected && 'bg-[rgba(250,250,250,0.03)]'
         )}
-        style={workModeColor ? { borderLeftColor: workModeColor } : undefined}
       >
-        <div className="font-sans text-[13px] text-[#FAFAFA]/70 leading-snug">
-          {item.title}
+        <div className="flex items-start gap-2.5">
+          {/* Open circle / checkbox — click to toggle done */}
+          <button
+            onClick={(e) => { e.stopPropagation(); void toggleTask(item.id); }}
+            onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+            className="mt-0.5 shrink-0 flex items-center justify-center w-4 h-4 rounded-full border-[1.5px] transition-colors hover:opacity-80"
+            style={{
+              borderColor: circleColor,
+              backgroundColor: isDone ? circleColor : 'transparent',
+            }}
+            title={isDone ? 'Mark incomplete' : 'Mark complete'}
+          />
+          <div className="flex-1 min-w-0">
+            <div className={cn(
+              'text-[12px] leading-snug truncate transition-colors',
+              isDone ? 'text-text-muted/40 line-through' : 'text-text-secondary group-hover:text-text-primary'
+            )}>
+              {item.title}
+            </div>
+            {isPlaced && placedTime ? (
+              <div className="text-[9px] uppercase tracking-wider text-text-whisper mt-0.5">
+                Placed · {placedTime}
+              </div>
+            ) : (
+              <div className="text-[9px] uppercase tracking-wider text-text-whisper mt-0.5">
+                {item.source === 'asana' ? 'ASANA' : item.source === 'gcal' ? 'CALENDAR' : item.source.toUpperCase()}
+              </div>
+            )}
+          </div>
         </div>
-
-        {workModeLabel && !isPlaced && (
-          <div
-            className="font-sans text-[9px] uppercase tracking-[0.16em] font-medium mt-1.5"
-            style={{ color: workModeColor, opacity: 0.7 }}
-          >
-            {workModeLabel}
-          </div>
-        )}
-
-        {isPlaced && placedTime && (
-          <div className="font-sans text-[11px] text-text-muted/40 mt-1">
-            Placed · {placedTime}
-          </div>
-        )}
-
-        {notesPreview && !isPlaced && (
-          <div className="font-sans text-[12px] text-text-muted/45 leading-relaxed mt-1.5 font-light line-clamp-2">
-            {notesPreview}
-          </div>
-        )}
-
-        {isPrimaryGoal && !isPlaced && (
-          <div className="flex items-center gap-1.5 mt-2.5 font-sans text-[10px] text-[#ff9786]/55">
-            <span style={{ fontSize: 8 }}>&#10022;</span> Ink recommends
-          </div>
-        )}
-
-        {!isPlaced && (
-          <div className="font-sans text-[9px] uppercase tracking-[0.12em] text-text-muted/30 mt-1.5">
-            {item.source === 'asana' ? 'ASANA' : item.source === 'gcal' ? 'CALENDAR' : item.source.toUpperCase()}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -200,10 +184,14 @@ function RitualEntry({
   placedTime: string;
   isSkipped: boolean;
 }) {
+  const { renameRitual, removeRitual } = useApp();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(ritual.title);
+
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.TASK,
     item: { id: ritual.id, title: ritual.title, sourceType: 'local' as const },
-    canDrag: !isPlaced,
+    canDrag: !isPlaced && !isEditing,
     collect: (monitor) => ({ isDragging: monitor.isDragging() }),
   });
 
@@ -211,21 +199,53 @@ function RitualEntry({
     previewRef(getEmptyImage(), { captureDraggingState: true });
   }, [previewRef]);
 
+  function commitEdit() {
+    const trimmed = editValue.trim();
+    if (trimmed && trimmed !== ritual.title) {
+      renameRitual(ritual.id, trimmed);
+    }
+    setIsEditing(false);
+  }
+
   return (
     <div
       ref={dragRef}
-      className={cn('animate-fade-in relative', isDragging && 'opacity-20')}
+      className={cn('animate-fade-in relative group', isDragging && 'opacity-20')}
     >
-      <div className={cn('note-entry thread-general', isPlaced && 'placed')}>
-        <div className="font-sans text-[13px] text-[#FAFAFA]/70 leading-snug">
-          {ritual.title}
-        </div>
-        {isPlaced && placedTime && (
+      <div className={cn('relative py-2 px-4 cursor-grab rounded-md hover:bg-surface transition-all', isPlaced && 'placed')}>
+        {isEditing ? (
+          <input
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitEdit();
+              if (e.key === 'Escape') { setEditValue(ritual.title); setIsEditing(false); }
+            }}
+            onBlur={commitEdit}
+            className="w-full bg-transparent text-[13px] text-[#FAFAFA]/70 border-b border-accent-warm/40 outline-none py-0.5"
+          />
+        ) : (
+          <div
+            className="font-sans text-[13px] text-[#FAFAFA]/70 leading-snug flex items-center justify-between"
+            onDoubleClick={() => { setEditValue(ritual.title); setIsEditing(true); }}
+          >
+            <span>{ritual.title}</span>
+            <button
+              onClick={(e) => { e.stopPropagation(); removeRitual(ritual.id); }}
+              className="opacity-0 group-hover:opacity-100 text-text-muted/30 hover:text-accent-warm transition-opacity ml-2 text-[10px]"
+              title="Remove ritual"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        {!isEditing && isPlaced && placedTime && (
           <div className="font-sans text-[11px] text-text-muted/40 mt-1">
             Placed · {placedTime}
           </div>
         )}
-        {ritual.estimateMins && !isPlaced && (
+        {!isEditing && ritual.estimateMins && !isPlaced && (
           <div className="font-sans text-[12px] text-text-muted/45 leading-relaxed mt-1.5 font-light">
             {isSkipped ? 'Skipped for this day' : `${ritual.estimateMins} min`}
           </div>
@@ -274,24 +294,20 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     selectInboxItem,
     addInboxTask,
     returnTaskToInbox,
-    lastCommitTimestamp,
     syncStatus,
     rituals,
+    addRitual,
     scheduleBlocks,
     viewDate,
   } = useApp();
 
-  const [showZen, setShowZen] = useState(false);
+  const MAX_RITUALS = 3;
   const [page, setPage] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
+  const [isAddingRitual, setIsAddingRitual] = useState(false);
+  const [ritualDraft, setRitualDraft] = useState('');
   const [draftTitle, setDraftTitle] = useState('');
-
-  useEffect(() => {
-    if (!lastCommitTimestamp) return;
-    setShowZen(true);
-    const timer = setTimeout(() => setShowZen(false), 1500);
-    return () => clearTimeout(timer);
-  }, [lastCommitTimestamp]);
+  const [filter, setFilter] = useState<'all' | 'asana' | 'unscheduled'>('all');
 
   const WORK_MODE_SORT_ORDER: Record<string, number> = {
     deep_work: 0,
@@ -302,7 +318,7 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
 
   const primaryGoalId = weeklyGoals[0]?.id ?? null;
 
-  const inboxItems = useMemo(() => {
+  const allInboxItems = useMemo(() => {
     const filtered = candidateItems.filter((item) => item.source === 'asana' || item.source === 'local');
 
     return [...filtered].sort((a, b) => {
@@ -326,7 +342,23 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     });
   }, [candidateItems, plannedTasks, primaryGoalId]);
 
+  const inboxItems = useMemo(() => {
+    if (filter === 'asana') return allInboxItems.filter((item) => item.source === 'asana');
+    if (filter === 'unscheduled') {
+      return allInboxItems.filter((item) => {
+        const task = plannedTasks.find((t) => t.id === item.id);
+        return task?.status !== 'scheduled';
+      });
+    }
+    return allInboxItems;
+  }, [allInboxItems, filter, plannedTasks]);
+
   const totalPages = Math.ceil(inboxItems.length / PAGE_SIZE);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(0);
+  }, [filter]);
 
   // Clamp page if items shrink (e.g. after committing last item on a page)
   useEffect(() => {
@@ -355,42 +387,62 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <div
       className={cn(
-        'focus-dim bg-bg column-divider flex flex-col h-full w-full transition-[opacity,border-width] duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
+        'focus-dim bg-bg column-divider flex flex-col h-full w-full pt-[58px] px-1 transition-[opacity,border-width] duration-[350ms] ease-[cubic-bezier(0.4,0,0.2,1)]',
         collapsed && 'opacity-0 pointer-events-none overflow-hidden border-r-0'
       )}
     >
       <div className="shrink-0">
-        <div className="workspace-header">
+        <div className="workspace-header pt-4 pb-5">
           <div className="workspace-header-copy">
-            <h2 className="font-display text-[22px] font-normal text-[#c8c6c2] leading-tight">
-              Inbox{' '}
-              <span className="font-sans text-[13px] font-normal text-text-muted/40">
-                · {inboxItems.length}
-              </span>
+            <h2 className="font-serif text-[22px] font-normal text-text-emphasis/80 leading-tight tracking-wide">
+              Inbox
             </h2>
-            <span className="section-lbl mt-2" style={{ marginBottom: 0 }}>Ready to ink</span>
           </div>
           <div className="flex items-center gap-2">
+            {syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
+            <button
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:text-text-primary hover:bg-surface/50"
+              title="Filter"
+            >
+              <Filter className="h-3.5 w-3.5" />
+            </button>
             <button
               onClick={() => {
                 setIsComposing((value) => !value);
                 setDraftTitle('');
               }}
-              className="rounded-md border border-border-subtle bg-bg-card/70 px-2.5 py-1.5 text-[11px] uppercase tracking-[0.14em] text-text-muted transition-colors hover:text-text-primary"
-              title={isComposing ? 'Close new task' : 'Add task'}
+              className="rounded-md p-1.5 text-text-muted transition-colors hover:text-text-primary hover:bg-surface/50"
+              title={isComposing ? 'Close new task' : 'New task'}
             >
-              <span className="inline-flex items-center gap-1.5">
-                {isComposing ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                New task
-              </span>
+              {isComposing ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             </button>
-            {syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
           </div>
+        </div>
+        {/* Filter pills */}
+        <div className="flex items-center gap-1.5 px-6 pb-3">
+          {([
+            { key: 'all' as const, label: 'All', count: allInboxItems.length },
+            { key: 'asana' as const, label: 'Asana' },
+            { key: 'unscheduled' as const, label: 'Unscheduled' },
+          ]).map((pill) => (
+            <button
+              key={pill.key}
+              onClick={() => setFilter(pill.key)}
+              className={cn(
+                'px-3 py-1 rounded-full text-[10px] uppercase tracking-wider transition-colors',
+                filter === pill.key
+                  ? 'bg-surface text-text-primary border border-border'
+                  : 'text-text-muted hover:text-text-primary hover:bg-surface/50'
+              )}
+            >
+              {pill.label}{'count' in pill ? ` ${pill.count}` : ''}
+            </button>
+          ))}
         </div>
       </div>
 
       {isComposing && (
-        <div className="px-4 py-3 border-b border-border-subtle bg-bg-card/40">
+        <div className="px-5 py-3 border-b border-border-subtle bg-bg-card/40">
           <div className="flex items-center gap-2">
             <input
               value={draftTitle}
@@ -421,7 +473,7 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
       )}
 
       {syncIssue && (
-        <div className="px-4 py-3 border-b border-border-subtle bg-accent-warm/[0.045]">
+        <div className="px-5 py-3 border-b border-border-subtle bg-accent-warm/[0.045]">
           <div className="text-[10px] uppercase tracking-[0.18em] text-text-muted">{syncIssue.label}</div>
           <div className="mt-1 text-[11px] text-text-primary break-words leading-relaxed">
             {syncIssue.message}
@@ -434,7 +486,7 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
 
       <div className="relative flex-1 min-h-0 overflow-hidden">
         <div className="h-full flex flex-col">
-          <div className="flex-1 overflow-y-auto px-4 py-5 flex flex-col gap-0 hide-scrollbar min-h-0">
+          <div className="flex-1 overflow-y-auto px-5 py-5 flex flex-col gap-0 hide-scrollbar min-h-0">
             {inboxItems.length === 0 ? (
               <div className="flex-1 flex items-center justify-center text-text-muted text-[13px] py-12">
                 Nothing waiting here.
@@ -474,46 +526,97 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
               </>
             )}
 
-            {/* Rituals section */}
-            {rituals.length > 0 && (
-              <>
-                <span className="section-lbl mt-5 mb-1">Rituals</span>
-                {rituals.map((ritual) => {
-                  const ritualBlockId = `ritual-${ritual.id}`;
-                  const block = scheduleBlocks.find((b) => b.id === ritualBlockId || b.linkedTaskId === ritualBlockId);
-                  const isPlaced = !!block;
-                  const placedTime = block ? formatBlockTime(block.startHour, block.startMin) : '';
-                  const isSkipped = (ritual.skippedDates ?? []).includes(viewDateKey);
-                  return (
-                    <RitualEntry
-                      key={ritual.id}
-                      ritual={ritual}
-                      isPlaced={isPlaced}
-                      placedTime={placedTime}
-                      isSkipped={isSkipped}
-                    />
-                  );
-                })}
-              </>
-            )}
+            {/* Rituals section — always visible, supports mid-week creation */}
+            <div className="mt-5">
+              <div className="flex items-center justify-between mb-1">
+                <span className="section-lbl">Rituals</span>
+                {rituals.length < MAX_RITUALS && !isAddingRitual && (
+                  <button
+                    onClick={() => setIsAddingRitual(true)}
+                    className="text-[10px] text-text-muted/50 hover:text-accent-warm transition-colors"
+                  >
+                    + Add
+                  </button>
+                )}
+              </div>
+
+              {rituals.map((ritual) => {
+                const ritualBlockId = `ritual-${ritual.id}`;
+                const block = scheduleBlocks.find((b) => b.id === ritualBlockId || b.linkedTaskId === ritualBlockId);
+                const isPlaced = !!block;
+                const placedTime = block ? formatBlockTime(block.startHour, block.startMin) : '';
+                const isSkipped = (ritual.skippedDates ?? []).includes(viewDateKey);
+                return (
+                  <RitualEntry
+                    key={ritual.id}
+                    ritual={ritual}
+                    isPlaced={isPlaced}
+                    placedTime={placedTime}
+                    isSkipped={isSkipped}
+                  />
+                );
+              })}
+
+              {/* Inline ritual creation */}
+              {isAddingRitual && (
+                <div className="flex items-center gap-2 px-4 py-2">
+                  <input
+                    autoFocus
+                    value={ritualDraft}
+                    onChange={(e) => setRitualDraft(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && ritualDraft.trim()) {
+                        addRitual(ritualDraft.trim());
+                        setRitualDraft('');
+                        setIsAddingRitual(false);
+                      }
+                      if (e.key === 'Escape') {
+                        setRitualDraft('');
+                        setIsAddingRitual(false);
+                      }
+                    }}
+                    placeholder="Ritual name…"
+                    className="flex-1 bg-transparent text-[12px] text-text-primary placeholder:text-text-muted/30 border-b border-border-subtle/50 focus:border-accent-warm/40 outline-none py-1 transition-colors"
+                  />
+                  <button
+                    onClick={() => {
+                      if (ritualDraft.trim()) {
+                        addRitual(ritualDraft.trim());
+                        setRitualDraft('');
+                        setIsAddingRitual(false);
+                      }
+                    }}
+                    className="text-[10px] text-accent-warm/70 hover:text-accent-warm transition-colors"
+                  >
+                    Add
+                  </button>
+                </div>
+              )}
+
+              {rituals.length === 0 && !isAddingRitual && (
+                <div className="px-4 py-2 text-[11px] text-text-muted/30 italic">
+                  No rituals yet
+                </div>
+              )}
+
+              {rituals.length >= MAX_RITUALS && (
+                <div className="px-4 pt-1 text-[9px] text-text-muted/25 uppercase tracking-wider">
+                  {MAX_RITUALS} / {MAX_RITUALS} rituals
+                </div>
+              )}
+            </div>
           </div>
           {hasReturnableTasks && (
             <ReturnDropZone onDrop={(item) => { void returnTaskToInbox(item.id); }} />
           )}
         </div>
 
-        {showZen && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent-warm/[0.07] animate-zen-flash pointer-events-none">
-            <span className="font-display font-bold text-[28px] text-accent-warm/50 tracking-[-0.02em]">
-              Held.
-            </span>
-          </div>
-        )}
+        {/* Zen flash removed — confusing interaction when dragging blocks */}
       </div>
 
       <div className="px-6 py-3 border-t border-border-subtle">
         <span className="editorial-pill inline-flex rounded-full px-3 py-1 text-[11px] text-text-muted font-mono">
-          {inboxItems.length} in queue
+          {allInboxItems.length} in queue
         </span>
       </div>
     </div>

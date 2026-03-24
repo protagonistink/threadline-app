@@ -154,6 +154,7 @@ contextBridge.exposeInMainWorld('api', {
   // Finance (Compass engine)
   finance: {
     getState: () => ipcRenderer.invoke('finance:get-state'),
+    getAccounts: () => ipcRenderer.invoke('finance:get-accounts'),
     refresh: () => ipcRenderer.invoke('finance:refresh'),
     plaidLink: () => ipcRenderer.invoke('finance:plaid-link'),
     plaidExchange: (publicToken: string) => ipcRenderer.invoke('finance:plaid-exchange', publicToken),

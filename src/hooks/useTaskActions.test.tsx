@@ -139,6 +139,7 @@ describe('useTaskActions', () => {
       },
       finance: {
         getState: vi.fn().mockResolvedValue(null),
+        getAccounts: vi.fn().mockResolvedValue([]),
         refresh: vi.fn().mockResolvedValue(null),
         plaidLink: vi.fn().mockResolvedValue({ success: false }),
         plaidExchange: vi.fn().mockResolvedValue({ success: false }),
