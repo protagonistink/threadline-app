@@ -79,7 +79,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
       {/* A. Greeting */}
       <h1
         className="font-display font-bold leading-tight mb-4 tracking-[-0.02em]"
-        style={{ color: '#FFFFFF', fontSize: compact ? '2.4rem' : '4rem' }}
+        style={{ color: '#FFFFFF', fontSize: compact ? '24px' : '4rem' }}
       >
         {greeting}
       </h1>

@@ -29,15 +29,27 @@ export function MorningBriefing({
 }) {
   const { state, actions } = useBriefingState({ onClose, onStreamingChange, mode, variant });
 
+  const isEvening = state.promptInkMode === 'evening';
+
   return (
     <div
-      className={cn('flex h-full w-full', state.isOverlay && 'rounded-[28px]')}
+      className={cn('relative flex h-full w-full', state.isOverlay && 'rounded-[28px]')}
       style={{
         backgroundColor: '#0B1120',
         backgroundImage: 'radial-gradient(ellipse at 20% 20%, #1E293B, #0B1120 70%)',
         color: '#CBD5E1',
       }}
     >
+      {/* Warm/cool top gradient overlay */}
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-x-0 top-0 h-64 z-0',
+          isEvening
+            ? 'bg-gradient-to-b from-[rgba(45,212,191,0.03)] via-transparent to-transparent'
+            : 'bg-gradient-to-b from-[rgba(200,60,47,0.04)] via-transparent to-transparent'
+        )}
+      />
+
       {!state.isOverlay && <div className="drag-region" />}
 
       {/* Left Column */}
