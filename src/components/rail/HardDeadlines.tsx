@@ -39,7 +39,14 @@ export function HardDeadlines({ deadlines }: HardDeadlinesProps) {
             <p className="font-sans text-[12px] text-text-muted/60 leading-tight line-clamp-1">
               {deadline.title}
             </p>
-            <span className="font-sans text-[10px] text-text-muted/35">
+            <span
+              className="font-sans text-[10px]"
+              style={{
+                color: differenceInCalendarDays(parseISO(deadline.dueDate), new Date()) <= 1
+                  ? 'rgba(200,60,47,0.8)'
+                  : 'rgba(255,240,220,0.25)',
+              }}
+            >
               {relativeDate(deadline.dueDate)}
             </span>
           </div>

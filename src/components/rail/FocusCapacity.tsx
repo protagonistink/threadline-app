@@ -5,7 +5,7 @@ interface FocusCapacityProps {
 
 export function FocusCapacity({ label }: FocusCapacityProps) {
   return (
-    <p className="font-sans text-[12px] text-text-muted/70 leading-snug italic">
+    <p className="text-[14px] font-medium italic text-[rgba(255,240,220,0.88)] leading-snug">
       {label}
     </p>
   );

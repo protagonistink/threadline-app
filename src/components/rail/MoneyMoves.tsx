@@ -27,7 +27,7 @@ export function MoneyMoves({ obligations }: MoneyMovesProps) {
           <span className="font-sans text-[11px] text-text-muted/55 leading-tight line-clamp-1 flex-1">
             {item.label}
           </span>
-          <span className="font-sans text-[11px] text-text-muted/55 flex-shrink-0">
+          <span className="font-sans text-[11px] text-[rgba(200,60,47,0.7)] flex-shrink-0">
             {formatAmount(item.amount)}
           </span>
         </div>
