@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
@@ -218,53 +219,64 @@ function AppLayout() {
       {/* ═══ MODE ROUTER ═══ */}
       {/* Content offset: ml-12 accounts for the 48px fixed sidebar (hidden in FocusMode) */}
       <div className={cn('flex flex-1 overflow-hidden', mode !== 'focus' && 'ml-12')}>
-        {view === 'intentions' ? (
-          <Suspense fallback={null}>
-            <IntentionsView />
-          </Suspense>
-        ) : mode === 'briefing' ? (
-          <BriefingMode
-            onComplete={closeBriefing}
-            isEvening={isEveningReflection}
-            briefingSessionId={briefingSessionId}
-            onNewChat={() => setBriefingSessionId((n) => n + 1)}
-            onStreamingChange={setInkStreaming}
-            briefingMode={briefingMode}
-          />
-        ) : mode === 'focus' && focusTaskId ? (
-          <FocusMode taskId={focusTaskId} onExit={exitFocus} />
-        ) : mode === 'planning' ? (
-          <PlanningMode
-            onStartDay={startDay}
-            onOpenInk={openFullscreenInk}
-            onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
-            assistantOpen={assistantOpen}
-            assistantPinned={assistantPinned}
-            onAssistantHover={openAssistantPreview}
-            onAssistantLeave={scheduleAssistantClose}
-            onToggleAssistant={togglePinnedAssistant}
-            inkStreaming={inkStreaming}
-            briefingSessionId={briefingSessionId}
-            onNewChat={() => setBriefingSessionId((n) => n + 1)}
-            onStreamingChange={setInkStreaming}
-          />
-        ) : (
-          <ExecutingMode
-            onEnterFocus={enterFocus}
-            onOpenInk={openFullscreenInk}
-            onOpenInbox={openInbox}
-            onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
-            assistantOpen={assistantOpen}
-            assistantPinned={assistantPinned}
-            onAssistantHover={openAssistantPreview}
-            onAssistantLeave={scheduleAssistantClose}
-            onToggleAssistant={togglePinnedAssistant}
-            inkStreaming={inkStreaming}
-            briefingSessionId={briefingSessionId}
-            onNewChat={() => setBriefingSessionId((n) => n + 1)}
-            onStreamingChange={setInkStreaming}
-          />
-        )}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${mode}-${view}`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            className="flex-1 flex overflow-hidden"
+          >
+            {view === 'intentions' ? (
+              <Suspense fallback={null}>
+                <IntentionsView />
+              </Suspense>
+            ) : mode === 'briefing' ? (
+              <BriefingMode
+                onComplete={closeBriefing}
+                isEvening={isEveningReflection}
+                briefingSessionId={briefingSessionId}
+                onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                onStreamingChange={setInkStreaming}
+                briefingMode={briefingMode}
+              />
+            ) : mode === 'focus' && focusTaskId ? (
+              <FocusMode taskId={focusTaskId} onExit={exitFocus} />
+            ) : mode === 'planning' ? (
+              <PlanningMode
+                onStartDay={startDay}
+                onOpenInk={openFullscreenInk}
+                onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
+                assistantOpen={assistantOpen}
+                assistantPinned={assistantPinned}
+                onAssistantHover={openAssistantPreview}
+                onAssistantLeave={scheduleAssistantClose}
+                onToggleAssistant={togglePinnedAssistant}
+                inkStreaming={inkStreaming}
+                briefingSessionId={briefingSessionId}
+                onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                onStreamingChange={setInkStreaming}
+              />
+            ) : (
+              <ExecutingMode
+                onEnterFocus={enterFocus}
+                onOpenInk={openFullscreenInk}
+                onOpenInbox={openInbox}
+                onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
+                assistantOpen={assistantOpen}
+                assistantPinned={assistantPinned}
+                onAssistantHover={openAssistantPreview}
+                onAssistantLeave={scheduleAssistantClose}
+                onToggleAssistant={togglePinnedAssistant}
+                inkStreaming={inkStreaming}
+                briefingSessionId={briefingSessionId}
+                onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                onStreamingChange={setInkStreaming}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* ═══ GLOBAL OVERLAYS ═══ */}
