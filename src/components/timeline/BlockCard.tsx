@@ -8,7 +8,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import type { PlannedTask, ScheduleBlock } from '@/types';
-import { AIBreakdown } from './AIBreakdown';
+import { AIBreakdown } from '../AIBreakdown';
 import { timeToTop, formatTimeShort, GRID_SNAP_MINS, getStepMins } from './timelineUtils';
 
 function FocusSetMeter({ durationMins }: { durationMins: number }) {

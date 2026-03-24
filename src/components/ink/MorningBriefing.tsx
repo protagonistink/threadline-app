@@ -9,9 +9,9 @@ import { useBriefingState } from '@/hooks/useBriefingState';
 import { MorningWelcome } from './MorningWelcome';
 import { MorningSidebar } from './MorningSidebar';
 import { MessageBubble } from './MessageBubble';
-import { ScheduleChips } from './ScheduleChips';
-import { CommitChips } from './CommitChips';
-import { RitualSuggestions } from './RitualSuggestions';
+import { ScheduleChips } from '../ScheduleChips';
+import { CommitChips } from '../CommitChips';
+import { RitualSuggestions } from '../RitualSuggestions';
 import { BriefingInput } from './BriefingInput';
 
 export function MorningBriefing({

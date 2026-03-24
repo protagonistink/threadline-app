@@ -7,9 +7,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useApp } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
-import { GoalSection } from './GoalSection';
-import { PlanWarnings } from './PlanWarnings';
-import { getDeadlineState } from './TaskCard';
+import { GoalSection } from '../GoalSection';
+import { PlanWarnings } from '../PlanWarnings';
+import { getDeadlineState } from '../shared/TaskCard';
 
 export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   const { isFocus } = useTheme();

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { CalendarDays, Target, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp } from '@/context/AppContext';
-import { InkedLogo } from './InkedLogo';
+import { InkedLogo } from '../shared/InkedLogo';
 
 interface SidebarProps {
   onSettingsClick: () => void;

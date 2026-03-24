@@ -11,7 +11,7 @@ import { useSound } from '@/hooks/useSound';
 import { usePhysicsWarnings } from '@/hooks/usePhysicsWarnings';
 import { useCurrentMinute } from '@/hooks/useCurrentMinute';
 import type { PomodoroState, ScheduleBlock } from '@/types';
-import { DateHeader } from './DateHeader';
+import { DateHeader } from '../DateHeader';
 import { BASE_HOUR_HEIGHT, GRID_SNAP_MINS, MIN_VISIBLE_DAY_HOURS, clampMinutes, timeToTop, formatTimeShort } from './timelineUtils';
 import { OpenInterval } from './OpenInterval';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
