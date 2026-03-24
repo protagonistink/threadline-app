@@ -40,7 +40,7 @@ export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' 
           return (
             <div key={item.id} className="flex items-baseline gap-2 shrink-0">
               <span
-                className="font-display italic text-[14px] leading-none"
+                className="font-display font-bold text-[14px] leading-none"
                 style={{ color: isLife ? 'rgba(110,135,175,0.65)' : 'rgba(190,90,55,0.8)' }}
               >
                 {item.days}d
@@ -100,7 +100,7 @@ export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' 
             }}
           >
             <div
-              className="font-display italic text-[16px] leading-none"
+              className="font-display font-bold text-[16px] leading-none"
               style={{
                 color: isLife ? 'rgba(110,135,175,0.65)' : 'rgba(190,90,55,0.8)',
                 marginBottom: 3,

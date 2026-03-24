@@ -41,7 +41,7 @@ function MonthNotSetPrompt() {
         <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
           {monthYear}
         </div>
-        <h3 className="mt-5 font-display italic text-[26px] font-light text-text-primary leading-snug">
+        <h3 className="mt-5 font-display font-bold text-[26px] tracking-[-0.02em] text-text-primary leading-snug">
           What needs to move this month?
         </h3>
         <p className="mt-3 text-[13px] text-text-muted leading-relaxed">
@@ -71,7 +71,7 @@ function WeekNotPlannedPrompt() {
             <div className="text-[11px] font-mono uppercase tracking-[0.2em] text-text-muted">
               {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
             </div>
-            <p className="mt-2 font-display italic text-[20px] font-light text-text-primary leading-snug">
+            <p className="mt-2 font-display font-bold text-[20px] tracking-[-0.02em] text-text-primary leading-snug">
               {monthlyPlan.oneThing}
             </p>
           </div>
@@ -80,7 +80,7 @@ function WeekNotPlannedPrompt() {
 
       <div className="flex flex-1 items-center justify-center">
         <div className="editorial-card rounded-[24px] px-10 py-12 text-center max-w-md">
-          <h3 className="font-display italic text-[26px] font-light text-text-primary leading-snug">
+          <h3 className="font-display font-bold text-[26px] tracking-[-0.02em] text-text-primary leading-snug">
             Three threads for this week.
           </h3>
           <p className="mt-3 text-[13px] text-text-muted leading-relaxed">
@@ -427,7 +427,7 @@ function ActiveWeekContent() {
                 {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
               </span>
             </div>
-            <h3 className="mt-2 font-display italic text-[26px] font-light text-text-primary leading-snug">
+            <h3 className="mt-2 font-display font-bold text-[26px] tracking-[-0.02em] text-text-primary leading-snug">
               {monthlyPlan.oneThing}
             </h3>
           </div>
@@ -482,7 +482,7 @@ function ActiveWeekContent() {
         {/* Plan your day CTA — only on the day planning was completed */}
         {weeklyPlanningLastCompleted === format(new Date(), 'yyyy-MM-dd') && (
           <div className="mt-6 text-center">
-            <p className="font-display italic text-[14px] text-text-muted/50 mb-3">
+            <p className="font-display font-medium text-[14px] text-text-muted/50 mb-3">
               Looks right?
             </p>
             <button
@@ -514,7 +514,7 @@ export function WeeklyIntentions() {
     <div className="editorial-panel flex-1 glass paper-texture flex flex-col h-full">
       <div className="h-14 px-8 border-b border-border-subtle flex items-center justify-between shrink-0">
         <div>
-          <h2 className="font-display italic text-[22px] font-light tracking-wide text-text-emphasis">
+          <h2 className="font-display font-bold text-[22px] tracking-[-0.02em] text-text-emphasis">
             Weekly Intentions
           </h2>
           {mode !== 'active-week' && MODE_SUBTITLES[mode] && (

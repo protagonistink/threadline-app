@@ -600,19 +600,19 @@ export function Timeline() {
                   if (e.key === 'Enter') e.currentTarget.blur();
                   if (e.key === 'Escape') setIsEditingStart(false);
                 }}
-                className="bg-transparent border-none outline-none font-display italic text-[15px] w-[80px] text-right"
+                className="bg-transparent border-none outline-none font-display font-medium text-[15px] w-[80px] text-right"
                 style={{ color: 'rgba(225,215,200,0.88)' }}
               />
             ) : (
               <button
                 onClick={() => setIsEditingStart(true)}
-                className="font-display italic text-[15px] leading-none hover:opacity-70 transition-opacity"
+                className="font-display font-medium text-[15px] leading-none hover:opacity-70 transition-opacity"
                 style={{ color: 'rgba(225,215,200,0.6)' }}
               >
                 {formatTimeShort(workdayStart.hour, workdayStart.min)}
               </button>
             )}
-            <span className="font-display italic text-[15px] leading-none mx-1" style={{ color: 'rgba(225,215,200,0.2)' }}>–</span>
+            <span className="font-display font-medium text-[15px] leading-none mx-1" style={{ color: 'rgba(225,215,200,0.2)' }}>–</span>
             {isEditingEnd ? (
               <input
                 type="time"
@@ -627,13 +627,13 @@ export function Timeline() {
                   if (e.key === 'Enter') e.currentTarget.blur();
                   if (e.key === 'Escape') setIsEditingEnd(false);
                 }}
-                className="bg-transparent border-none outline-none font-display italic text-[15px] w-[80px]"
+                className="bg-transparent border-none outline-none font-display font-medium text-[15px] w-[80px]"
                 style={{ color: 'rgba(225,215,200,0.88)' }}
               />
             ) : (
               <button
                 onClick={() => setIsEditingEnd(true)}
-                className="font-display italic text-[15px] leading-none hover:opacity-70 transition-opacity"
+                className="font-display font-medium text-[15px] leading-none hover:opacity-70 transition-opacity"
                 style={{ color: 'rgba(225,215,200,0.6)' }}
               >
                 {formatTimeShort(workdayEnd.hour, workdayEnd.min)}
@@ -774,7 +774,7 @@ export function Timeline() {
                 <input
                   autoFocus
                   placeholder="Event name..."
-                  className="w-full bg-transparent border-none outline-none font-display italic text-[14px] text-slate-100 placeholder:text-text-muted/30"
+                  className="w-full bg-transparent border-none outline-none font-display font-medium text-[14px] text-slate-100 placeholder:text-text-muted/30"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') commitAdHocBlock(e.currentTarget.value);
                     if (e.key === 'Escape') setAdHocInput(null);

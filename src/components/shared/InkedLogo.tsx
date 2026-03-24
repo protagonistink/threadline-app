@@ -117,10 +117,10 @@ export function InkedLogo({ collapsed = false, className }: InkedLogoProps) {
           textAnchor="start"
           fill={wordmarkFill}
           style={{
-            fontFamily: '"Cormorant Garamond", serif',
+            fontFamily: '"Satoshi", -apple-system, BlinkMacSystemFont, sans-serif',
             fontSize: '58px',
-            fontWeight: 400,
-            letterSpacing: '0.02em',
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
           }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

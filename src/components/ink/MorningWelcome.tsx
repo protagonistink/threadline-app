@@ -78,7 +78,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
     <div className="flex flex-col justify-center h-full">
       {/* A. Greeting */}
       <h1
-        className="font-display italic font-light leading-tight mb-4"
+        className="font-display font-bold leading-tight mb-4 tracking-[-0.02em]"
         style={{ color: '#FFFFFF', fontSize: compact ? '2.4rem' : '4rem' }}
       >
         {greeting}
@@ -113,7 +113,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
 
       {/* D. Grounding Prompt */}
       <p
-        className="font-display italic font-light"
+        className="font-display font-medium"
         style={{ color: '#F8FAFC', fontSize: compact ? '1.15rem' : '1.5rem', marginTop: compact ? '2.75rem' : '5rem' }}
       >
         {promptCopy.prompt}

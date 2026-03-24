@@ -144,7 +144,7 @@ function MonthlySection() {
             setMonthlyPlan({ ...monthlyPlan, oneThing: next })
           }
           placeholder="What's the one thing this month?"
-          className="font-display italic text-[26px] font-light text-text-primary leading-snug"
+          className="font-display font-bold text-[26px] tracking-[-0.02em] text-text-primary leading-snug"
         />
 
         {/* Why */}
@@ -391,7 +391,7 @@ export function IntentionsView() {
         className="h-12 shrink-0 flex items-center px-6 border-b border-border-subtle"
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
-        <h1 className="font-display italic text-[20px] font-light text-text-emphasis tracking-wide">
+        <h1 className="font-display font-bold text-[20px] text-text-emphasis tracking-[-0.02em]">
           Your Intentions
         </h1>
       </div>

@@ -211,7 +211,7 @@ export function Settings({ onClose }: SettingsProps) {
       <div className="w-[640px] max-h-[85vh] bg-bg-card border border-border rounded-lg shadow-2xl flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border/50">
-          <h2 className="font-display italic text-[18px] font-light text-text-emphasis">Settings</h2>
+          <h2 className="font-display font-bold text-[18px] text-text-emphasis tracking-[-0.02em]">Settings</h2>
           <button onClick={onClose} className="p-1.5 text-text-muted hover:text-text-primary hover:bg-bg-elevated rounded-md transition-colors">
             <X className="w-4 h-4" />
           </button>

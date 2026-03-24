@@ -325,7 +325,7 @@ export function BlockCard({
 
       <div className="relative z-10 flex items-start pr-6">
         <h4 className={cn(
-          'truncate focus-editorial font-display italic leading-snug flex-1',
+          'truncate focus-editorial font-display font-bold leading-snug flex-1',
           isCompact ? 'text-[13px]' : 'text-[16px]',
           isDone ? 'text-text-muted line-through' : 'text-slate-100'
         )}>{block.title}</h4>

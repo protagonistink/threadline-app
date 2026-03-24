@@ -504,7 +504,7 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
 
         {showZen && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-accent-warm/[0.07] animate-zen-flash pointer-events-none">
-            <span className="font-display italic text-[28px] text-accent-warm/50 tracking-wide">
+            <span className="font-display font-bold text-[28px] text-accent-warm/50 tracking-[-0.02em]">
               Held.
             </span>
           </div>

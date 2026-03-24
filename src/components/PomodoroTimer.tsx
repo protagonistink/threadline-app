@@ -124,7 +124,7 @@ export function PomodoroTimer() {
           <div className="flex items-center gap-4 rounded-2xl border border-border bg-bg-card/96 px-5 py-4 shadow-[0_20px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
             <div className="min-w-0 flex-1">
               <div className="text-[9px] uppercase tracking-[0.18em] text-accent-warm">Timebox ended</div>
-              <div className="mt-0.5 truncate font-display text-[15px] italic text-text-emphasis">
+              <div className="mt-0.5 truncate font-display text-[15px] font-medium text-text-emphasis">
                 {timeboxDecision.taskTitle}
               </div>
             </div>

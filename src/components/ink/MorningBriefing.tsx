@@ -95,7 +95,7 @@ export function MorningBriefing({
                   <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: '#94A3B8' }}>
                     Weekly interview
                   </div>
-                  <div className={cn('mt-3 font-display italic font-light leading-snug', state.isOverlay ? 'text-[20px]' : 'text-[24px]')} style={{ color: '#F8FAFC' }}>
+                  <div className={cn('mt-3 font-display font-bold leading-snug tracking-[-0.02em]', state.isOverlay ? 'text-[20px]' : 'text-[24px]')} style={{ color: '#F8FAFC' }}>
                     Let&apos;s see the week.
                   </div>
                 </div>
@@ -162,7 +162,7 @@ export function MorningBriefing({
               {state.committed && (
                 <div className="flex items-center justify-center py-6">
                   <div className="text-center animate-fade-in">
-                    <div className="font-display italic text-[22px]" style={{ color: '#F8FAFC' }}>Held.</div>
+                    <div className="font-display font-bold text-[22px] tracking-[-0.02em]" style={{ color: '#F8FAFC' }}>Held.</div>
                     <div className="text-[11px] mt-1" style={{ color: '#64748B' }}>Plan locked in</div>
                   </div>
                 </div>
