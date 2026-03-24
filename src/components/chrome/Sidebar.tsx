@@ -66,7 +66,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
                 hovered ? 'gap-3 px-3 py-2' : 'justify-center px-1 py-2.5',
                 active
                   ? 'text-accent-warm bg-accent-warm/8'
-                  : 'text-text-muted/70 hover:text-text-primary hover:bg-bg-card/60'
+                  : 'text-text-muted/70 hover:text-accent-warm-hover hover:bg-bg-card/60'
               )}
             >
               <Icon

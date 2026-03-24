@@ -112,7 +112,7 @@ export function ExecutingMode({
           title={assistantPinned ? 'Close Ink' : 'Open Ink'}
           aria-label={assistantPinned ? 'Close Ink' : 'Open Ink'}
           className={cn(
-            'ink-fab no-drag relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-bg-card/92 text-text-muted shadow-[0_16px_40px_rgba(0,0,0,0.24)] backdrop-blur-md transition-[border-color,color,background-color] hover:border-accent-warm/35 hover:text-accent-warm',
+            'ink-fab no-drag relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-bg-card/92 text-text-muted shadow-[0_16px_40px_rgba(0,0,0,0.24)] backdrop-blur-md transition-[border-color,color,background-color] hover:border-accent-warm/35 hover:text-accent-warm-hover',
             (inkStreaming || assistantPinned) && 'ink-fab--thinking',
             assistantPinned && 'border-accent-warm/40 bg-bg-elevated/95 text-accent-warm'
           )}

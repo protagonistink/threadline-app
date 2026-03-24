@@ -282,7 +282,7 @@ export function BlockCard({
       onClick={handleClick}
       className={cn(
         blockVariant,
-        'animate-fade-in absolute overflow-hidden flex flex-col group/block',
+        'animate-fade-in absolute overflow-hidden flex flex-col group/block select-none',
         isCompact ? 'gap-0 py-1 px-2' : 'gap-1',
         'transition-all duration-300',
         isFocus && block.kind !== 'hard' && 'focus-block-card',
@@ -328,7 +328,7 @@ export function BlockCard({
             event.stopPropagation();
           }}
           onClick={startFocus}
-          className="absolute top-2 right-9 rounded-md bg-black/15 p-1 text-text-muted/80 hover:text-accent-warm hover:bg-bg-card opacity-0 group-hover/block:opacity-100 transition-all"
+          className="absolute top-2 right-9 rounded-md bg-black/15 p-1 text-text-muted/80 hover:text-accent-warm-hover hover:bg-bg-card opacity-0 group-hover/block:opacity-100 transition-all"
           title="Start focus"
         >
           <Play className="w-3 h-3 fill-current" />

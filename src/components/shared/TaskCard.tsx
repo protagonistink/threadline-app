@@ -171,7 +171,7 @@ export function TaskCard({
       ref={combinedRef}
       data-task-id={task.id}
       className={cn(
-        'animate-fade-in group relative border-b border-ink/5 border-l-2 transition-all duration-300',
+        'animate-fade-in group relative border-b border-ink/5 border-l-2 transition-all duration-300 select-none',
         task.active && 'border-accent-warm/20',
         isDragging && 'opacity-30 scale-[0.98]',
         isNestOver && canNest && 'ring-1 ring-accent-warm/40 ring-inset rounded-lg',
