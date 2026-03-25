@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { useAppShell, useAppStatus } from '@/context/AppContext';
 import { useInkAssistant } from '@/context/InkAssistantContext';
+import { buildMinimalContext } from '@/lib/briefingContext';
+import type { SafeStoreKey } from '@/types/electron';
 
 export function useBriefingLifecycle() {
   const { completeBriefing } = useAppShell();
@@ -39,7 +41,7 @@ export function useBriefingLifecycle() {
   const checkAutoBriefing = useCallback(async (isCancelled: () => boolean) => {
     if (dayCommitInfo.state !== 'briefing' || dayCommitInfo.hadBlocks) return;
 
-    const key = `briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`;
+    const key = `briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}` as SafeStoreKey;
     const [settings, dismissed] = await Promise.all([
       window.api.settings.load(),
       window.api.store.get(key),
@@ -114,7 +116,7 @@ async function generateEveningReflection(today: string) {
     const transcript = msgs.map((m) => `${m.role}: ${m.content}`).join('\n').slice(0, 2000);
     const res = await window.api.ai.chat(
       [{ role: 'user', content: `Summarize this end-of-day conversation in 1-2 sentences as a carry-forward note for tomorrow morning. Focus on what landed, what slipped, and any decisions made. Be concise and factual.\n\n${transcript}` }],
-      {} as any
+      buildMinimalContext()
     );
 
     if (!res.success || !res.content) return;

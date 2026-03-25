@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { usePlanner } from '@/context/AppContext';
 import type { ScheduleBlock } from '@/types';
+import { buildMinimalContext as createBriefingContext } from '@/lib/briefingContext';
 
 export function AIBreakdown({ block }: { block: ScheduleBlock }) {
   const [expanded, setExpanded] = useState(false);
@@ -18,7 +19,7 @@ export function AIBreakdown({ block }: { block: ScheduleBlock }) {
     try {
       const res = await window.api.ai.chat(
         [{ role: 'user', content: `Break down "${block.title}" into 3-5 concrete sub-tasks. Return ONLY a numbered list, no preamble.` }],
-        {} as any
+        createBriefingContext()
       );
       if (res.success && res.content) {
         const lines = res.content.split('\n')

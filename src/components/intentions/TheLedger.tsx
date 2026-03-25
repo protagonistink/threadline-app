@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { usePlanner } from '@/context/AppContext';
 import { useFinance } from '@/hooks/useFinance';
 import { useStripe } from '@/hooks/useStripe';
+import { formatCurrency, formatCurrencyFull, formatRelativeDate } from '@/lib/utils';
 import { ArrowDown, ArrowUp, Minus } from 'lucide-react';
 
 const STATE_COLORS: Record<string, string> = {
@@ -11,40 +12,10 @@ const STATE_COLORS: Record<string, string> = {
 };
 
 const EVENT_ICONS: Record<string, typeof ArrowUp> = {
-  income: ArrowDown, // money coming in
-  bill: ArrowUp,     // money going out
+  income: ArrowDown,
+  bill: ArrowUp,
   sinking_fund: Minus,
 };
-
-function formatCurrency(n: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function formatCurrencyFull(n: number) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(n);
-}
-
-function formatRelativeDate(date: Date): string {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diff = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diff === 0) return 'Today';
-  if (diff === 1) return 'Tomorrow';
-  if (diff === -1) return 'Yesterday';
-  if (diff > 0 && diff <= 7) return target.toLocaleDateString('en-US', { weekday: 'short' });
-  return target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (

@@ -8,6 +8,15 @@ import * as plaid from './plaid';
 import { openPlaidLink } from './plaid-link';
 import { eq } from 'drizzle-orm';
 import { getFinanceProvider } from './finance-provider';
+import { assertRateLimit, logSecurityEvent } from './security';
+
+function sanitizePublicToken(publicToken: string) {
+  const normalized = typeof publicToken === 'string' ? publicToken.trim() : '';
+  if (normalized.length < 20 || normalized.length > 512) {
+    throw new Error('Invalid Plaid public token');
+  }
+  return normalized;
+}
 
 function toIsoDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -274,8 +283,10 @@ export function registerFinanceHandlers(): void {
   });
 
   // finance:refresh — sync Plaid then return engine state
-  ipcMain.handle('finance:refresh', async () => {
+  ipcMain.handle('finance:refresh', async (event) => {
     try {
+      assertRateLimit('finance:refresh', event.sender.id, 2_000);
+      logSecurityEvent('finance.refresh', { senderId: event.sender.id });
       await syncPlaidData();
       return getEngineState();
     } catch (err) {
@@ -285,8 +296,10 @@ export function registerFinanceHandlers(): void {
   });
 
   // finance:plaid-link — full Plaid Link OAuth flow
-  ipcMain.handle('finance:plaid-link', async () => {
+  ipcMain.handle('finance:plaid-link', async (event) => {
     try {
+      assertRateLimit('finance:plaid-link', event.sender.id, 5_000);
+      logSecurityEvent('finance.plaidLink.start', { senderId: event.sender.id });
       const provider = getFinanceProvider();
       if (provider.name !== 'plaid') {
         return { success: false };
@@ -295,24 +308,29 @@ export function registerFinanceHandlers(): void {
       const publicToken = await openPlaidLink(linkToken);
       await plaid.exchangePublicToken(publicToken);
       await syncPlaidData();
+      logSecurityEvent('finance.plaidLink.success', { senderId: event.sender.id });
       return { success: true };
     } catch (err) {
+      logSecurityEvent('finance.plaidLink.failure', { senderId: event.sender.id });
       console.error('[finance:plaid-link]', err);
       return { success: false };
     }
   });
 
   // finance:plaid-exchange — exchange a public token received externally
-  ipcMain.handle('finance:plaid-exchange', async (_event, publicToken: string) => {
+  ipcMain.handle('finance:plaid-exchange', async (event, publicToken: string) => {
     try {
+      assertRateLimit('finance:plaid-exchange', event.sender.id, 5_000);
       const provider = getFinanceProvider();
       if (provider.name !== 'plaid' || !provider.exchangePublicToken) {
         return { success: false };
       }
-      await provider.exchangePublicToken(publicToken);
+      await provider.exchangePublicToken(sanitizePublicToken(publicToken));
       await syncPlaidData();
+      logSecurityEvent('finance.plaidExchange.success', { senderId: event.sender.id });
       return { success: true };
     } catch (err) {
+      logSecurityEvent('finance.plaidExchange.failure', { senderId: event.sender.id });
       console.error('[finance:plaid-exchange]', err);
       return { success: false };
     }

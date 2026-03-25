@@ -74,9 +74,24 @@ interface FocusAPI {
   disable: () => Promise<ApiResult<null>>;
 }
 
+export type SafeStoreKey =
+  | 'plannerState'
+  | 'dayLocked'
+  | 'dayLockedDate'
+  | 'monthlyPlanDismissedDate'
+  | 'appMode'
+  | 'appModeDate'
+  | 'appModeView'
+  | 'appModeFocusTaskId'
+  | 'appModeInboxOpen'
+  | 'startOfDay.shownDate'
+  | 'endOfDay.shownDate'
+  | 'finance.configured'
+  | `briefing.dismissed.${string}`;
+
 interface StoreAPI {
-  get: (key: string) => Promise<unknown>;
-  set: (key: string, value: unknown) => Promise<void>;
+  get: (key: SafeStoreKey) => Promise<unknown>;
+  set: (key: SafeStoreKey, value: unknown) => Promise<void>;
 }
 
 export interface LoadedSettings {

@@ -31,9 +31,13 @@ export interface PlannerState {
 
 type PlannerField = keyof PlannerState;
 
+type PlannerSetAction = {
+  [K in PlannerField]: { type: 'set'; field: K; value: PlannerState[K] | ((prev: PlannerState[K]) => PlannerState[K]) };
+}[PlannerField];
+
 type PlannerAction =
   | { type: 'load'; payload: Partial<PlannerState> }
-  | { type: 'set'; field: PlannerField; value: unknown };
+  | PlannerSetAction;
 
 export const initialPlannerState: PlannerState = {
   weeklyGoals: [],
@@ -58,13 +62,17 @@ export function plannerReducer(state: PlannerState, action: PlannerAction): Plan
   switch (action.type) {
     case 'load':
       return { ...state, ...action.payload };
-    case 'set':
+    case 'set': {
       const field = action.field;
       const previousValue = state[field];
+      // action.value is already typed to match PlannerState[K] | ((prev) => PlannerState[K])
+      // via PlannerSetAction, but the computed property loses the correlation.
+      // The cast to PlannerState[typeof field] is safe because the discriminated union guarantees it.
       return {
         ...state,
-        [field]: applySetStateAction(previousValue, action.value as typeof previousValue | ((prev: typeof previousValue) => typeof previousValue)),
+        [field]: applySetStateAction(previousValue, action.value as PlannerState[typeof field] | ((prev: PlannerState[typeof field]) => PlannerState[typeof field])),
       };
+    }
     default:
       return state;
   }
@@ -75,7 +83,7 @@ export function createPlannerFieldSetter<K extends PlannerField>(
   field: K
 ): Dispatch<SetStateAction<PlannerState[K]>> {
   return (value) => {
-    dispatch({ type: 'set', field, value: value as unknown });
+    dispatch({ type: 'set', field, value } as PlannerSetAction);
   };
 }
 

@@ -1,9 +1,7 @@
 // src/components/MessageBubble.tsx
-import { lazy, Suspense } from 'react';
 import { stripStructuredAssistantBlocks } from './morningBriefingUtils';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import type { ChatMessage } from '@/types/electron';
-
-const MarkdownRenderer = lazy(() => import('./MarkdownRenderer').then((m) => ({ default: m.MarkdownRenderer })));
 
 export function MessageBubble({ message, isFirst }: { message: ChatMessage; isFirst: boolean }) {
   if (message.role === 'user' && isFirst && !message.attachments?.length) {
@@ -49,9 +47,7 @@ export function MessageBubble({ message, isFirst }: { message: ChatMessage; isFi
         className="flex-1 min-w-0 pr-2 prose-briefing text-[15px] leading-[1.8]"
         style={{ color: 'var(--color-text-secondary)' }}
       >
-        <Suspense fallback={<div>{visibleContent}</div>}>
-          <MarkdownRenderer content={visibleContent} />
-        </Suspense>
+        <MarkdownRenderer content={visibleContent} />
       </div>
     </div>
   );

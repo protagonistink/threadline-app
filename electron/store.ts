@@ -3,6 +3,8 @@ import path from 'node:path';
 import { app, ipcMain } from 'electron';
 import Store from 'electron-store';
 import { getSecure, setSecure } from './secure-store';
+import type { StoredPlannerState } from '../src/hooks/usePlannerPersistence';
+import type { AppMode, View } from '../src/types/appMode';
 
 const store = new Store({
   defaults: {
@@ -88,6 +90,10 @@ const store = new Store({
   },
 });
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const APP_MODES: AppMode[] = ['briefing', 'planning', 'executing', 'focus'];
+const VIEWS: View[] = ['flow', 'intentions'];
+
 const SAFE_STORE_KEYS = new Set([
   'plannerState',
   'dayLocked',
@@ -102,6 +108,61 @@ const SAFE_STORE_KEYS = new Set([
   'endOfDay.shownDate',
   'finance.configured',
 ]);
+
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && DATE_RE.test(value);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function sanitizePlannerState(value: unknown): StoredPlannerState | null {
+  if (!isPlainObject(value)) return null;
+  if (!Array.isArray(value.weeklyGoals) || !Array.isArray(value.plannedTasks)) return null;
+
+  return {
+    weeklyGoals: value.weeklyGoals as StoredPlannerState['weeklyGoals'],
+    plannedTasks: value.plannedTasks as StoredPlannerState['plannedTasks'],
+    dailyPlan: isPlainObject(value.dailyPlan) ? (value.dailyPlan as StoredPlannerState['dailyPlan']) : undefined,
+    dailyPlans: Array.isArray(value.dailyPlans) ? (value.dailyPlans as StoredPlannerState['dailyPlans']) : undefined,
+    viewDate: typeof value.viewDate === 'string' ? value.viewDate : undefined,
+    selectedDate: typeof value.selectedDate === 'string' ? value.selectedDate : undefined,
+    timeLogs: Array.isArray(value.timeLogs) ? (value.timeLogs as StoredPlannerState['timeLogs']) : undefined,
+    activeView: value.activeView === 'flow' || value.activeView === 'intentions' ? value.activeView : undefined,
+    activeSource:
+      value.activeSource === 'cover' || value.activeSource === 'asana' || value.activeSource === 'gcal' || value.activeSource === 'gmail'
+        ? value.activeSource
+        : undefined,
+    rituals: Array.isArray(value.rituals) ? (value.rituals as StoredPlannerState['rituals']) : undefined,
+    countdowns: Array.isArray(value.countdowns) ? (value.countdowns as StoredPlannerState['countdowns']) : undefined,
+    weeklyPlanningLastCompleted:
+      value.weeklyPlanningLastCompleted === null || typeof value.weeklyPlanningLastCompleted === 'string'
+        ? value.weeklyPlanningLastCompleted
+        : undefined,
+    workdayStart: isPlainObject(value.workdayStart) ? (value.workdayStart as StoredPlannerState['workdayStart']) : undefined,
+    workdayEnd: isPlainObject(value.workdayEnd) ? (value.workdayEnd as StoredPlannerState['workdayEnd']) : undefined,
+    monthlyPlan:
+      value.monthlyPlan === null || isPlainObject(value.monthlyPlan) ? (value.monthlyPlan as StoredPlannerState['monthlyPlan']) : undefined,
+    dayEntries: Array.isArray(value.dayEntries) ? (value.dayEntries as StoredPlannerState['dayEntries']) : undefined,
+    userName: typeof value.userName === 'string' ? value.userName.slice(0, 120) : undefined,
+  };
+}
+
+function sanitizeStoreValue(key: string, value: unknown): unknown {
+  if (key === 'plannerState') return sanitizePlannerState(value);
+  if (key === 'dayLocked' || key === 'appModeInboxOpen' || key === 'finance.configured') {
+    return typeof value === 'boolean' ? value : null;
+  }
+  if (key === 'dayLockedDate' || key === 'monthlyPlanDismissedDate' || key === 'appModeDate' || key === 'startOfDay.shownDate' || key === 'endOfDay.shownDate') {
+    return value === null || isIsoDate(value) ? value : null;
+  }
+  if (key === 'appMode') return typeof value === 'string' && APP_MODES.includes(value as AppMode) ? value : null;
+  if (key === 'appModeView') return typeof value === 'string' && VIEWS.includes(value as View) ? value : null;
+  if (key === 'appModeFocusTaskId') return value === null || typeof value === 'string' ? value : null;
+  if (key.startsWith('briefing.dismissed.')) return typeof value === 'boolean' ? value : null;
+  return null;
+}
 
 function isAllowedStoreKey(key: string) {
   return SAFE_STORE_KEYS.has(key) || key.startsWith('briefing.dismissed.');
@@ -119,7 +180,11 @@ export function registerStoreHandlers() {
     if (!isAllowedStoreKey(key)) {
       throw new Error(`Renderer store access denied for key: ${key}`);
     }
-    store.set(key, value);
+    const sanitized = sanitizeStoreValue(key, value);
+    if (sanitized === null && value !== null) {
+      throw new Error(`Renderer store value rejected for key: ${key}`);
+    }
+    store.set(key, sanitized);
     return true;
   });
 
@@ -256,13 +321,13 @@ export function registerStoreHandlers() {
     if ('dayEndMin' in payload) store.set('userPrefs.day.endMin', clampInt(payload.dayEndMin, 0, 59, 0));
     if ('timeboxDefault' in payload) store.set('userPrefs.day.timeboxDefault', clampInt(payload.timeboxDefault, 5, 480, 60));
     if ('syncFrequencyMins' in payload) store.set('userPrefs.day.syncFrequencyMins', clampInt(payload.syncFrequencyMins, 1, 60, 2));
-    if ('narrativeStyle' in payload) store.set('userPrefs.story.narrativeStyle', str(payload.narrativeStyle));
-    if ('storyDepth' in payload) store.set('userPrefs.story.storyDepth', str(payload.storyDepth));
-    if ('tone' in payload) store.set('userPrefs.story.tone', str(payload.tone));
-    if ('accountabilityLevel' in payload) store.set('userPrefs.story.accountabilityLevel', str(payload.accountabilityLevel));
-    if ('priorityRule' in payload) store.set('userPrefs.tasks.priorityRule', str(payload.priorityRule));
-    if ('notificationIntensity' in payload) store.set('userPrefs.tasks.notificationIntensity', str(payload.notificationIntensity));
-    if ('distractionFiltering' in payload) store.set('userPrefs.tasks.distractionFiltering', str(payload.distractionFiltering));
+    if ('narrativeStyle' in payload) store.set('userPrefs.story.narrativeStyle', oneOf(payload.narrativeStyle, ['practical', 'narrative', 'minimal'], 'practical'));
+    if ('storyDepth' in payload) store.set('userPrefs.story.storyDepth', oneOf(payload.storyDepth, ['summary', 'detailed', 'deep'], 'summary'));
+    if ('tone' in payload) store.set('userPrefs.story.tone', oneOf(payload.tone, ['direct', 'warm', 'blunt'], 'direct'));
+    if ('accountabilityLevel' in payload) store.set('userPrefs.story.accountabilityLevel', oneOf(payload.accountabilityLevel, ['gentle', 'firm', 'strict'], 'firm'));
+    if ('priorityRule' in payload) store.set('userPrefs.tasks.priorityRule', oneOf(payload.priorityRule, ['balanced', 'deadline', 'energy', 'goal'], 'balanced'));
+    if ('notificationIntensity' in payload) store.set('userPrefs.tasks.notificationIntensity', oneOf(payload.notificationIntensity, ['minimal', 'standard', 'aggressive'], 'standard'));
+    if ('distractionFiltering' in payload) store.set('userPrefs.tasks.distractionFiltering', oneOf(payload.distractionFiltering, ['show_all', 'hide_low', 'focus_only'], 'show_all'));
     if ('sensitiveDataMasking' in payload) store.set('userPrefs.privacy.sensitiveDataMasking', Boolean(payload.sensitiveDataMasking));
     if ('auditLog' in payload) store.set('userPrefs.privacy.auditLog', Boolean(payload.auditLog));
     if ('dueDateWindowDays' in payload) store.set('userPrefs.moneyPrefs.dueDateWindowDays', clampInt(payload.dueDateWindowDays, 1, 90, 7));

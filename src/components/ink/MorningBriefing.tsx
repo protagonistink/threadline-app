@@ -1,5 +1,4 @@
 // src/components/MorningBriefing.tsx
-import { lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -13,8 +12,7 @@ import { ScheduleChips } from '../ScheduleChips';
 import { CommitChips } from '../CommitChips';
 import { RitualSuggestions } from '../RitualSuggestions';
 import { BriefingInput } from './BriefingInput';
-
-const MarkdownRenderer = lazy(() => import('./MarkdownRenderer').then((m) => ({ default: m.MarkdownRenderer })));
+import { MarkdownRenderer } from './MarkdownRenderer';
 
 export function MorningBriefing({
   onClose,
@@ -132,9 +130,7 @@ export function MorningBriefing({
                   <div className="flex-1 min-w-0 pr-2">
                     <div className={cn('prose-briefing', state.isOverlay ? 'text-[14px] leading-[1.65]' : 'text-[15px] leading-relaxed')} style={{ color: 'var(--color-text-primary)' }}>
                       {state.visibleStreamingContent ? (
-                        <Suspense fallback={<div>{state.visibleStreamingContent}</div>}>
-                          <MarkdownRenderer content={state.visibleStreamingContent} />
-                        </Suspense>
+                        <MarkdownRenderer content={state.visibleStreamingContent} />
                       ) : null}
                       <span className="inline-block w-[2px] h-[14px] bg-accent-warm animate-pulse ml-0.5 align-text-bottom" />
                     </div>

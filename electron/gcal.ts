@@ -4,8 +4,10 @@ import { ipcMain, BrowserWindow, shell } from 'electron';
 import { store } from './store';
 import { getSecure, setSecure } from './secure-store';
 import { buildLocalDayWindow } from './gcalDayWindow';
+import { assertRateLimit, logSecurityEvent } from './security';
 
 const GCAL_BASE_URL = 'https://www.googleapis.com/calendar/v3';
+const GCAL_ID_RE = /^[A-Za-z0-9@._-]+$/;
 
 // OAuth 2.0 config — user provides client ID/secret in Settings
 function getOAuthConfig() {
@@ -85,6 +87,51 @@ function getWriteCalendarId(explicitCalendarId?: string) {
   return getSelectedCalendarIds()[0] || 'primary';
 }
 
+function sanitizeCalendarId(calendarId?: string) {
+  if (!calendarId) return undefined;
+  if (!GCAL_ID_RE.test(calendarId)) throw new Error('Invalid calendar ID');
+  return calendarId;
+}
+
+function sanitizeEventId(eventId: string) {
+  if (!GCAL_ID_RE.test(eventId)) throw new Error('Invalid event ID');
+  return eventId;
+}
+
+function isIsoDateTime(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
+}
+
+function sanitizeCalendarEventInput(event: unknown) {
+  if (!event || typeof event !== 'object') throw new Error('Invalid calendar event');
+  const candidate = event as Record<string, unknown>;
+  const summary = typeof candidate.summary === 'string' ? candidate.summary.trim().slice(0, 500) : '';
+  if (!summary) throw new Error('Event summary is required');
+  const description = typeof candidate.description === 'string' ? candidate.description.slice(0, 10_000) : undefined;
+  const start = candidate.start as Record<string, unknown> | undefined;
+  const end = candidate.end as Record<string, unknown> | undefined;
+  if (!start || !end) throw new Error('Event start and end are required');
+  if (!isIsoDateTime(start.dateTime) || !isIsoDateTime(end.dateTime)) {
+    throw new Error('Invalid event dateTime');
+  }
+  if (typeof start.timeZone !== 'string' || typeof end.timeZone !== 'string') {
+    throw new Error('Invalid event timeZone');
+  }
+
+  return {
+    summary,
+    description,
+    start: {
+      dateTime: start.dateTime,
+      timeZone: start.timeZone.slice(0, 100),
+    },
+    end: {
+      dateTime: end.dateTime,
+      timeZone: end.timeZone.slice(0, 100),
+    },
+  };
+}
+
 export function registerGCalHandlers() {
   ipcMain.handle('gcal:get-events', async (_event, date: string) => {
     try {
@@ -126,12 +173,19 @@ export function registerGCalHandlers() {
     }
   });
 
-  ipcMain.handle('gcal:create-event', async (_event, event: unknown, calendarId?: string) => {
+  ipcMain.handle('gcal:create-event', async (ipcEvent, event: unknown, calendarId?: string) => {
     try {
-      const targetCalendarId = getWriteCalendarId(calendarId);
+      assertRateLimit('gcal:create-event', ipcEvent.sender.id, 500);
+      const targetCalendarId = getWriteCalendarId(sanitizeCalendarId(calendarId));
+      const sanitizedEvent = sanitizeCalendarEventInput(event);
+      logSecurityEvent('gcal.createEvent', {
+        senderId: ipcEvent.sender.id,
+        calendarId: targetCalendarId,
+        summaryLength: sanitizedEvent.summary.length,
+      });
       const result = await gcalFetch(
         `/calendars/${encodeURIComponent(targetCalendarId)}/events`,
-        { method: 'POST', body: JSON.stringify(event) }
+        { method: 'POST', body: JSON.stringify(sanitizedEvent) }
       );
       return { success: true, data: { ...result, calendarId: targetCalendarId } };
     } catch (error) {
@@ -141,12 +195,21 @@ export function registerGCalHandlers() {
 
   ipcMain.handle(
     'gcal:update-event',
-    async (_event, eventId: string, event: unknown, calendarId?: string) => {
+    async (ipcEvent, eventId: string, event: unknown, calendarId?: string) => {
       try {
-        const targetCalendarId = getWriteCalendarId(calendarId);
+        assertRateLimit('gcal:update-event', ipcEvent.sender.id, 500);
+        const targetCalendarId = getWriteCalendarId(sanitizeCalendarId(calendarId));
+        const sanitizedEventId = sanitizeEventId(eventId);
+        const sanitizedEvent = sanitizeCalendarEventInput(event);
+        logSecurityEvent('gcal.updateEvent', {
+          senderId: ipcEvent.sender.id,
+          calendarId: targetCalendarId,
+          eventId: sanitizedEventId,
+          summaryLength: sanitizedEvent.summary.length,
+        });
         const result = await gcalFetch(
-          `/calendars/${encodeURIComponent(targetCalendarId)}/events/${eventId}`,
-          { method: 'PATCH', body: JSON.stringify(event) }
+          `/calendars/${encodeURIComponent(targetCalendarId)}/events/${encodeURIComponent(sanitizedEventId)}`,
+          { method: 'PATCH', body: JSON.stringify(sanitizedEvent) }
         );
         return { success: true, data: result };
       } catch (error) {
@@ -155,11 +218,18 @@ export function registerGCalHandlers() {
     }
   );
 
-  ipcMain.handle('gcal:delete-event', async (_event, eventId: string, calendarId?: string) => {
+  ipcMain.handle('gcal:delete-event', async (ipcEvent, eventId: string, calendarId?: string) => {
     try {
-      const targetCalendarId = getWriteCalendarId(calendarId);
+      assertRateLimit('gcal:delete-event', ipcEvent.sender.id, 500);
+      const targetCalendarId = getWriteCalendarId(sanitizeCalendarId(calendarId));
+      const sanitizedEventId = sanitizeEventId(eventId);
+      logSecurityEvent('gcal.deleteEvent', {
+        senderId: ipcEvent.sender.id,
+        calendarId: targetCalendarId,
+        eventId: sanitizedEventId,
+      });
       await gcalFetch(
-        `/calendars/${encodeURIComponent(targetCalendarId)}/events/${eventId}`,
+        `/calendars/${encodeURIComponent(targetCalendarId)}/events/${encodeURIComponent(sanitizedEventId)}`,
         { method: 'DELETE' }
       );
       return { success: true };

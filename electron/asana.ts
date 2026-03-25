@@ -1,7 +1,20 @@
 import { ipcMain } from 'electron';
 import { getSecure } from './secure-store';
+import { assertRateLimit, logSecurityEvent } from './security';
 
 const ASANA_BASE_URL = 'https://app.asana.com/api/1.0';
+const ASANA_GID_RE = /^\d+$/;
+
+function sanitizeAsanaTaskId(taskId: string): string {
+  if (!ASANA_GID_RE.test(taskId)) throw new Error('Invalid Asana task ID');
+  return taskId;
+}
+
+function sanitizeAsanaComment(text: string): string {
+  const normalized = typeof text === 'string' ? text.trim() : '';
+  if (!normalized) throw new Error('Comment cannot be empty');
+  return normalized.slice(0, 5_000);
+}
 
 export async function asanaFetch(path: string, options: RequestInit = {}) {
   const token = getSecure('asana.token');
@@ -48,11 +61,19 @@ export function registerAsanaHandlers() {
 
   ipcMain.handle(
     'asana:add-comment',
-    async (_event, taskId: string, text: string) => {
+    async (event, taskId: string, text: string) => {
       try {
-        const result = await asanaFetch(`/tasks/${taskId}/stories`, {
+        assertRateLimit('asana:add-comment', event.sender.id, 500);
+        const sanitizedTaskId = sanitizeAsanaTaskId(taskId);
+        const sanitizedComment = sanitizeAsanaComment(text);
+        logSecurityEvent('asana.addComment', {
+          senderId: event.sender.id,
+          taskId: sanitizedTaskId,
+          textLength: sanitizedComment.length,
+        });
+        const result = await asanaFetch(`/tasks/${sanitizedTaskId}/stories`, {
           method: 'POST',
-          body: JSON.stringify({ data: { text } }),
+          body: JSON.stringify({ data: { text: sanitizedComment } }),
         });
         return { success: true, data: result.data };
       } catch (error) {
@@ -63,10 +84,16 @@ export function registerAsanaHandlers() {
 
   ipcMain.handle(
     'asana:complete-task',
-    async (_event, taskId: string, completed: boolean) => {
+    async (event, taskId: string, completed: boolean) => {
       try {
-        if (!/^\d+$/.test(taskId)) throw new Error('Invalid Asana task ID');
-        const result = await asanaFetch(`/tasks/${taskId}`, {
+        assertRateLimit('asana:complete-task', event.sender.id, 500);
+        const sanitizedTaskId = sanitizeAsanaTaskId(taskId);
+        logSecurityEvent('asana.completeTask', {
+          senderId: event.sender.id,
+          taskId: sanitizedTaskId,
+          completed,
+        });
+        const result = await asanaFetch(`/tasks/${sanitizedTaskId}`, {
           method: 'PUT',
           body: JSON.stringify({ data: { completed } }),
         });

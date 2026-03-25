@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, MenuItemConstructorOptions, nativeImage } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, screen, shell, Tray, Menu, MenuItemConstructorOptions, nativeImage, session } from 'electron';
 import path from 'node:path';
 import { registerAsanaHandlers } from './asana';
 import { registerGCalHandlers } from './gcal';
@@ -11,6 +11,7 @@ import { registerChatHistoryHandlers } from './chat-history';
 import { registerFinanceHandlers } from './finance';
 import { registerStripeHandlers } from './stripe';
 import { migrateToEncrypted } from './secure-store';
+import { assertRateLimit, logSecurityEvent } from './security';
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
@@ -27,6 +28,21 @@ if (VITE_DEV_SERVER_URL) {
   app.disableHardwareAcceleration();
 }
 
+function installSecurityPolicies() {
+  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(false);
+  });
+
+  session.defaultSession.setPermissionCheckHandler(() => false);
+
+  app.on('web-contents-created', (_event, contents) => {
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    contents.on('will-attach-webview', (event) => {
+      event.preventDefault();
+    });
+  });
+}
+
 function createWindow() {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
   const winWidth = sw < 1600 ? Math.min(sw - 80, 1400) : 1600;
@@ -37,6 +53,7 @@ function createWindow() {
     height: winHeight,
     minWidth: 1200,
     minHeight: 700,
+    safeDialogs: true,
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#0A0A0A',
     icon: APP_ICON_PATH,
@@ -44,7 +61,27 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
     },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    try {
+      const parsed = new URL(url);
+      const isLocalAppNavigation =
+        parsed.protocol === 'file:' ||
+        (VITE_DEV_SERVER_URL ? url.startsWith(VITE_DEV_SERVER_URL) : false);
+
+      if (isLocalAppNavigation) return;
+    } catch {
+      // Fall through and block malformed navigation attempts.
+    }
+
+    event.preventDefault();
   });
 
   mainWindow.on('close', (e) => {
@@ -127,6 +164,7 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
+  installSecurityPolicies();
   migrateToEncrypted();
   registerAsanaHandlers();
   registerGCalHandlers();
@@ -161,10 +199,15 @@ app.whenReady().then(() => {
     mainWindow.focus();
   });
 
-  ipcMain.handle('shell:open-external', (_, url: string) => {
+  ipcMain.handle('shell:open-external', (event, url: string) => {
     try {
+      assertRateLimit('shell:open-external', event.sender.id, 250);
       const parsed = new URL(url);
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+      logSecurityEvent('shell.openExternal', {
+        senderId: event.sender.id,
+        host: parsed.host || null,
+      });
     } catch {
       return;
     }

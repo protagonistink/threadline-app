@@ -8,6 +8,7 @@ import { useTheme } from '@/context/ThemeContext';
 import { useAppShell, useAppStatus, usePlanner } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
+import { buildMinimalContext } from '@/lib/briefingContext';
 import { usePhysicsWarnings } from '@/hooks/usePhysicsWarnings';
 import { useCurrentMinute } from '@/hooks/useCurrentMinute';
 import type { PomodoroState, ScheduleBlock } from '@/types';
@@ -303,7 +304,7 @@ export function Timeline() {
     }
     window.api.ai.chat(
       [{ role: 'user', content: 'Give me a one-sentence daily planning intention for today. Be brief and poetic. No greeting.' }],
-      {} as any
+      buildMinimalContext()
     ).then((res) => {
       if (res.success && res.content) setInkMessage(res.content.trim());
     }).catch(() => {});

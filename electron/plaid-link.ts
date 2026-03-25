@@ -7,11 +7,14 @@ export function openPlaidLink(linkToken: string): Promise<string> {
     const win = new BrowserWindow({
       width: 500,
       height: 700,
+      safeDialogs: true,
       title: 'Connect your bank',
       webPreferences: {
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: false, // Plaid SDK uses iframes that may break with sandbox: true
+        webSecurity: true,
+        allowRunningInsecureContent: false,
         preload: path.join(__dirname, 'plaid-link-preload.js'),
       },
     });
@@ -20,6 +23,7 @@ export function openPlaidLink(linkToken: string): Promise<string> {
     const html = `<!DOCTYPE html>
 <html>
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src https://cdn.plaid.com 'unsafe-inline'; connect-src https://cdn.plaid.com https://production.plaid.com https://sandbox.plaid.com https://development.plaid.com; img-src 'self' data: https://cdn.plaid.com; style-src 'unsafe-inline'; frame-src https://cdn.plaid.com https://production.plaid.com https://sandbox.plaid.com https://development.plaid.com;">
   <style>body { margin: 0; background: #0A0A0A; }</style>
   <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"><\/script>
 </head>
@@ -39,9 +43,15 @@ export function openPlaidLink(linkToken: string): Promise<string> {
 </body>
 </html>`;
 
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    win.webContents.on('will-navigate', (event) => {
+      event.preventDefault();
+    });
+
     win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-    const onSuccess = (_event: unknown, publicToken: string) => {
+    const onSuccess = (event: Electron.IpcMainEvent, publicToken: string) => {
+      if (event.sender.id !== win.webContents.id) return;
       if (settled) return;
       settled = true;
       cleanup();
@@ -49,7 +59,8 @@ export function openPlaidLink(linkToken: string): Promise<string> {
       resolve(publicToken);
     };
 
-    const onExit = (_event: unknown, errorMessage: string | null) => {
+    const onExit = (event: Electron.IpcMainEvent, errorMessage: string | null) => {
+      if (event.sender.id !== win.webContents.id) return;
       if (settled) return;
       settled = true;
       cleanup();
