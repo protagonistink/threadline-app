@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, CornerDownLeft, ArrowRight, Lock, LockOpen, ChevronDown } from 'lucide-react';
 import { useDrop, useDragLayer } from 'react-dnd';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
-import { useApp } from '@/context/AppContext';
+import { usePlanner, useAppStatus } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
 import { GoalSection } from '../GoalSection';
@@ -13,6 +13,7 @@ import { getDeadlineState } from '../shared/TaskCard';
 
 export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   const { isFocus } = useTheme();
+  const { resetDay, lockDay, unlockDay } = useAppStatus();
   const {
     weeklyGoals,
     plannedTasks,
@@ -23,20 +24,20 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
     countdowns,
     addLocalTask,
     bringForward,
+    assignTaskToGoal,
     unscheduleTaskBlock,
-    resetDay,
     nestTask,
     unnestTask,
-    lockDay,
-    unlockDay,
     viewDate,
     scheduleBlocks,
-  } = useApp();
+    weeklyPlanningLastCompleted,
+  } = usePlanner();
   const [inputValue, setInputValue] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
   const { play } = useSound();
   const isTodayView = format(viewDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-  const planTitle = isTodayView ? "Today's Plan" : `${format(viewDate, 'EEEE')} Plan`;
+  const planTitle = isTodayView ? 'Today' : format(viewDate, 'EEEE');
+  const activeTask = plannedTasks.find((task) => task.active && task.status !== 'done') ?? null;
 
   const finishedCount = plannedTasks.filter((task) => task.status === 'done' && dailyPlan.committedTaskIds.includes(task.id)).length;
   const totalDayCount = dailyPlan.committedTaskIds.length;
@@ -76,7 +77,18 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   const grouped = useMemo(() => weeklyGoals.map((goal) => ({
     goal,
     tasks: dayTasks.filter((task) => task.weeklyGoalId === goal.id),
-  })), [dayTasks, weeklyGoals]);
+  })).concat(
+    dayTasks.some((task) => task.weeklyGoalId == null)
+      ? [{
+          goal: {
+            id: 'unassigned',
+            title: 'Unassigned',
+            color: 'rgb(100,116,139)',
+          },
+          tasks: dayTasks.filter((task) => task.weeklyGoalId == null),
+        }]
+      : []
+  ), [dayTasks, weeklyGoals]);
 
   const deadlineByGoalId = useMemo(() => {
     const map = new Map<string, { daysRemaining: number; state: ReturnType<typeof getDeadlineState> }>();
@@ -95,6 +107,56 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   }, [weeklyGoals, countdowns]);
 
   const isDraggingTask = useDragLayer((monitor) => monitor.isDragging() && monitor.getItemType() === DragTypes.TASK);
+  const [playGoalHandoff, setPlayGoalHandoff] = useState(false);
+
+  useEffect(() => {
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
+    if (weeklyPlanningLastCompleted !== todayKey || weeklyGoals.length === 0) {
+      setPlayGoalHandoff(false);
+      return;
+    }
+
+    const storageKey = `weekly-goal-handoff.${todayKey}`;
+    const hasPlayed = window.sessionStorage.getItem(storageKey) === 'played';
+    if (hasPlayed) {
+      setPlayGoalHandoff(false);
+      return;
+    }
+
+    setPlayGoalHandoff(true);
+    window.sessionStorage.setItem(storageKey, 'played');
+
+    const timeout = window.setTimeout(() => setPlayGoalHandoff(false), 2200);
+    return () => window.clearTimeout(timeout);
+  }, [weeklyGoals.length, weeklyPlanningLastCompleted]);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'i') return;
+
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) return;
+      if (!activeTask) return;
+
+      if (event.altKey) {
+        event.preventDefault();
+        assignTaskToGoal(activeTask.id, null);
+        return;
+      }
+
+      if (weeklyGoals.length === 0) return;
+
+      const currentIndex = activeTask.weeklyGoalId ? weeklyGoals.findIndex((goal) => goal.id === activeTask.weeklyGoalId) : -1;
+      const nextGoal = weeklyGoals[(currentIndex + 1 + weeklyGoals.length) % weeklyGoals.length];
+      if (!nextGoal) return;
+
+      event.preventDefault();
+      assignTaskToGoal(activeTask.id, nextGoal.id);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTask, assignTaskToGoal, weeklyGoals]);
 
   const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
     accept: [DragTypes.TASK, DragTypes.BLOCK],
@@ -181,7 +243,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
                 onClick={() => setConfirmReset(true)}
                 className="text-[10px] uppercase tracking-[0.14em] hover:text-text-primary transition-colors"
               >
-                Clear board
+                Reset day
               </button>
             )
           )}
@@ -232,6 +294,8 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
                 unnestTask={unnestTask}
                 deadlineInfo={deadlineByGoalId.get(goal.id)}
                 nestedInBlockIds={nestedInBlockIds}
+                celebrate={playGoalHandoff}
+                celebrationDelayMs={gi * 180}
               />
             );
           })}
@@ -249,7 +313,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
           >
             <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium">
               <Lock className="w-3 h-3" />
-              Focus
+              Lock in
             </span>
             <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
           </button>

@@ -6,21 +6,22 @@ const INITIAL_STATE: AppModeState = {
   mode: 'briefing',
   view: 'flow',
   focusTaskId: null,
+  inboxOpen: false,
 };
 
 export function appModeReducer(state: AppModeState, action: AppModeAction): AppModeState {
   switch (action.type) {
     case 'COMPLETE_BRIEFING':
       if (state.mode !== 'briefing') return state;
-      return { ...state, mode: 'planning' };
+      return { ...state, mode: 'planning', inboxOpen: true };
 
     case 'START_DAY':
       if (state.mode !== 'planning') return state;
-      return { ...state, mode: 'executing' };
+      return { ...state, mode: 'executing', inboxOpen: false };
 
     case 'CLICK_TASK':
       if (state.mode !== 'planning') return state;
-      return { ...state, mode: 'executing' };
+      return { ...state, mode: 'executing', inboxOpen: false };
 
     case 'ENTER_FOCUS':
       if (state.mode !== 'executing') return state;
@@ -31,12 +32,16 @@ export function appModeReducer(state: AppModeState, action: AppModeAction): AppM
       return { ...state, mode: 'executing', focusTaskId: null };
 
     case 'OPEN_INBOX':
-      if (state.mode !== 'executing') return state;
-      return { ...state, mode: 'planning' };
+      if (state.mode === 'briefing' || state.mode === 'focus') return state;
+      return { ...state, inboxOpen: true };
 
     case 'CLOSE_INBOX':
-      if (state.mode !== 'planning') return state;
-      return { ...state, mode: 'executing' };
+      if (state.mode === 'briefing' || state.mode === 'focus') return state;
+      return { ...state, inboxOpen: false };
+
+    case 'TOGGLE_INBOX':
+      if (state.mode === 'briefing' || state.mode === 'focus') return state;
+      return { ...state, inboxOpen: !state.inboxOpen };
 
     case 'SET_VIEW':
       return { ...state, view: action.view };
@@ -58,6 +63,7 @@ async function loadPersistedState(): Promise<AppModeState | null> {
     const mode = (await window.api.store.get('appMode')) as AppMode | undefined;
     const view = (await window.api.store.get('appModeView')) as View | undefined;
     const focusTaskId = (await window.api.store.get('appModeFocusTaskId')) as string | null | undefined;
+    const inboxOpen = (await window.api.store.get('appModeInboxOpen')) as boolean | undefined;
 
     if (!mode) return null;
 
@@ -65,6 +71,7 @@ async function loadPersistedState(): Promise<AppModeState | null> {
       mode: mode ?? INITIAL_STATE.mode,
       view: view ?? INITIAL_STATE.view,
       focusTaskId: focusTaskId ?? null,
+      inboxOpen: inboxOpen ?? (mode === 'planning'),
     };
   } catch {
     return null;
@@ -77,6 +84,7 @@ function persistState(state: AppModeState): void {
     void window.api.store.set('appMode', state.mode);
     void window.api.store.set('appModeView', state.view);
     void window.api.store.set('appModeFocusTaskId', state.focusTaskId);
+    void window.api.store.set('appModeInboxOpen', state.inboxOpen);
   } catch {
     // Silently fail outside Electron context
   }
@@ -100,6 +108,11 @@ export function useAppMode() {
             dispatch({ type: 'ENTER_FOCUS', taskId: persisted.focusTaskId });
           }
         }
+        if (persisted.inboxOpen) {
+          dispatch({ type: 'OPEN_INBOX' });
+        } else {
+          dispatch({ type: 'CLOSE_INBOX' });
+        }
       }
     }).catch(() => {
       // Ignore restore errors
@@ -120,6 +133,7 @@ export function useAppMode() {
     exitFocus: () => dispatch({ type: 'EXIT_FOCUS' }),
     openInbox: () => dispatch({ type: 'OPEN_INBOX' }),
     closeInbox: () => dispatch({ type: 'CLOSE_INBOX' }),
+    toggleInbox: () => dispatch({ type: 'TOGGLE_INBOX' }),
     setView: (view: View) => dispatch({ type: 'SET_VIEW', view }),
     resetDay: () => dispatch({ type: 'RESET_DAY' }),
   };

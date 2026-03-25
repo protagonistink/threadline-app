@@ -1,5 +1,5 @@
 import { format, differenceInDays, parseISO, startOfDay } from 'date-fns';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 
 function formatBlockTime(hour: number, min: number): string {
   const period = hour >= 12 ? 'PM' : 'AM';
@@ -13,7 +13,7 @@ export function MorningSidebar() {
     countdowns,
     workdayStart,
     workdayEnd,
-  } = useApp();
+  } = usePlanner();
 
   const today = new Date();
   // Calendar events from gcal
@@ -33,7 +33,7 @@ export function MorningSidebar() {
     <aside
       className="w-[350px] shrink-0 flex flex-col overflow-y-auto hide-scrollbar"
       style={{
-        borderLeft: '1px solid #1E293B',
+        borderLeft: '1px solid var(--color-border)',
         padding: '2rem 1.75rem',
         lineHeight: '1.6',
       }}
@@ -42,14 +42,14 @@ export function MorningSidebar() {
       <div className="mb-8">
         <h3
           className="text-[10px] uppercase tracking-widest mb-3"
-          style={{ color: '#64748B' }}
+          style={{ color: 'var(--color-text-muted)' }}
         >
           Today
         </h3>
-        <p className="text-[15px] font-medium" style={{ color: '#E2E8F0' }}>
+        <p className="text-[15px] font-medium" style={{ color: 'var(--color-text-emphasis)' }}>
           {format(today, 'EEEE, MMMM d')}
         </p>
-        <p className="text-[12px] mt-1" style={{ color: '#475569' }}>
+        <p className="text-[12px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
           {startTime} &ndash; {endTime}
         </p>
       </div>
@@ -58,7 +58,7 @@ export function MorningSidebar() {
       <div className="mb-8">
         <h3
           className="text-[10px] uppercase tracking-widest mb-4"
-          style={{ color: '#64748B' }}
+          style={{ color: 'var(--color-text-muted)' }}
         >
           On the Calendar
         </h3>
@@ -70,10 +70,10 @@ export function MorningSidebar() {
               const endMinRemainder = endMin % 60;
               return (
                 <div key={event.id}>
-                  <p className="text-[13px]" style={{ color: '#E2E8F0' }}>
+                  <p className="text-[13px]" style={{ color: 'var(--color-text-primary)' }}>
                     {event.title}
                   </p>
-                  <p className="text-[11px] mt-0.5" style={{ color: '#475569' }}>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                     {formatBlockTime(event.startHour, event.startMin)} &ndash;{' '}
                     {formatBlockTime(endHour, endMinRemainder)}
                   </p>
@@ -81,7 +81,7 @@ export function MorningSidebar() {
               );
             })
           ) : (
-            <p className="text-[12px] italic" style={{ color: '#475569' }}>
+            <p className="text-[12px] italic" style={{ color: 'var(--color-text-secondary)' }}>
               Nothing on the calendar today.
             </p>
           )}
@@ -93,7 +93,7 @@ export function MorningSidebar() {
         <div className="mb-8">
           <h3
             className="text-[10px] uppercase tracking-widest mb-4"
-            style={{ color: '#64748B' }}
+            style={{ color: 'var(--color-text-muted)' }}
           >
             Awareness
           </h3>
@@ -105,13 +105,13 @@ export function MorningSidebar() {
                 <div key={countdown.id} className="flex items-start gap-2.5">
                   <span
                     className="w-1 h-1 rounded-full mt-[7px] shrink-0"
-                    style={{ background: '#475569' }}
+                    style={{ background: 'var(--color-text-secondary)' }}
                   />
                   <div>
-                    <p className="text-[12px]" style={{ color: '#E2E8F0' }}>
+                    <p className="text-[12px]" style={{ color: 'var(--color-text-primary)' }}>
                       {countdown.title}
                     </p>
-                    <p className="text-[10px] mt-0.5" style={{ color: '#475569' }}>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-secondary)' }}>
                       {label}
                     </p>
                   </div>

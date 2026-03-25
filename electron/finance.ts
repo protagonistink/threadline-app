@@ -150,8 +150,7 @@ async function syncPlaidData(): Promise<void> {
   // 3. Fetch and upsert recurring outflow streams as obligations
   const today = new Date();
   const todayStr = toIsoDate(today);
-  const horizonEnd = toIsoDate(new Date(today.getFullYear(), today.getMonth(), today.getDate() + 14));
-  const recurring = await provider.getRecurring(accountIds, todayStr, horizonEnd);
+  const recurring = await provider.getRecurring(accountIds);
 
   for (const stream of recurring) {
     const id = `${provider.name}-${stream.id}`;

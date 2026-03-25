@@ -17,7 +17,7 @@ export function FocusCapacity({
   occupancyRatio,
 }: FocusCapacityProps) {
   return (
-    <div className="py-1">
+    <div className="py-1 select-none">
       <div className="flex items-baseline gap-2.5">
         <span className="text-[18px] leading-none font-mono text-text-emphasis">
           {formatHours(hoursRemaining)}
@@ -29,7 +29,7 @@ export function FocusCapacity({
         </span>
         <span className="text-[10px] uppercase tracking-[0.14em] text-text-muted">booked</span>
       </div>
-      <div className="mt-2 h-px overflow-hidden bg-white/8">
+      <div className="mt-2 h-px overflow-hidden bg-border">
         <div
           className="h-full bg-accent-warm/70"
           style={{ width: `${occupancyRatio * 100}%` }}

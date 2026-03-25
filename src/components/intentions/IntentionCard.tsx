@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { resolveGoalColor } from '@/lib/goalColors';
 import { InlineText } from '@/components/InlineText';
 import type { WeeklyGoal } from '@/types';
@@ -31,7 +31,7 @@ export function IntentionCard({
   onHoverStart,
   onHoverEnd,
 }: IntentionCardProps) {
-  const { renameWeeklyGoal, updateGoalWhy, plannedTasks } = useApp();
+  const { renameWeeklyGoal, updateGoalWhy, plannedTasks } = usePlanner();
   const rgb = resolveGoalColor(goal.color, index);
 
   // Tasks linked to this goal (active only)
@@ -82,7 +82,7 @@ export function IntentionCard({
               placeholder="Intention title"
               className={cn(
                 'font-sans text-2xl font-medium tracking-tight transition-colors duration-500 block flex-1',
-                isHovered ? 'text-white' : 'text-white/80'
+                isHovered ? 'text-text-emphasis' : 'text-text-primary'
               )}
             />
             {/* Energy badge */}
@@ -91,7 +91,7 @@ export function IntentionCard({
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: `color-mix(in srgb, ${rgb} 60%, transparent)` }}
               />
-              <span className="font-mono text-[8px] uppercase tracking-widest text-white/25">
+              <span className="font-mono text-[8px] uppercase tracking-widest text-text-muted">
                 {ENERGY_LABELS[attention.energyLevel] ?? 'Quiet'}
               </span>
             </div>
@@ -103,7 +103,7 @@ export function IntentionCard({
             onSave={(next) => updateGoalWhy(goal.id, next)}
             placeholder="Why this holds."
             multiline
-            className="font-sans text-sm text-white/50 leading-relaxed max-w-md block"
+            className="font-sans text-sm text-text-secondary leading-relaxed max-w-md block"
           />
 
           {/* Task preview */}
@@ -112,7 +112,7 @@ export function IntentionCard({
               {previewTasks.map((t) => (
                 <span
                   key={t.id}
-                  className="font-mono text-[11px] text-white/25 truncate max-w-sm"
+                  className="font-mono text-[11px] text-text-muted truncate max-w-sm"
                 >
                   → {t.title}
                 </span>
@@ -126,13 +126,13 @@ export function IntentionCard({
               <span
                 className={cn(
                   'italic',
-                  attention.nudgeUrgent ? 'text-accent-warm' : 'text-white/40'
+                  attention.nudgeUrgent ? 'text-accent-warm' : 'text-text-secondary'
                 )}
               >
                 {attention.nudgeLine}
               </span>
-              <span className="text-white/20">&middot;</span>
-              <span className="font-mono text-white/30">
+              <span className="text-text-muted">&middot;</span>
+              <span className="font-mono text-text-secondary">
                 {formatActivityLine(attention)}
               </span>
             </div>
@@ -142,15 +142,15 @@ export function IntentionCard({
         {/* Task progress */}
         <div className="flex sm:flex-col gap-8 sm:gap-4 sm:text-right shrink-0 pt-2">
           <div>
-            <div className="font-mono text-[9px] uppercase tracking-widest text-white/30 mb-1">
+            <div className="font-mono text-[9px] uppercase tracking-widest text-text-secondary mb-1">
               {doneCount > 0 ? 'Progress' : 'Tasks'}
             </div>
-            <div className="font-mono text-sm text-white/70">
+            <div className="font-mono text-sm text-text-primary">
               {doneCount > 0 ? `${doneCount}/${taskCount}` : taskCount}
             </div>
             {/* Progress bar */}
             {taskCount > 0 && (
-              <div className="mt-1.5 w-16 h-[3px] rounded-full bg-white/10 overflow-hidden sm:ml-auto">
+              <div className="mt-1.5 w-16 h-[3px] rounded-full bg-border overflow-hidden sm:ml-auto">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{

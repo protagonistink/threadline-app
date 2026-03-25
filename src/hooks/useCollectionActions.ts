@@ -26,7 +26,7 @@ export function useCollectionActions({
     if (!title.trim()) return;
     setRituals((prev) => [
       ...prev,
-      { id: `ritual-${Date.now()}`, title: title.trim(), completedDates: [] },
+      { id: `ritual-${crypto.randomUUID()}`, title: title.trim(), completedDates: [] },
     ]);
   }, [setRituals]);
 
@@ -79,7 +79,7 @@ export function useCollectionActions({
     if (!title.trim() || !dueDate) return;
     setCountdowns((prev) => [
       ...prev,
-      { id: `countdown-${Date.now()}`, title: title.trim(), dueDate },
+      { id: `countdown-${crypto.randomUUID()}`, title: title.trim(), dueDate },
     ]);
   }, [setCountdowns]);
 

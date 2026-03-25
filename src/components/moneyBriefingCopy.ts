@@ -37,54 +37,6 @@ export function getNextWeekTotal(obligations: Obligation[]): number {
   return obligations.reduce((sum, obligation) => sum + obligation.amount, 0);
 }
 
-export function buildYnabPositionLine(obligations: Obligation[]): string {
-  const nextObligation = obligations[0];
-  const nextWeekTotal = getNextWeekTotal(obligations);
-
-  if (!nextObligation) {
-    return 'Nothing is scheduled in the next 7 days.';
-  }
-
-  const dueLabel =
-    nextObligation.daysUntilDue === 0
-      ? 'comes out today'
-      : nextObligation.daysUntilDue === 1
-      ? 'comes out tomorrow'
-      : `comes out in ${nextObligation.daysUntilDue} days`;
-
-  if (nextWeekTotal <= 75) {
-    return `Nothing heavy is coming up this week. ${nextObligation.name} ${dueLabel}.`;
-  }
-
-  if (nextWeekTotal <= 250) {
-    return `${formatMoneyCurrency(nextWeekTotal)} is coming up this week. ${nextObligation.name} ${dueLabel}.`;
-  }
-
-  return `This week has some weight to it. ${nextObligation.name} ${dueLabel}.`;
-}
-
-export function buildYnabDailyCall(obligations: Obligation[]): string {
-  const nextObligation = obligations[0];
-
-  if (!nextObligation) {
-    return 'No money action needed today.';
-  }
-
-  if (nextObligation.daysUntilDue === 0) {
-    return `Review ${nextObligation.name} today and make sure the category is ready.`;
-  }
-
-  if (nextObligation.daysUntilDue === 1) {
-    return `Check ${nextObligation.name} now so tomorrow does not sneak up on you.`;
-  }
-
-  return 'Stay with the next scheduled item, not the whole month.';
-}
-
-export function shouldShowYnabWorkTieIn(obligations: Obligation[]): boolean {
-  return getNextWeekTotal(obligations) >= 250;
-}
-
 export function buildDailyCall(state: EngineState, actionItems: FinanceActionItem[]): string {
   const overdueAction = actionItems.find(
     (item) => item.status === 'pending' && item.dueDate && new Date(item.dueDate) < new Date()

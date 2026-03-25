@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { CalendarDays, Menu, Target, Settings, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { useAppShell } from '@/context/AppContext';
 import { InkedLogo } from '../shared/InkedLogo';
+import { OverlaySurface } from '../shared/OverlaySurface';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -10,7 +11,7 @@ interface SidebarProps {
 
 export function Sidebar({ onSettingsClick }: SidebarProps) {
   const [open, setOpen] = useState(false);
-  const { view, setView } = useApp();
+  const { view, setView } = useAppShell();
 
   const navItems = [
     {
@@ -38,7 +39,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
         {/* Hamburger toggle */}
         <button
           onClick={() => setOpen((v) => !v)}
-          className="no-drag mt-[40px] mb-4 p-2 rounded-md text-text-muted/60 hover:text-text-primary hover:bg-surface/50 transition-colors"
+          className="no-drag mt-[40px] mb-4 p-2 rounded-md text-text-secondary hover:text-text-emphasis hover:bg-surface/70 transition-colors"
           title={open ? 'Close menu' : 'Open menu'}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
@@ -59,7 +60,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
                 'no-drag relative flex items-center justify-center rounded-md p-2 transition-colors',
                 active
                   ? 'text-accent-warm bg-accent-warm/8'
-                  : 'text-text-muted/60 hover:text-accent-warm-hover hover:bg-bg-card/60'
+                  : 'text-text-secondary hover:text-accent-warm-hover hover:bg-bg-card/60'
               )}
             >
               <Icon className={cn('w-[18px] h-[18px] stroke-[1.5]', active && 'text-accent-warm')} />
@@ -76,7 +77,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
             onClick={onSettingsClick}
             title="Settings"
             aria-label="Settings"
-            className="no-drag flex items-center justify-center rounded-md p-2 text-text-muted/60 hover:text-text-primary hover:bg-bg-card/60 transition-colors"
+            className="no-drag flex items-center justify-center rounded-md p-2 text-text-secondary hover:text-text-emphasis hover:bg-bg-card/60 transition-colors"
           >
             <Settings className="w-[18px] h-[18px] stroke-[1.5]" />
           </button>
@@ -85,16 +86,14 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
 
       {/* Expanded overlay panel */}
       {open && (
-        <>
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 z-[55] bg-black/40"
-            onClick={() => setOpen(false)}
-            aria-hidden="true"
-          />
-
-          {/* Panel */}
-          <div className="fixed left-12 top-0 bottom-0 z-[60] w-[200px] bg-[rgba(26,26,26,0.95)] backdrop-blur-[16px] border-r border-[rgba(255,255,255,0.08)] shadow-[4px_0_24px_rgba(0,0,0,0.4)] flex flex-col animate-slide-in-left">
+        <OverlaySurface
+          open
+          onClose={() => setOpen(false)}
+          labelledBy="main-menu-title"
+          containerClassName="z-[55]"
+          panelClassName="fixed left-12 top-0 bottom-0 z-[60] w-[200px] bg-bg-elevated/95 backdrop-blur-[16px] border-r border-border shadow-[4px_0_24px_rgba(0,0,0,0.18)] flex flex-col animate-slide-in-left"
+        >
+          <span id="main-menu-title" className="sr-only">Main menu</span>
             {/* Logo */}
             <div className="pt-[58px] pb-6 px-5">
               <InkedLogo collapsed={false} className="w-full max-w-[140px]" />
@@ -129,8 +128,7 @@ export function Sidebar({ onSettingsClick }: SidebarProps) {
                 <span>Settings</span>
               </button>
             </div>
-          </div>
-        </>
+        </OverlaySurface>
       )}
     </>
   );

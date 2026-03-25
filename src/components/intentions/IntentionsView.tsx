@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { useInkAssistant } from '@/context/InkAssistantContext';
 import { useAttentionBalance } from '@/hooks/useWeeklyMode';
 import { useFocusHealth } from '@/hooks/useFocusHealth';
@@ -10,9 +10,10 @@ import { TheLedger } from './TheLedger';
 import { DistractionTax } from './DistractionTax';
 import { WeekMatrix } from './WeekMatrix';
 import { InkFab } from '@/components/ink/InkFab';
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 
 export function IntentionsView() {
-  const { weeklyGoals } = useApp();
+  const { weeklyGoals } = usePlanner();
   const { openWeeklyPlanningAssistant } = useInkAssistant();
   const attentionData = useAttentionBalance();
   const { focusHealth, distractionCount } = useFocusHealth();
@@ -54,7 +55,7 @@ export function IntentionsView() {
         )}
         style={{
           backgroundImage:
-            'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.02) 1px, transparent 0)',
+            'radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--color-text-muted) 12%, transparent) 1px, transparent 0)',
           backgroundSize: '32px 32px',
         }}
       >
@@ -77,29 +78,29 @@ export function IntentionsView() {
 
             {/* Section header */}
             <div className="flex items-center gap-4 mb-8">
-              <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-white/40">
+              <h2 className="font-mono text-[10px] uppercase tracking-[0.2em] text-text-muted">
                 Active Intentions
               </h2>
-              <div className="h-[1px] flex-1 bg-white/5" />
-              <span className="font-mono text-[10px] text-white/30">
+              <div className="h-[1px] flex-1 bg-border" />
+              <span className="font-mono text-[10px] text-text-secondary">
                 {weeklyGoals.length} ACTIVE
               </span>
             </div>
 
             {/* Intention cards */}
             {weeklyGoals.length === 0 ? (
-              <div className="flex max-w-xl flex-col gap-5 rounded-[24px] border border-white/6 bg-white/[0.02] px-7 py-8">
-                <p className="text-sm text-white/40 italic">
+              <div className="flex max-w-xl flex-col gap-5 rounded-[24px] border border-border bg-bg-card/60 px-7 py-8">
+                <p className="text-sm text-text-secondary italic">
                   No weekly intentions set yet.
                 </p>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={openWeeklyPlanningAssistant}
-                    className="rounded-full border border-accent-warm/35 bg-accent-warm/10 px-5 py-2 text-[11px] uppercase tracking-[0.18em] text-white transition-colors hover:border-accent-warm-hover hover:bg-accent-warm/18"
+                    className="rounded-full border border-accent-warm/35 bg-accent-warm/10 px-5 py-2 text-[11px] uppercase tracking-[0.18em] text-text-emphasis transition-colors hover:border-accent-warm-hover hover:bg-accent-warm/18"
                   >
                     Plan the week with Ink
                   </button>
-                  <span className="text-[12px] text-white/30">
+                  <span className="text-[12px] text-text-secondary">
                     This opens the weekly interview, not the old manual flow.
                   </span>
                 </div>
@@ -136,7 +137,13 @@ export function IntentionsView() {
               hoveredIntention !== null && 'opacity-20 blur-[2px]'
             )}
           >
-            <TheLedger />
+            <ErrorBoundary fallback={() => (
+              <div className="rounded-xl border border-border/40 bg-surface/30 p-6 text-text-secondary text-sm">
+                Financial data unavailable right now.
+              </div>
+            )}>
+              <TheLedger />
+            </ErrorBoundary>
             <DistractionTax distractionCount={distractionCount} />
           </div>
         </div>

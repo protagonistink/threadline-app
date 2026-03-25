@@ -5,9 +5,10 @@ import { useModifierKey } from '@/hooks/useModifierKey';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn, formatRoundedHours, roundToQuarterHour } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
+import { resolveGoalColor, withAlpha } from '@/lib/goalColors';
 import type { PlannedTask } from '@/types';
 
 export type DeadlineState = 'silent' | 'upcoming' | 'soon' | 'overdue';
@@ -20,7 +21,7 @@ export function getDeadlineState(daysRemaining: number): DeadlineState {
 }
 
 function SubtaskRow({ task, unnestTask }: { task: PlannedTask; unnestTask: (id: string) => void }) {
-  const { toggleTask } = useApp();
+  const { toggleTask } = usePlanner();
   return (
     <div className="flex items-center gap-2 py-2 pl-7 border-b border-ink/5 last:border-0">
       <button
@@ -56,23 +57,29 @@ export function TaskCard({
   task,
   index,
   goalIndex = -1,
+  goalColor,
   actualMins = 0,
   subtasks = [],
   nestTask,
   unnestTask,
   deadlineInfo,
+  celebrate = false,
+  celebrationDelayMs = 0,
 }: {
   task: PlannedTask;
   index: number;
   goalIndex?: number;
+  goalColor?: string;
   actualMins?: number;
   subtasks?: PlannedTask[];
   nestTask: (childId: string, parentId: string) => void;
   unnestTask: (childId: string) => void;
   deadlineInfo?: { daysRemaining: number; state: DeadlineState };
+  celebrate?: boolean;
+  celebrationDelayMs?: number;
 }) {
   const { isLight, isFocus } = useTheme();
-  const { toggleTask, setActiveTask, releaseTask, updateTaskEstimate } = useApp();
+  const { toggleTask, setActiveTask, releaseTask, updateTaskEstimate } = usePlanner();
   const { play } = useSound();
   const plannedHours = formatRoundedHours(task.estimateMins, true);
   const actualHours = formatRoundedHours(actualMins, true);
@@ -161,10 +168,8 @@ export function TaskCard({
   const staggerClass = index < 8 ? `stagger-${Math.min(index + 1, 6)}` : '';
 
   // Thread color matching weekly goal — same palette as Timeline blocks
-  const threadBorderColor = goalIndex === 0 ? 'rgba(167,139,250,0.7)'
-    : goalIndex === 1 ? 'rgba(45,212,191,0.6)'
-    : goalIndex === 2 ? 'rgba(251,191,36,0.6)'
-    : 'rgba(100,116,139,0.3)';
+  const resolvedGoalColor = goalColor ?? resolveGoalColor(null, goalIndex);
+  const threadBorderColor = withAlpha(resolvedGoalColor, 0.68);
 
   return (
     <div
@@ -177,8 +182,21 @@ export function TaskCard({
         isNestOver && canNest && 'ring-1 ring-accent-warm/40 ring-inset rounded-lg',
         staggerClass
       )}
-      style={{ borderLeftColor: deadlineInfo?.state === 'overdue' ? 'rgba(200,60,47,0.8)' : threadBorderColor }}
+      style={{
+        borderLeftColor: deadlineInfo?.state === 'overdue' ? 'rgba(200,60,47,0.8)' : threadBorderColor,
+        boxShadow: celebrate ? `inset 0 0 0 1px ${withAlpha(resolvedGoalColor, 0.08)}` : undefined,
+      }}
     >
+      {celebrate && (
+        <div
+          className="goal-handoff-card pointer-events-none absolute inset-0"
+          style={{
+            '--goal-handoff-color': resolvedGoalColor,
+            '--goal-handoff-soft': withAlpha(resolvedGoalColor, 0.18),
+            animationDelay: `${celebrationDelayMs}ms`,
+          } as React.CSSProperties}
+        />
+      )}
       <div className={cn('flex items-center gap-2.5 py-5 cursor-grab active:cursor-grabbing', !task.active && 'hover:-translate-y-0.5')}>
         <button
           onClick={(e) => {
@@ -201,6 +219,7 @@ export function TaskCard({
           <button
             onClick={() => task.status !== 'done' && setActiveTask(task.id)}
             className="text-left w-full"
+            title="Click to focus this task. Press I to cycle its weekly objective. Option+I clears it."
           >
             <div
               title={task.title}

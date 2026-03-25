@@ -11,7 +11,8 @@ import {
     Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, usePlanner } from '@/context/AppContext';
+import { OverlaySurface } from '../shared/OverlaySurface';
 
 interface CommandPaletteProps {
     onOpenSettings: () => void;
@@ -31,7 +32,8 @@ export function CommandPalette({ onOpenSettings, onOpenInk }: CommandPaletteProp
     const [isOpen, setIsOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const { setView, openInbox, toggleTask, committedTasks, selectedInboxId, bringForward, enterFocus } = useApp();
+    const { setView, openInbox, closeInbox, inboxOpen, enterFocus } = useAppShell();
+    const { toggleTask, committedTasks, selectedInboxId, bringForward } = usePlanner();
     const menuRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
 
@@ -39,7 +41,7 @@ export function CommandPalette({ onOpenSettings, onOpenInk }: CommandPaletteProp
         // Navigation
         { id: 'view-flow', title: "Open Flow", icon: Zap, category: 'Navigation', action: () => setView('flow') },
         { id: 'view-intentions', title: 'Open Intentions', icon: Target, category: 'Navigation', action: () => setView('intentions') },
-        { id: 'view-inbox', title: 'Open Inbox', icon: Inbox, category: 'Navigation', action: () => openInbox() },
+        { id: 'view-inbox', title: inboxOpen ? 'Close Inbox' : 'Open Inbox', icon: Inbox, category: 'Navigation', action: () => { if (inboxOpen) closeInbox(); else openInbox(); } },
         { id: 'view-ink', title: 'Open Ink', icon: Feather, category: 'Navigation', action: () => { setIsOpen(false); onOpenInk(); } },
         { id: 'view-settings', title: 'Open Settings', icon: Settings, category: 'Navigation', action: () => { setIsOpen(false); onOpenSettings(); } },
 
@@ -106,10 +108,17 @@ export function CommandPalette({ onOpenSettings, onOpenInk }: CommandPaletteProp
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] px-4 backdrop-blur-sm bg-black/40 animate-fade-in duration-200">
+        <OverlaySurface
+            open
+            onClose={() => setIsOpen(false)}
+            labelledBy="command-palette-title"
+            initialFocusRef={inputRef}
+            containerClassName="z-[100] flex items-start justify-center pt-[15vh] px-4 animate-fade-in duration-200"
+            backdropClassName="backdrop-blur-sm"
+            panelClassName="w-full max-w-[600px] bg-bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
+        >
             <div
                 ref={menuRef}
-                className="w-full max-w-[600px] bg-bg-card border border-border rounded-xl shadow-2xl overflow-hidden flex flex-col"
                 onKeyDown={handleKeyDown}
             >
                 {/* Search */}
@@ -120,12 +129,16 @@ export function CommandPalette({ onOpenSettings, onOpenInk }: CommandPaletteProp
                         type="text"
                         className="flex-1 bg-transparent border-none outline-none py-5 px-3 text-[16px] text-text-primary placeholder:text-text-muted font-sans"
                         placeholder="Where do you want to go?"
+                        aria-labelledby="command-palette-title"
                         value={query}
                         onChange={(e) => {
                             setQuery(e.target.value);
                             setSelectedIndex(0);
                         }}
                     />
+                    <span id="command-palette-title" className="sr-only">
+                        Command palette
+                    </span>
                     <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-bg-elevated border border-border-subtle text-text-muted text-[11px] font-mono">
                         <span>ESC</span>
                     </div>
@@ -191,6 +204,6 @@ export function CommandPalette({ onOpenSettings, onOpenInk }: CommandPaletteProp
                     <div>{filteredCommands.length} available</div>
                 </div>
             </div>
-        </div>
+        </OverlaySurface>
     );
 }

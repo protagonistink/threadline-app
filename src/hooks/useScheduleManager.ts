@@ -341,7 +341,7 @@ export function useScheduleManager({
   }, [setScheduleBlocks]);
 
   const addAdHocBlock = useCallback((title: string, startHour: number, startMin: number, durationMins = 60) => {
-    const id = `adhoc-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const id = `adhoc-${crypto.randomUUID()}`;
     const block: ScheduleBlock = {
       id,
       title,

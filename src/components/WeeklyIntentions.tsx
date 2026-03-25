@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, isBefore, isSameDay, parseISO, startOfDay } from 'date-fns';
 import { Plus } from 'lucide-react';
-import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, usePlanner } from '@/context/AppContext';
 import { MAX_WEEKLY_GOALS } from '@/context/plannerState';
 import {
   useWeeklyMode,
@@ -19,13 +18,6 @@ const THREAD_HEX: Record<string, string> = {
   'bg-accent-warm': '#C83C2F',
   'bg-done': '#828282',
   'bg-accent-green': '#5B8A5E',
-};
-
-const modeTransition = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-  transition: { duration: 0.35, ease: [0.25, 0.1, 0.25, 1] as const },
 };
 
 // ---------------------------------------------------------------------------
@@ -60,7 +52,7 @@ function MonthNotSetPrompt() {
 // ---------------------------------------------------------------------------
 
 function WeekNotPlannedPrompt() {
-  const { monthlyPlan, weeklyGoals } = useApp();
+  const { monthlyPlan, weeklyGoals } = usePlanner();
   const hasStaleGoals = weeklyGoals.length > 0;
 
   return (
@@ -111,12 +103,13 @@ function ThreadEntry({
   goal: WeeklyGoal;
   attention: GoalAttention;
 }) {
-  const { renameWeeklyGoal, updateGoalWhy, removeWeeklyGoal, countdowns } = useApp();
+  const { renameWeeklyGoal, updateGoalWhy, removeWeeklyGoal, countdowns } = usePlanner();
   const [title, setTitle] = useState(goal.title);
   const [why, setWhy] = useState(goal.why || '');
   const [editingField, setEditingField] = useState<'title' | 'why' | null>(null);
   const titleRef = useRef<HTMLInputElement>(null);
   const whyRef = useRef<HTMLTextAreaElement>(null);
+  const skipBlurCommitRef = useRef(false);
 
   useEffect(() => {
     setTitle(goal.title);
@@ -127,6 +120,36 @@ function ThreadEntry({
     if (editingField === 'title') titleRef.current?.focus();
     if (editingField === 'why') whyRef.current?.focus();
   }, [editingField]);
+
+  function commitTitle() {
+    const trimmed = title.trim();
+    setTitle(trimmed || goal.title);
+    if (trimmed && trimmed !== goal.title) {
+      renameWeeklyGoal(goal.id, trimmed);
+    }
+    setEditingField(null);
+  }
+
+  function cancelTitleEdit() {
+    skipBlurCommitRef.current = true;
+    setTitle(goal.title);
+    setEditingField(null);
+  }
+
+  function commitWhy() {
+    const normalized = why.trimEnd();
+    setWhy(normalized);
+    if (normalized !== (goal.why || '')) {
+      updateGoalWhy(goal.id, normalized);
+    }
+    setEditingField(null);
+  }
+
+  function cancelWhyEdit() {
+    skipBlurCommitRef.current = true;
+    setWhy(goal.why || '');
+    setEditingField(null);
+  }
 
   const hex = THREAD_HEX[goal.color] || '#C83C2F';
   const linkedDeadline = goal.countdownId
@@ -156,13 +179,18 @@ function ThreadEntry({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             onBlur={() => {
-              renameWeeklyGoal(goal.id, title);
-              setEditingField(null);
+              if (skipBlurCommitRef.current) {
+                skipBlurCommitRef.current = false;
+                return;
+              }
+              commitTitle();
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                renameWeeklyGoal(goal.id, title);
-                setEditingField(null);
+                commitTitle();
+              }
+              if (e.key === 'Escape') {
+                cancelTitleEdit();
               }
             }}
             className="flex-1 bg-transparent border-none outline-none text-[18px] font-medium text-text-primary leading-snug"
@@ -198,8 +226,21 @@ function ThreadEntry({
           value={why}
           onChange={(e) => setWhy(e.target.value)}
           onBlur={() => {
-            updateGoalWhy(goal.id, why);
-            setEditingField(null);
+            if (skipBlurCommitRef.current) {
+              skipBlurCommitRef.current = false;
+              return;
+            }
+            commitWhy();
+          }}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              commitWhy();
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              cancelWhyEdit();
+            }
           }}
           rows={1}
           placeholder="Why this holds."
@@ -290,7 +331,7 @@ function AddThreadInput({
 // ---------------------------------------------------------------------------
 
 function CommittedWeekMap() {
-  const { countdowns, weeklyGoals } = useApp();
+  const { countdowns, weeklyGoals } = usePlanner();
   const weekStart = getPlanningWeekStart();
   const weekEnd = addDays(weekStart, 6);
   const today = startOfDay(new Date());
@@ -400,6 +441,7 @@ function formatMins(m: number): string {
 }
 
 function ActiveWeekContent() {
+  const { setView } = useAppShell();
   const {
     weeklyGoals,
     monthlyPlan,
@@ -408,8 +450,7 @@ function ActiveWeekContent() {
     rituals,
     workdayStart,
     workdayEnd,
-    setView,
-  } = useApp();
+  } = usePlanner();
   const attentionData = useAttentionBalance();
 
   const ritualMins = rituals.reduce((sum, r) => sum + (r.estimateMins ?? 0), 0);
@@ -523,17 +564,14 @@ export function WeeklyIntentions() {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={mode}
-          className="flex flex-1 flex-col min-h-0"
-          {...modeTransition}
-        >
+      <div
+        key={mode}
+        className="animate-fade-in flex flex-1 flex-col min-h-0"
+      >
           {mode === 'month-not-set' && <MonthNotSetPrompt />}
           {mode === 'week-not-planned' && <WeekNotPlannedPrompt />}
           {mode === 'active-week' && <ActiveWeekContent />}
-        </motion.div>
-      </AnimatePresence>
+      </div>
     </div>
   );
 }

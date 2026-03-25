@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 
 interface Endpoints {
   taskX: number;
@@ -9,7 +9,7 @@ interface Endpoints {
 }
 
 export function InkThread() {
-  const { currentTask } = useApp();
+  const { currentTask } = usePlanner();
   const [endpoints, setEndpoints] = useState<Endpoints | null>(null);
   const rafRef = useRef(0);
 

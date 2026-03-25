@@ -97,6 +97,7 @@ export interface PlannedTask {
   priority?: string;
   notes?: string;
   asanaProject?: string;
+  dueOn?: string | null;
   workMode?: WorkMode;
   /** True while this task is the active focus (timer running). */
   active: boolean;
@@ -131,6 +132,8 @@ export interface ScheduleBlock {
   readOnly: boolean;
   /** PlannedTask.id for focus blocks. */
   linkedTaskId?: string;
+  /** Cached WeeklyGoal.id for linked focus blocks, used to preserve color during sync races. */
+  linkedGoalId?: string | null;
   /** Google Calendar event ID (set after sync). */
   eventId?: string;
   calendarId?: string;
@@ -232,9 +235,17 @@ export type InkMode = 'morning' | 'midday' | 'evening' | 'sunday-interview';
 // Shared AI / IPC types — single source of truth for renderer + main process
 // ---------------------------------------------------------------------------
 
+export interface ChatImageAttachment {
+  kind: 'image';
+  dataUrl: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+  name: string;
+}
+
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  attachments?: ChatImageAttachment[];
 }
 
 export interface GCalEventContext {
@@ -262,6 +273,8 @@ export interface BriefingContext {
   currentHour: number;
   currentMinute: number;
   weeklyGoals: Array<{ title: string; why?: string }>;
+  interviewStep?: number;
+  interviewAnswers?: string[];
   asanaTasks: Array<{
     title: string;
     dueOn: string | null;
@@ -272,6 +285,7 @@ export interface BriefingContext {
     daysSinceAdded?: number;
   }>;
   gcalEvents: GCalEventContext[];
+  remainingWorkdayMinutes: number;
   availableFocusMinutes: number;
   scheduledMinutes: number;
   committedTasks: Array<{ title: string; estimateMins: number; weeklyGoal: string }>;

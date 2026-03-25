@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { format, addDays, subDays } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { DaySwitcherDropdown } from './DaySwitcherDropdown';
 
 function formatEditorialWeekday(date: Date) {
@@ -12,7 +12,7 @@ function formatEditorialWeekday(date: Date) {
 }
 
 export function DateHeader() {
-  const { viewDate, setViewDate } = useApp();
+  const { viewDate, setViewDate } = usePlanner();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -41,11 +41,11 @@ export function DateHeader() {
   }, []);
 
   return (
-    <div ref={containerRef} className="relative flex items-center justify-center w-full py-5">
+    <div ref={containerRef} className="relative flex items-center justify-center w-full py-5 select-none">
       {/* Left chevron */}
       <button
         onClick={() => setViewDate(subDays(viewDate, 1))}
-        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors"
+        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors select-none"
       >
         <ChevronLeft className="h-5 w-5" />
       </button>
@@ -53,7 +53,7 @@ export function DateHeader() {
       {/* Yesterday */}
       <button
         onClick={() => setViewDate(yesterday)}
-        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px]"
+        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px] select-none"
       >
         <span className="text-[9px] uppercase tracking-[0.2em] text-text-muted font-sans">
           {formatEditorialWeekday(yesterday)}
@@ -66,7 +66,7 @@ export function DateHeader() {
       {/* Today (hero) */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex flex-col items-center px-12 mx-5"
+        className="flex flex-col items-center px-12 mx-5 select-none"
       >
         <span className="text-[64px] font-serif font-light text-text-emphasis tracking-[-0.02em] leading-none">
           {format(viewDate, 'EEEE')}
@@ -79,7 +79,7 @@ export function DateHeader() {
       {/* Tomorrow */}
       <button
         onClick={() => setViewDate(tomorrow)}
-        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px]"
+        className="flex flex-col items-center opacity-30 hover:opacity-50 transition-opacity min-w-[80px] select-none"
       >
         <span className="text-[9px] uppercase tracking-[0.2em] text-text-muted font-sans">
           {formatEditorialWeekday(tomorrow)}
@@ -92,7 +92,7 @@ export function DateHeader() {
       {/* Right chevron */}
       <button
         onClick={() => setViewDate(addDays(viewDate, 1))}
-        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors"
+        className="p-2 text-text-secondary/30 hover:text-text-secondary transition-colors select-none"
       >
         <ChevronRight className="h-5 w-5" />
       </button>

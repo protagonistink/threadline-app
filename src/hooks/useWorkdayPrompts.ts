@@ -64,16 +64,21 @@ export function useWorkdayPrompts({
   }, [isInitialized, workdayStartMinutes]);
 
   // End-of-day prompt: fire once per calendar day when time crosses workdayEnd.
-  // BUG FIX: Do NOT reset hasShownEndOfDayRef on workdayEndMinutes change.
+  // BUG FIX: Do NOT trigger just because the boundary itself moved.
+  // We only want the prompt when clock time crosses the boundary naturally.
   useEffect(() => {
     if (!isInitialized) return;
+    let previousMinutes = new Date().getHours() * 60 + new Date().getMinutes();
 
     const check = () => {
       if (hasShownEndOfDayRef.current) return;
       const today = new Date().toISOString().split('T')[0];
       if (endOfDayShownDateRef.current === today) return;
       const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes();
-      if (nowMinutes >= workdayEndMinutes) {
+      const crossedEndBoundary =
+        previousMinutes < workdayEndMinutes && nowMinutes >= workdayEndMinutes;
+      previousMinutes = nowMinutes;
+      if (crossedEndBoundary) {
         hasShownEndOfDayRef.current = true;
         endOfDayShownDateRef.current = today;
         void window.api.store.set('endOfDay.shownDate', today);
@@ -83,7 +88,6 @@ export function useWorkdayPrompts({
       }
     };
 
-    check();
     const id = setInterval(check, 60 * 1000);
     return () => clearInterval(id);
   }, [isInitialized, workdayEndMinutes]);

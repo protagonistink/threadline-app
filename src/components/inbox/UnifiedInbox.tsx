@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { Filter, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { compareInboxTasks } from '@/lib/planner';
+import { useAppStatus, usePlanner } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { resolveGoalColor } from '@/lib/goalColors';
 import type { InboxItem } from '@/types';
@@ -83,7 +84,7 @@ function IncomingCard({
   onSelect: () => void;
   stagger: number;
 }) {
-  const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = useApp();
+  const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = usePlanner();
 
   const task = plannedTasks.find((t) => t.id === item.id);
   const isPlaced = task?.status === 'scheduled';
@@ -122,7 +123,7 @@ function IncomingCard({
     <div
       ref={dragRef}
       className={cn(
-        'animate-fade-in relative group',
+        'animate-fade-in relative group select-none',
         stagger === 1 && 'stagger-1',
         stagger === 2 && 'stagger-2',
         stagger === 3 && 'stagger-3',
@@ -133,10 +134,11 @@ function IncomingCard({
       <div
         onClick={onSelect}
         className={cn(
-          'relative py-2.5 px-4 cursor-grab rounded-md hover:bg-surface transition-all',
+          'relative py-2.5 px-4 cursor-grab rounded-md hover:bg-surface transition-all select-none',
           isPlaced && 'opacity-30 cursor-default',
           selected && 'bg-[rgba(250,250,250,0.03)]'
         )}
+        title="Select this task, then press I to cycle its weekly objective. Option+I clears it."
       >
         <div className="flex items-start gap-2.5">
           {/* Open circle / checkbox — click to toggle done */}
@@ -184,9 +186,10 @@ function RitualEntry({
   placedTime: string;
   isSkipped: boolean;
 }) {
-  const { renameRitual, removeRitual } = useApp();
+  const { renameRitual, removeRitual } = usePlanner();
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(ritual.title);
+  const skipBlurCommitRef = useRef(false);
 
   const [{ isDragging }, dragRef, previewRef] = useDrag<DragItem, unknown, { isDragging: boolean }>({
     type: DragTypes.TASK,
@@ -201,18 +204,31 @@ function RitualEntry({
 
   function commitEdit() {
     const trimmed = editValue.trim();
+    setEditValue(trimmed || ritual.title);
     if (trimmed && trimmed !== ritual.title) {
       renameRitual(ritual.id, trimmed);
     }
     setIsEditing(false);
   }
 
+  function cancelEdit() {
+    skipBlurCommitRef.current = true;
+    setEditValue(ritual.title);
+    setIsEditing(false);
+  }
+
   return (
     <div
       ref={dragRef}
-      className={cn('animate-fade-in relative group', isDragging && 'opacity-20')}
+      className={cn('animate-fade-in relative group select-none', isDragging && 'opacity-20')}
+      title={isPlaced ? 'Placed rituals move on the calendar. Deleting the block skips it for today.' : 'Drag to place on the calendar.'}
     >
-      <div className={cn('relative py-2 px-4 cursor-grab rounded-md hover:bg-surface transition-all', isPlaced && 'placed')}>
+      <div
+        className={cn(
+          'relative py-2 px-4 rounded-md hover:bg-surface transition-all select-none',
+          isPlaced ? 'cursor-default placed' : 'cursor-grab'
+        )}
+      >
         {isEditing ? (
           <input
             autoFocus
@@ -220,21 +236,27 @@ function RitualEntry({
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') commitEdit();
-              if (e.key === 'Escape') { setEditValue(ritual.title); setIsEditing(false); }
+              if (e.key === 'Escape') cancelEdit();
             }}
-            onBlur={commitEdit}
-            className="w-full bg-transparent text-[13px] text-[#FAFAFA]/70 border-b border-accent-warm/40 outline-none py-0.5"
+            onBlur={() => {
+              if (skipBlurCommitRef.current) {
+                skipBlurCommitRef.current = false;
+                return;
+              }
+              commitEdit();
+            }}
+            className="w-full bg-transparent text-[13px] text-text-secondary border-b border-accent-warm/40 outline-none py-0.5"
           />
         ) : (
           <div
-            className="font-sans text-[13px] text-[#FAFAFA]/70 leading-snug flex items-center justify-between"
+            className="font-sans text-[13px] text-text-secondary leading-snug flex items-center justify-between"
             onDoubleClick={() => { setEditValue(ritual.title); setIsEditing(true); }}
           >
             <span>{ritual.title}</span>
             <button
               onClick={(e) => { e.stopPropagation(); removeRitual(ritual.id); }}
               className="opacity-0 group-hover:opacity-100 text-text-muted/30 hover:text-accent-warm transition-opacity ml-2 text-[10px]"
-              title="Remove ritual"
+              title="Delete ritual"
             >
               ✕
             </button>
@@ -242,12 +264,16 @@ function RitualEntry({
         )}
         {!isEditing && isPlaced && placedTime && (
           <div className="font-sans text-[11px] text-text-muted/40 mt-1">
-            Placed · {placedTime}
+            Placed · {placedTime} · Drag on calendar to move
           </div>
         )}
-        {!isEditing && ritual.estimateMins && !isPlaced && (
+        {!isEditing && !isPlaced && (
           <div className="font-sans text-[12px] text-text-muted/45 leading-relaxed mt-1.5 font-light">
-            {isSkipped ? 'Skipped for this day' : `${ritual.estimateMins} min`}
+            {isSkipped
+              ? 'Skipped for this day'
+              : ritual.estimateMins
+                ? `${ritual.estimateMins} min · Drag to place`
+                : 'Drag to place'}
           </div>
         )}
       </div>
@@ -286,20 +312,21 @@ function ReturnDropZone({ onDrop }: { onDrop: (item: DragItem) => void }) {
 const PAGE_SIZE = 7;
 
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
+  const { syncStatus } = useAppStatus();
   const {
     candidateItems,
     plannedTasks,
     weeklyGoals,
     selectedInboxId,
     selectInboxItem,
+    assignTaskToGoal,
     addInboxTask,
     returnTaskToInbox,
-    syncStatus,
     rituals,
     addRitual,
     scheduleBlocks,
     viewDate,
-  } = useApp();
+  } = usePlanner();
 
   const MAX_RITUALS = 3;
   const [page, setPage] = useState(0);
@@ -309,38 +336,21 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
   const [draftTitle, setDraftTitle] = useState('');
   const [filter, setFilter] = useState<'all' | 'asana' | 'unscheduled'>('all');
 
-  const WORK_MODE_SORT_ORDER: Record<string, number> = {
-    deep_work: 0,
-    collaborative: 1,
-    quick_win: 2,
-    admin: 3,
-  };
-
   const primaryGoalId = weeklyGoals[0]?.id ?? null;
+  const planningDateKey = format(viewDate, 'yyyy-MM-dd');
 
   const allInboxItems = useMemo(() => {
     const filtered = candidateItems.filter((item) => item.source === 'asana' || item.source === 'local');
 
     return [...filtered].sort((a, b) => {
-      // 1. Ink recommends first (matches primary goal)
       const aTask = plannedTasks.find((t) => t.id === a.id);
       const bTask = plannedTasks.find((t) => t.id === b.id);
-      const aIsInk = primaryGoalId != null && aTask?.weeklyGoalId === primaryGoalId;
-      const bIsInk = primaryGoalId != null && bTask?.weeklyGoalId === primaryGoalId;
-      if (aIsInk !== bIsInk) return aIsInk ? -1 : 1;
-
-      // 2. Work mode: Deep Work → Collaborative → Quick Win → Admin → unset
-      const aMode = a.workMode ? (WORK_MODE_SORT_ORDER[a.workMode] ?? 4) : 4;
-      const bMode = b.workMode ? (WORK_MODE_SORT_ORDER[b.workMode] ?? 4) : 4;
-      if (aMode !== bMode) return aMode - bMode;
-
-      // 3. Priority (high first, then medium, etc.)
-      const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
-      const aPri = a.priority ? (priorityOrder[a.priority.toLowerCase()] ?? 3) : 3;
-      const bPri = b.priority ? (priorityOrder[b.priority.toLowerCase()] ?? 3) : 3;
-      return aPri - bPri;
+      return compareInboxTasks(aTask, bTask, {
+        primaryGoalId,
+        planningDate: planningDateKey,
+      });
     });
-  }, [candidateItems, plannedTasks, primaryGoalId]);
+  }, [candidateItems, plannedTasks, primaryGoalId, planningDateKey]);
 
   const inboxItems = useMemo(() => {
     if (filter === 'asana') return allInboxItems.filter((item) => item.source === 'asana');
@@ -374,6 +384,35 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
     (t) => (t.source === 'asana' || t.source === 'local') && (t.status === 'committed' || t.status === 'scheduled')
   );
   const viewDateKey = format(viewDate, 'yyyy-MM-dd');
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key.toLowerCase() !== 'i') return;
+
+      const active = document.activeElement as HTMLElement | null;
+      if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) return;
+      if (!selectedInboxId) return;
+
+      if (event.altKey) {
+        event.preventDefault();
+        assignTaskToGoal(selectedInboxId, null);
+        return;
+      }
+
+      if (weeklyGoals.length === 0) return;
+
+      const task = plannedTasks.find((item) => item.id === selectedInboxId);
+      const currentIndex = task?.weeklyGoalId ? weeklyGoals.findIndex((goal) => goal.id === task.weeklyGoalId) : -1;
+      const nextGoal = weeklyGoals[(currentIndex + 1 + weeklyGoals.length) % weeklyGoals.length];
+      if (!nextGoal) return;
+
+      event.preventDefault();
+      assignTaskToGoal(selectedInboxId, nextGoal.id);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [assignTaskToGoal, plannedTasks, selectedInboxId, weeklyGoals]);
 
   function submitNewTask() {
     const nextId = addInboxTask(draftTitle);

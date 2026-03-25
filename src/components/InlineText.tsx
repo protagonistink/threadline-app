@@ -23,6 +23,7 @@ export function InlineText({
   const [draft, setDraft] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const skipBlurCommitRef = useRef(false);
 
   useEffect(() => {
     setDraft(value);
@@ -36,7 +37,10 @@ export function InlineText({
   }, [editing]);
 
   const commit = () => {
-    onSave(draft);
+    const next = multiline ? draft.trimEnd() : draft.trim();
+    if (next !== value) {
+      onSave(next);
+    }
     setEditing(false);
   };
 
@@ -45,7 +49,12 @@ export function InlineText({
       e.preventDefault();
       commit();
     }
+    if (e.key === 'Enter' && multiline && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      commit();
+    }
     if (e.key === 'Escape') {
+      skipBlurCommitRef.current = true;
       setDraft(value);
       setEditing(false);
     }
@@ -73,7 +82,13 @@ export function InlineText({
           ref={textareaRef}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
+          onBlur={() => {
+            if (skipBlurCommitRef.current) {
+              skipBlurCommitRef.current = false;
+              return;
+            }
+            commit();
+          }}
           onKeyDown={handleKeyDown}
           rows={2}
           placeholder={placeholder}
@@ -90,7 +105,13 @@ export function InlineText({
         ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
+        onBlur={() => {
+          if (skipBlurCommitRef.current) {
+            skipBlurCommitRef.current = false;
+            return;
+          }
+          commit();
+        }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         className={cn(

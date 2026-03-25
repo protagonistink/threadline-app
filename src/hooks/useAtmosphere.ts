@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { format } from 'date-fns';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { useTheme, type ThemeMode } from '@/context/ThemeContext';
 
 const FOCUS_TARGET_MINS = 240; // 4 hours = full momentum
@@ -72,7 +72,7 @@ function sampleTimeline(progress: number): TimeSlice {
 // ── Hook ───────────────────────────────────────────────────
 
 export function useAtmosphere(containerRef: React.RefObject<HTMLDivElement | null>) {
-  const { timeLogs, workdayEnd } = useApp();
+  const { timeLogs, workdayEnd } = usePlanner();
   const { mode } = useTheme();
 
   // Stable refs for values that change but shouldn't re-trigger the effect

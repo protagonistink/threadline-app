@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { ChevronsRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAppShell } from '@/context/AppContext';
 import { UnifiedInbox } from '@/components/inbox/UnifiedInbox';
 import { Timeline } from '@/components/timeline/Timeline';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
@@ -8,23 +8,13 @@ import { RightRail } from '@/components/rail/RightRail';
 import { InkFab } from '@/components/ink/InkFab';
 
 export interface ExecutingModeProps {
-  onEnterFocus: (taskId: string) => void;
   onOpenInk: () => void;
-  onOpenInbox: () => void;
   onEndDay: () => void;
 }
 
-export function ExecutingMode({
-  onOpenInk,
-  onOpenInbox,
-  onEndDay,
-}: ExecutingModeProps) {
-  const [inboxVisible, setInboxVisible] = useState(false);
-
-  function handleOpenInbox() {
-    setInboxVisible(true);
-    onOpenInbox();
-  }
+export function ExecutingMode({ onOpenInk, onEndDay }: ExecutingModeProps) {
+  const { inboxOpen, openInbox } = useAppShell();
+  const inboxVisible = inboxOpen;
 
   return (
     <>
@@ -33,9 +23,9 @@ export function ExecutingMode({
         <div className="relative shrink-0 h-full flex">
           {!inboxVisible && (
             <button
-              onClick={handleOpenInbox}
-              title="Open source list"
-              aria-label="Open source list"
+              onClick={openInbox}
+              title="Open inbox"
+              aria-label="Open inbox"
               className="flex h-full w-10 shrink-0 items-center justify-center border-r border-border-subtle bg-bg text-text-muted transition-colors hover:text-text-primary"
             >
               <ChevronsRight className="h-4 w-4" />

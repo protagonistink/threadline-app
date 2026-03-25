@@ -9,10 +9,10 @@ const SENSITIVE_KEYS = [
   'gcal.clientSecret',
   'gcal.accessToken',
   'gcal.refreshToken',
-  'ynab.token',
   'plaid.clientId',
   'plaid.secret',
   'plaid.accessToken',
+  'stripe.secretKey',
 ] as const;
 
 function encryptedKey(key: string): string {

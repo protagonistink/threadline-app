@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { X } from 'lucide-react';
 import { formatRoundedHours } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 
 export function PlanWarnings() {
   const {
@@ -13,7 +13,7 @@ export function PlanWarnings() {
     committedTasks,
     countdowns,
     weeklyGoals,
-  } = useApp();
+  } = usePlanner();
 
   const [balanceDismissed, setBalanceDismissed] = useState(false);
 

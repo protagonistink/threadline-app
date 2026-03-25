@@ -14,7 +14,7 @@ export function IntentionsSummary({ intentions }: IntentionsSummaryProps) {
   if (intentions.length === 0) return null;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 select-none">
       {intentions.map((intention, i) => (
         <div key={i} className="relative">
           {/* Large background number */}

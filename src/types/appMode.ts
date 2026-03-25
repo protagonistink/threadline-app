@@ -5,6 +5,7 @@ export interface AppModeState {
   mode: AppMode;
   view: View;
   focusTaskId: string | null;
+  inboxOpen: boolean;
 }
 
 export type AppModeAction =
@@ -15,5 +16,6 @@ export type AppModeAction =
   | { type: 'EXIT_FOCUS' }
   | { type: 'OPEN_INBOX' }
   | { type: 'CLOSE_INBOX' }
+  | { type: 'TOGGLE_INBOX' }
   | { type: 'SET_VIEW'; view: View }
   | { type: 'RESET_DAY' };

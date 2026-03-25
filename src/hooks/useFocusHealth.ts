@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { useAttentionBalance } from '@/hooks/useWeeklyMode';
 
 /**
@@ -11,7 +11,7 @@ import { useAttentionBalance } from '@/hooks/useWeeklyMode';
  * Also exports `distractionCount` so DistractionTax doesn't need to recompute.
  */
 export function useFocusHealth() {
-  const { plannedTasks } = useApp();
+  const { plannedTasks } = usePlanner();
   const attentionData = useAttentionBalance();
 
   return useMemo(() => {

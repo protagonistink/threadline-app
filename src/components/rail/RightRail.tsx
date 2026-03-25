@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO, startOfDay } from 'date-fns';
 import { TrendingUp, Target } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, usePlanner } from '@/context/AppContext';
 import { resolveGoalColor } from '@/lib/goalColors';
 import type { EngineState } from '../../../engine/types';
 import { computeBalanceAwareness, computeFocusCapacity } from './railUtils';
@@ -18,15 +18,15 @@ interface RightRailProps {
 }
 
 export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
+  const { inboxOpen, view } = useAppShell();
   const {
-    mode,
     weeklyGoals,
     plannedTasks,
     scheduleBlocks,
     workdayStart,
     workdayEnd,
     viewDate,
-  } = useApp();
+  } = usePlanner();
 
   const [financeState, setFinanceState] = useState<EngineState | null>(null);
 
@@ -90,23 +90,24 @@ export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
     totalTasks: plannedTasks.filter(t => t.weeklyGoalId === goal.id).length,
   }));
 
-  // Hard deadlines: Asana tasks with due dates within 3 days
+  const referenceDate = startOfDay(viewDate);
+
+  // Hard deadlines: real task due dates within the next 3 days, sorted by urgency.
   const deadlines = useMemo(() => {
-    const now = new Date();
     return plannedTasks
       .filter((t) => {
         if (t.status === 'done' || t.status === 'cancelled') return false;
-        if (!t.sourceId || t.source !== 'asana') return false;
-        // We don't store dueDate on PlannedTask directly — skip for now
-        // This will be extended when dueDate is available on the type
-        return false;
+        if (!t.dueOn) return false;
+        const daysUntil = differenceInCalendarDays(parseISO(t.dueOn), referenceDate);
+        return daysUntil <= 3;
       })
       .map((t) => ({
         title: t.title,
-        dueDate: today, // placeholder; replaced below when we have real due dates
+        dueDate: t.dueOn as string,
       }))
-      .filter((d) => differenceInCalendarDays(parseISO(d.dueDate), now) <= 3);
-  }, [plannedTasks, today]);
+      .sort((a, b) => differenceInCalendarDays(parseISO(a.dueDate), referenceDate) - differenceInCalendarDays(parseISO(b.dueDate), referenceDate))
+      .slice(0, 3);
+  }, [plannedTasks, referenceDate]);
 
   // Money obligations: upcoming items within 7 days
   const moneyObligations = useMemo(() => {
@@ -128,10 +129,10 @@ export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
   // End-of-day nudge: show when we're past the workday end
   const isAfterWorkday = currentHour >= workdayEnd.hour;
 
-  const heroMode = mode === 'planning';
+  const expandedLedger = view === 'flow' && inboxOpen;
 
   return (
-    <aside className="w-[280px] flex-shrink-0 flex flex-col border-l border-border-subtle bg-bg-elevated overflow-y-auto">
+    <aside className="w-[280px] flex-shrink-0 flex flex-col border-l border-border-subtle bg-bg-elevated overflow-y-auto select-none">
       <div className="px-7 pt-[74px] pb-6 flex flex-col">
         <div>
           <h3 className="flex items-center gap-2 font-serif text-[13px] uppercase tracking-[0.18em] text-text-whisper mb-4">
@@ -139,7 +140,7 @@ export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
             The Ledger
           </h3>
           {moneyObligations && moneyObligations.length > 0 ? (
-            <MoneyMoves obligations={moneyObligations} heroMode={heroMode} />
+            <MoneyMoves obligations={moneyObligations} heroMode={expandedLedger} />
           ) : (
             <span className="text-[12px] text-text-muted/35 italic">No obligations this week</span>
           )}
@@ -184,7 +185,7 @@ export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
             <div className="h-px bg-border-subtle my-6" />
             <div>
               <h3 className="font-serif text-[13px] uppercase tracking-[0.18em] text-text-whisper mb-4">Deadlines</h3>
-              <HardDeadlines deadlines={deadlines} />
+              <HardDeadlines deadlines={deadlines} referenceDate={referenceDate} />
             </div>
           </>
         )}

@@ -1,12 +1,12 @@
 import { ArrowRight } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { useAppShell } from '@/context/AppContext';
 
 interface DistractionTaxProps {
   distractionCount: number;
 }
 
 export function DistractionTax({ distractionCount }: DistractionTaxProps) {
-  const { setView } = useApp();
+  const { setView } = useAppShell();
 
   // Positive state when all tasks are mapped
   if (distractionCount === 0) {

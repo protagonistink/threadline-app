@@ -9,6 +9,7 @@ import { MoneyView } from './settings/MoneyView';
 import { StoryView } from './settings/StoryView';
 import { PrivacyView } from './settings/PrivacyView';
 import { ConnectView } from './settings/ConnectView';
+import { OverlaySurface } from '../shared/OverlaySurface';
 
 type SettingsTab = 'Day' | 'Tasks' | 'Money' | 'Story' | 'Privacy' | 'Connect';
 
@@ -29,7 +30,7 @@ export function Settings({ onClose }: SettingsProps) {
   const [tab, setTab] = useState<SettingsTab>('Day');
   const [settings, setSettings] = useState<LoadedSettings | null>(null);
   const [saving, setSaving] = useState(false);
-  const { mode: themeMode, setMode: setThemeMode } = useTheme();
+  const { preferredMode, setPreferredMode } = useTheme();
 
   // Day
   const [dayStartHour, setDayStartHour] = useState(9);
@@ -158,6 +159,7 @@ export function Settings({ onClose }: SettingsProps) {
   }
 
   const tabListRef = useRef<HTMLUListElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const handleTabKeyDown = useCallback((e: React.KeyboardEvent) => {
     const tabs = NAV.map((n) => n.id);
@@ -209,6 +211,7 @@ export function Settings({ onClose }: SettingsProps) {
       gcalCalendarIds: calendarIds,
       gcalWriteCalendarId: writeCalendarId,
       ...(stripeSecretKeyDirty ? { stripeSecretKey } : {}),
+      themeMode: preferredMode,
       // Day
       dayStartHour, dayStartMin, dayEndHour, dayEndMin, timeboxDefault, syncFrequencyMins,
       workMins, breakMins, longBreakMins,
@@ -222,6 +225,12 @@ export function Settings({ onClose }: SettingsProps) {
       // Privacy
       sensitiveDataMasking, auditLog,
     });
+    window.dispatchEvent(new CustomEvent('preferences-updated', {
+      detail: {
+        themeMode: preferredMode,
+        syncFrequencyMins,
+      },
+    }));
     setSaving(false);
     onClose();
   }
@@ -229,24 +238,33 @@ export function Settings({ onClose }: SettingsProps) {
   if (!settings) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]">
-      <div className="absolute inset-4 md:inset-8 lg:inset-12 bg-[#0E0E0E]/95 backdrop-blur-2xl border border-white/[0.04] rounded-[2px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-white font-sans selection:bg-accent-warm/30 selection:text-accent-warm">
+    <OverlaySurface
+      open
+      onClose={onClose}
+      labelledBy="settings-title"
+      initialFocusRef={closeButtonRef}
+      containerClassName="z-50"
+      backdropClassName="backdrop-blur-[2px]"
+      panelClassName="absolute inset-4 md:inset-8 lg:inset-12 bg-bg/95 backdrop-blur-2xl border border-border rounded-[2px] shadow-2xl flex flex-col md:flex-row overflow-hidden text-text-primary font-sans selection:bg-accent-warm/30 selection:text-text-emphasis"
+    >
 
         {/* Subtle grain overlay */}
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPgo8cmVjdCB3aWR0aD0iNCIgaGVpZ2h0PSI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMDIiLz4KPC9zdmc+')] opacity-20 pointer-events-none mix-blend-overlay z-0" />
 
         {/* Close */}
         <button
+          ref={closeButtonRef}
           onClick={onClose}
-          className="absolute top-8 right-8 z-50 p-2 text-white/30 hover:text-white/90 transition-colors bg-transparent border border-transparent hover:border-white/10 rounded-full"
+          className="absolute top-8 right-8 z-50 p-2 text-text-muted hover:text-text-primary transition-colors bg-transparent border border-transparent hover:border-border rounded-full"
+          aria-label="Close settings"
         >
           <X size={20} strokeWidth={1} />
         </button>
 
         {/* Left Navigation */}
-        <aside className="w-full md:w-[320px] lg:w-[400px] border-b md:border-b-0 md:border-r border-solid border-white/[0.04] flex flex-col z-10 relative">
+        <aside className="w-full md:w-[320px] lg:w-[400px] border-b md:border-b-0 md:border-r border-solid border-border flex flex-col z-10 relative">
           <div className="p-12 pb-8">
-            <h1 className="text-sm tracking-[0.3em] font-medium text-white/30 uppercase">
+            <h1 id="settings-title" className="text-sm tracking-[0.3em] font-medium text-text-muted uppercase">
               Preferences
             </h1>
           </div>
@@ -267,14 +285,14 @@ export function Settings({ onClose }: SettingsProps) {
                       className="w-full group flex items-baseline gap-6 px-4 py-4 text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-warm/50 focus-visible:rounded-md"
                     >
                       <span className={`text-[10px] font-mono mt-1.5 transition-colors duration-500 ${
-                        isActive ? 'text-accent-warm' : 'text-white/20 group-hover:text-white/40'
+                        isActive ? 'text-accent-warm' : 'text-text-whisper group-hover:text-text-muted'
                       }`}>
                         {item.num}
                       </span>
                       <span className={`text-2xl md:text-3xl transition-all duration-500 font-serif ${
                         isActive
-                          ? 'text-white/90 italic'
-                          : 'text-white/30 group-hover:text-white/60'
+                          ? 'text-text-emphasis italic'
+                          : 'text-text-secondary group-hover:text-text-primary'
                       }`}>
                         {item.label}
                       </span>
@@ -286,7 +304,7 @@ export function Settings({ onClose }: SettingsProps) {
           </nav>
 
           {/* Save button in sidebar footer */}
-          <div className="px-12 py-8 border-t border-white/[0.04]">
+          <div className="px-12 py-8 border-t border-border">
             <button
               onClick={handleSave}
               disabled={saving}
@@ -298,7 +316,7 @@ export function Settings({ onClose }: SettingsProps) {
           </div>
 
           {/* Decorative corner accent */}
-          <div className="absolute bottom-28 left-12 w-8 h-px bg-white/10" />
+          <div className="absolute bottom-28 left-12 w-8 h-px bg-border" />
         </aside>
 
         {/* Main Content */}
@@ -311,8 +329,8 @@ export function Settings({ onClose }: SettingsProps) {
           <div className="px-8 py-12 md:px-16 md:py-16 lg:px-24 lg:py-20 max-w-[1200px] mx-auto min-h-full">
             {tab === 'Day' && (
               <DayView
-                themeMode={themeMode}
-                setThemeMode={setThemeMode}
+                themeMode={preferredMode}
+                setThemeMode={setPreferredMode}
                 dayStartHour={dayStartHour}
                 dayStartMin={dayStartMin}
                 dayEndHour={dayEndHour}
@@ -409,7 +427,6 @@ export function Settings({ onClose }: SettingsProps) {
             )}
           </div>
         </main>
-      </div>
-    </div>
+    </OverlaySurface>
   );
 }

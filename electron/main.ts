@@ -9,6 +9,8 @@ import { registerAnthropicHandlers } from './anthropic';
 import { registerInkContextHandlers } from './ink-context';
 import { registerChatHistoryHandlers } from './chat-history';
 import { registerFinanceHandlers } from './finance';
+import { registerStripeHandlers } from './stripe';
+import { migrateToEncrypted } from './secure-store';
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_PUBLIC = app.isPackaged
@@ -20,6 +22,10 @@ const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 let mainWindow: BrowserWindow | null;
 let tray: Tray | null = null;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+
+if (VITE_DEV_SERVER_URL) {
+  app.disableHardwareAcceleration();
+}
 
 function createWindow() {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
@@ -121,6 +127,7 @@ app.on('activate', () => {
 });
 
 app.whenReady().then(() => {
+  migrateToEncrypted();
   registerAsanaHandlers();
   registerGCalHandlers();
   registerStoreHandlers();
@@ -130,6 +137,7 @@ app.whenReady().then(() => {
   registerInkContextHandlers();
   registerChatHistoryHandlers();
   registerFinanceHandlers();
+  registerStripeHandlers();
 
   ipcMain.handle('window:activate', () => {
     app.focus({ steal: true });
@@ -154,6 +162,12 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('shell:open-external', (_, url: string) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return;
+    } catch {
+      return;
+    }
     void shell.openExternal(url);
   });
 

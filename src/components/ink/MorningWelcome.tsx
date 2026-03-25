@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import type { InkMode } from '@/types';
 
 const GREETINGS_MORNING = [
@@ -64,7 +64,7 @@ function getPromptCopy(inkMode: InkMode | undefined, mode: 'briefing' | 'chat') 
 }
 
 export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'briefing' }: MorningWelcomeProps) {
-  const { weeklyGoals, userName } = useApp();
+  const { weeklyGoals, userName } = usePlanner();
   const greeting = useMemo(() => pickGreeting(userName), [userName]);
   const [intention, setIntention] = useState('');
   const promptCopy = useMemo(() => getPromptCopy(inkMode, mode), [inkMode, mode]);
@@ -79,7 +79,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
       {/* A. Greeting */}
       <h1
         className="font-display font-bold leading-tight mb-4 tracking-[-0.02em]"
-        style={{ color: '#FFFFFF', fontSize: compact ? '24px' : '4rem' }}
+        style={{ color: 'var(--color-text-emphasis)', fontSize: compact ? '24px' : '4rem' }}
       >
         {greeting}
       </h1>
@@ -88,7 +88,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
       <div className="mt-6">
         <span
           className="text-[10px] uppercase tracking-widest block mb-3"
-          style={{ color: '#64748B' }}
+          style={{ color: 'var(--color-text-muted)' }}
         >
           This week&apos;s threads
         </span>
@@ -98,9 +98,9 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
               key={goal.id}
               className="text-sm px-3 py-1 rounded-full"
               style={{
-                border: '1px solid #334155',
+                border: '1px solid var(--color-border)',
                 background: 'transparent',
-                color: '#CBD5E1',
+                color: 'var(--color-text-primary)',
               }}
             >
               {goal.title}
@@ -114,7 +114,7 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
       {/* D. Grounding Prompt */}
       <p
         className="font-display font-medium"
-        style={{ color: '#F8FAFC', fontSize: compact ? '1.15rem' : '1.5rem', marginTop: compact ? '2.75rem' : '5rem' }}
+        style={{ color: 'var(--color-text-emphasis)', fontSize: compact ? '1.15rem' : '1.5rem', marginTop: compact ? '2.75rem' : '5rem' }}
       >
         {promptCopy.prompt}
       </p>
@@ -133,12 +133,12 @@ export function MorningWelcome({ onStartDay, compact = false, inkMode, mode = 'b
           }}
           placeholder={promptCopy.placeholder}
           autoFocus
-          className="morning-welcome-input bg-transparent border-0 border-b border-[#475569] py-2 text-[15px] text-[#CBD5E1] focus:outline-none focus:ring-0"
-          style={{ width: compact ? '100%' : '18rem' }}
+          className="morning-welcome-input bg-transparent border-0 border-b py-2 text-[15px] focus:outline-none focus:ring-0"
+          style={{ width: compact ? '100%' : '18rem', borderColor: 'var(--color-border-hover)', color: 'var(--color-text-primary)' }}
         />
         <button
           onClick={handleSubmit}
-          className="morning-welcome-cta bg-transparent border-none cursor-pointer text-[14px] transition-colors duration-300"
+          className="morning-welcome-cta bg-transparent border-none cursor-pointer text-[14px] transition-colors duration-300 text-text-secondary hover:text-text-primary"
         >
           {promptCopy.cta}
         </button>

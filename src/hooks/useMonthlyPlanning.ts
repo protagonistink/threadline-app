@@ -36,7 +36,15 @@ export function useMonthlyPlanning({
   }, [initialPromptState]);
 
   const setMonthlyPlan = useCallback((plan: MonthlyPlan) => {
-    const planWithTimestamp: MonthlyPlan = { ...plan, completedAt: new Date().toISOString() };
+    const currentMonth = format(new Date(), 'yyyy-MM');
+    const planWithTimestamp: MonthlyPlan = {
+      ...plan,
+      month: plan.month || currentMonth,
+      reflection: plan.reflection || '',
+      oneThing: plan.oneThing || '',
+      why: plan.why || '',
+      completedAt: new Date().toISOString(),
+    };
     setMonthlyPlanState(planWithTimestamp);
     setMonthlyPlanPrompt(false);
   }, []);

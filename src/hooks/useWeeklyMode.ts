@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { differenceInDays, format, parseISO } from 'date-fns';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { currentWeekStart } from '@/lib/planner';
 
 export type WeeklyViewMode = 'month-not-set' | 'week-not-planned' | 'active-week';
@@ -18,7 +18,7 @@ export interface GoalAttention {
 }
 
 export function useWeeklyMode() {
-  const { monthlyPlan, weeklyGoals, weeklyPlanningLastCompleted } = useApp();
+  const { monthlyPlan, weeklyGoals, weeklyPlanningLastCompleted } = usePlanner();
 
   const mode: WeeklyViewMode = useMemo(() => {
     const currentMonth = format(new Date(), 'yyyy-MM');
@@ -41,7 +41,7 @@ export function useWeeklyMode() {
 }
 
 export function useAttentionBalance(): GoalAttention[] {
-  const { weeklyGoals, plannedTasks, countdowns, timeLogs, monthlyPlan } = useApp();
+  const { weeklyGoals, plannedTasks, countdowns, timeLogs, monthlyPlan } = usePlanner();
 
   return useMemo(() => {
     const today = new Date();

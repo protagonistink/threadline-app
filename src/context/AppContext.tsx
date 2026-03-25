@@ -50,12 +50,13 @@ import {
 export { type View };
 
 export type SourceView = 'cover' | 'asana' | 'gcal' | 'gmail';
+const PREFERENCES_UPDATED_EVENT = 'preferences-updated';
 
-interface AppContextValue {
-  // AppMode state machine
+interface AppShellContextValue {
   mode: AppMode;
   view: View;
   focusTaskId: string | null;
+  inboxOpen: boolean;
   completeBriefing: () => void;
   startDay: () => void;
   clickTask: (taskId: string) => void;
@@ -63,14 +64,20 @@ interface AppContextValue {
   exitFocus: () => void;
   openInbox: () => void;
   closeInbox: () => void;
+  toggleInbox: () => void;
   setView: (view: View) => void;
   resetAppMode: () => void;
 
   activeSource: SourceView;
   setActiveSource: (source: SourceView) => void;
+}
+
+interface PlannerContextValue {
   viewDate: Date;
   setViewDate: (date: Date) => void;
   weeklyGoals: WeeklyGoal[];
+  replaceWeeklyGoals: (goals: Array<{ title: string; why?: string }>) => void;
+  markWeeklyPlanningComplete: (date?: string) => void;
   addWeeklyGoal: (title: string, color?: string) => boolean;
   removeWeeklyGoal: (id: string) => void;
   renameWeeklyGoal: (id: string, title: string) => void;
@@ -91,7 +98,7 @@ interface AppContextValue {
   addInboxTask: (title: string) => string;
   bringForward: (taskId: string, goalId?: string, targetDate?: string) => void;
   lastCommitTimestamp: number;
-  assignTaskToGoal: (taskId: string, goalId: string) => void;
+  assignTaskToGoal: (taskId: string, goalId: string | null) => void;
   moveForward: (taskId: string) => Promise<void>;
   releaseTask: (taskId: string) => Promise<void>;
   returnTaskToInbox: (taskId: string) => Promise<void>;
@@ -115,8 +122,6 @@ interface AppContextValue {
   currentTask: PlannedTask | null;
   timeLogs: TimeLogEntry[];
   logFocusSession: (input: { taskId: string | null; durationMins: number; endedAt?: string }) => void;
-  syncStatus: { asana: string | null; gcal: string | null; loading: boolean };
-  refreshExternalData: () => Promise<void>;
   rituals: DailyRitual[];
   addRitual: (title: string) => void;
   removeRitual: (id: string) => void;
@@ -136,6 +141,16 @@ interface AppContextValue {
   updateTaskEstimate: (id: string, mins: number) => void;
   nestTask: (childId: string, parentId: string) => void;
   unnestTask: (childId: string) => void;
+  monthlyPlan: MonthlyPlan | null;
+  monthlyPlanPrompt: boolean;
+  setMonthlyPlan: (plan: MonthlyPlan) => void;
+  dismissMonthlyPlanPrompt: () => void;
+  updateRitualEstimate: (id: string, mins: number) => void;
+  dayEntries: DayEntry[];
+  saveDayEntry: (date: string, text: string) => void;
+}
+
+interface AppStatusContextValue {
   isInitialized: boolean;
   dayLocked: boolean;
   lockDay: () => void;
@@ -144,13 +159,8 @@ interface AppContextValue {
   resumeFocusMode: () => void;
   dismissFocusPrompt: () => void;
   resetDay: () => Promise<void>;
-  monthlyPlan: MonthlyPlan | null;
-  monthlyPlanPrompt: boolean;
-  setMonthlyPlan: (plan: MonthlyPlan) => void;
-  dismissMonthlyPlanPrompt: () => void;
-  updateRitualEstimate: (id: string, mins: number) => void;
-  dayEntries: DayEntry[];
-  saveDayEntry: (date: string, text: string) => void;
+  syncStatus: { asana: string | null; gcal: string | null; loading: boolean };
+  refreshExternalData: () => Promise<void>;
   showEndOfDayPrompt: boolean;
   dismissEndOfDayPrompt: () => void;
   showStartOfDayPrompt: boolean;
@@ -159,7 +169,11 @@ interface AppContextValue {
   dayCommitInfo: DayCommitInfo;
 }
 
-const AppContext = createContext<AppContextValue>(null!);
+const AppShellContext = createContext<AppShellContextValue | null>(null);
+const PlannerContext = createContext<PlannerContextValue | null>(null);
+const AppStatusContext = createContext<AppStatusContextValue | null>(null);
+
+const DEFAULT_WEEKLY_GOAL_COLORS = ['bg-accent-warm', 'bg-done', 'bg-accent-green'];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const appMode = useAppMode();
@@ -181,6 +195,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     gcal: null,
     loading: false,
   });
+  const [syncFrequencyMins, setSyncFrequencyMins] = useState(2);
 
   const { dayLocked, focusResumePrompt, lockDay, unlockDay, resumeFocusMode, dismissFocusPrompt } = useDayLock();
   const {
@@ -283,11 +298,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const monthlyPlan = stored?.monthlyPlan ?? null;
         setMonthlyPlanInit(monthlyPlan);
 
-        const [startShown, endShown, dismissedMonth] = await Promise.all([
+        const [settings, startShown, endShown, dismissedMonth] = await Promise.all([
+          window.api.settings.load(),
           window.api.store.get('startOfDay.shownDate'),
           window.api.store.get('endOfDay.shownDate'),
           window.api.store.get('monthlyPlanDismissedDate'),
         ]);
+        setSyncFrequencyMins(settings.day.syncFrequencyMins);
 
         // Compute whether to show the monthly prompt here, with all data in hand,
         // so the hook never has to do an async store read after mount.
@@ -371,9 +388,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   useAutoRefresh({
     enabled: isInitialized,
-    intervalMs: 2 * 60 * 1000,
+    intervalMs: syncFrequencyMins * 60 * 1000,
     refresh: refreshExternalData,
   });
+
+  useEffect(() => {
+    function handlePreferencesUpdated(event: Event) {
+      const detail = (event as CustomEvent<{ syncFrequencyMins?: number }>).detail;
+      if (typeof detail?.syncFrequencyMins === 'number') {
+        setSyncFrequencyMins(detail.syncFrequencyMins);
+      }
+    }
+
+    window.addEventListener(PREFERENCES_UPDATED_EVENT, handlePreferencesUpdated as EventListener);
+    return () => window.removeEventListener(PREFERENCES_UPDATED_EVENT, handlePreferencesUpdated as EventListener);
+  }, []);
 
   useEffect(() => {
     if (!isInitialized) return;
@@ -384,10 +413,49 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!title.trim() || weeklyGoals.length >= MAX_WEEKLY_GOALS) return false;
     setWeeklyGoals((prev) => [
       ...prev,
-      { id: `goal-${Date.now()}`, title: title.trim(), color },
+      { id: `goal-${crypto.randomUUID()}`, title: title.trim(), color },
     ]);
     return true;
   }, [weeklyGoals.length]);
+
+  const replaceWeeklyGoals = useCallback((goals: Array<{ title: string; why?: string }>) => {
+    const sanitized = goals
+      .map((goal) => ({
+        title: goal.title.trim(),
+        why: goal.why?.trim() || undefined,
+      }))
+      .filter((goal) => goal.title.length > 0)
+      .slice(0, MAX_WEEKLY_GOALS);
+
+    const nextGoals = sanitized.map((goal, index) => {
+      const existing = weeklyGoals.find((item) => item.title.trim().toLowerCase() === goal.title.toLowerCase());
+      return {
+        id: existing?.id ?? `goal-${crypto.randomUUID()}`,
+        title: goal.title,
+        why: goal.why,
+        color: existing?.color ?? DEFAULT_WEEKLY_GOAL_COLORS[index % DEFAULT_WEEKLY_GOAL_COLORS.length],
+        countdownId: existing?.countdownId,
+      };
+    });
+
+    const nextGoalIdByOldId = new Map<string, string | null>();
+    for (const previousGoal of weeklyGoals) {
+      const replacement = nextGoals.find((goal) => goal.title.trim().toLowerCase() === previousGoal.title.trim().toLowerCase()) ?? null;
+      nextGoalIdByOldId.set(previousGoal.id, replacement?.id ?? null);
+    }
+
+    setWeeklyGoals(nextGoals);
+    setPlannedTasks((prev) =>
+      prev.map((task) => ({
+        ...task,
+        weeklyGoalId: task.weeklyGoalId ? (nextGoalIdByOldId.get(task.weeklyGoalId) ?? null) : null,
+      }))
+    );
+  }, [setPlannedTasks, setWeeklyGoals, weeklyGoals]);
+
+  const markWeeklyPlanningComplete = useCallback((date?: string) => {
+    setWeeklyPlanningLastCompleted(date ?? format(new Date(), 'yyyy-MM-dd'));
+  }, []);
 
   const removeWeeklyGoal = useCallback((id: string) => {
     setWeeklyGoals((prev) => prev.filter((goal) => goal.id !== id));
@@ -528,7 +596,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const goal = task?.weeklyGoalId ? weeklyGoals.find((item) => item.id === task.weeklyGoalId) : null;
 
     const entry: TimeLogEntry = {
-      id: `log-${Date.now()}`,
+      id: `log-${crypto.randomUUID()}`,
       objectiveId: goal?.id || null,
       objectiveTitle: goal?.title || 'Unassigned',
       taskId: task?.id,
@@ -583,120 +651,261 @@ export function AppProvider({ children }: { children: ReactNode }) {
     unlockDay();
   }, [rituals, scheduleBlocks, setDailyPlan, setLastCommitTimestamp, setPlannedTasks, setScheduleBlocks, unlockDay, viewDate, workdayStart]);
 
-  return (
-    <AppContext.Provider
-      value={{
-        // AppMode state machine
-        mode: appMode.state.mode,
-        view: appMode.state.view,
-        focusTaskId: appMode.state.focusTaskId,
-        completeBriefing: appMode.completeBriefing,
-        startDay: appMode.startDay,
-        clickTask: appMode.clickTask,
-        enterFocus: appMode.enterFocus,
-        exitFocus: appMode.exitFocus,
-        openInbox: appMode.openInbox,
-        closeInbox: appMode.closeInbox,
-        setView: appMode.setView,
-        resetAppMode: appMode.resetDay,
+  const shellValue = useMemo<AppShellContextValue>(() => ({
+    mode: appMode.state.mode,
+    view: appMode.state.view,
+    focusTaskId: appMode.state.focusTaskId,
+    inboxOpen: appMode.state.inboxOpen,
+    completeBriefing: appMode.completeBriefing,
+    startDay: appMode.startDay,
+    clickTask: appMode.clickTask,
+    enterFocus: appMode.enterFocus,
+    exitFocus: appMode.exitFocus,
+    openInbox: appMode.openInbox,
+    closeInbox: appMode.closeInbox,
+    toggleInbox: appMode.toggleInbox,
+    setView: appMode.setView,
+    resetAppMode: appMode.resetDay,
+    activeSource,
+    setActiveSource,
+  }), [
+    activeSource,
+    appMode.clickTask,
+    appMode.closeInbox,
+    appMode.completeBriefing,
+    appMode.enterFocus,
+    appMode.exitFocus,
+    appMode.openInbox,
+    appMode.resetDay,
+    appMode.setView,
+    appMode.startDay,
+    appMode.state.focusTaskId,
+    appMode.state.inboxOpen,
+    appMode.state.mode,
+    appMode.state.view,
+    appMode.toggleInbox,
+  ]);
 
-        activeSource,
-        setActiveSource,
-        viewDate: viewDateValue,
-        setViewDate,
-        weeklyGoals,
-        addWeeklyGoal,
-        removeWeeklyGoal,
-        renameWeeklyGoal,
-        updateGoalWhy,
-        updateGoalColor,
-        updateGoalCountdown,
-        reorderWeeklyGoals,
-        plannedTasks,
-        dayTasks,
-        committedTasks,
-        candidateItems,
-        archiveTasks,
-        dailyPlan,
-        getDailyPlanForDate,
-        selectedInboxId,
-        selectInboxItem,
-        addLocalTask,
-        addInboxTask,
-        bringForward,
-        lastCommitTimestamp,
-        assignTaskToGoal,
-        moveForward,
-        releaseTask,
-        returnTaskToInbox,
-        dropTask,
-        toggleTask,
-        setActiveTask,
-        scheduleBlocks,
-        scheduleTaskBlock,
-        updateScheduleBlock,
-        removeScheduleBlock,
-        unscheduleTaskBlock,
-        clearFocusBlocks,
-        acceptProposal,
-        addAdHocBlock,
-        nestTaskInBlock,
-        unnestTaskFromBlock,
-        commitDay,
-        currentBlock,
-        nextBlock,
-        currentTask,
-        timeLogs,
-        logFocusSession,
-        syncStatus,
-        refreshExternalData,
-        rituals,
-        addRitual,
-        removeRitual,
-        renameRitual,
-        toggleRitualSkipped,
-        toggleRitualComplete,
-        countdowns,
-        addCountdown,
-        removeCountdown,
-        weeklyPlanningLastCompleted,
-        migrateOldTasks,
-        workdayStart,
-        setWorkdayStart,
-        workdayEnd,
-        setWorkdayEnd,
-        userName,
-        updateTaskEstimate,
-        nestTask,
-        unnestTask,
-        dayLocked,
-        lockDay,
-        unlockDay,
-        focusResumePrompt,
-        resumeFocusMode,
-        dismissFocusPrompt,
-        resetDay,
-        monthlyPlan,
-        monthlyPlanPrompt,
-        setMonthlyPlan,
-        dismissMonthlyPlanPrompt,
-        updateRitualEstimate,
-        dayEntries,
-        saveDayEntry,
-        isInitialized,
-        showEndOfDayPrompt,
-        dismissEndOfDayPrompt,
-        showStartOfDayPrompt,
-        dismissStartOfDayPrompt,
-        isFirstLoadOfDay,
-        dayCommitInfo,
-      }}
-    >
-      {children}
-    </AppContext.Provider>
+  const plannerValue = useMemo<PlannerContextValue>(() => ({
+    viewDate: viewDateValue,
+    setViewDate,
+    weeklyGoals,
+    replaceWeeklyGoals,
+    markWeeklyPlanningComplete,
+    addWeeklyGoal,
+    removeWeeklyGoal,
+    renameWeeklyGoal,
+    updateGoalWhy,
+    updateGoalColor,
+    updateGoalCountdown,
+    reorderWeeklyGoals,
+    plannedTasks,
+    dayTasks,
+    committedTasks,
+    candidateItems,
+    archiveTasks,
+    dailyPlan,
+    getDailyPlanForDate,
+    selectedInboxId,
+    selectInboxItem,
+    addLocalTask,
+    addInboxTask,
+    bringForward,
+    lastCommitTimestamp,
+    assignTaskToGoal,
+    moveForward,
+    releaseTask,
+    returnTaskToInbox,
+    dropTask,
+    toggleTask,
+    setActiveTask,
+    scheduleBlocks,
+    scheduleTaskBlock,
+    updateScheduleBlock,
+    removeScheduleBlock,
+    unscheduleTaskBlock,
+    clearFocusBlocks,
+    acceptProposal,
+    addAdHocBlock,
+    nestTaskInBlock,
+    unnestTaskFromBlock,
+    commitDay,
+    currentBlock,
+    nextBlock,
+    currentTask,
+    timeLogs,
+    logFocusSession,
+    rituals,
+    addRitual,
+    removeRitual,
+    renameRitual,
+    toggleRitualSkipped,
+    toggleRitualComplete,
+    countdowns,
+    addCountdown,
+    removeCountdown,
+    weeklyPlanningLastCompleted,
+    migrateOldTasks,
+    workdayStart,
+    setWorkdayStart,
+    workdayEnd,
+    setWorkdayEnd,
+    userName,
+    updateTaskEstimate,
+    nestTask,
+    unnestTask,
+    monthlyPlan,
+    monthlyPlanPrompt,
+    setMonthlyPlan,
+    dismissMonthlyPlanPrompt,
+    updateRitualEstimate,
+    dayEntries,
+    saveDayEntry,
+  }), [
+    acceptProposal,
+    addAdHocBlock,
+    addCountdown,
+    addInboxTask,
+    addLocalTask,
+    addRitual,
+    addWeeklyGoal,
+    archiveTasks,
+    assignTaskToGoal,
+    bringForward,
+    candidateItems,
+    clearFocusBlocks,
+    commitDay,
+    committedTasks,
+    countdowns,
+    currentBlock,
+    currentTask,
+    dailyPlan,
+    dayEntries,
+    dayTasks,
+    dismissMonthlyPlanPrompt,
+    dropTask,
+    getDailyPlanForDate,
+    lastCommitTimestamp,
+    logFocusSession,
+    markWeeklyPlanningComplete,
+    migrateOldTasks,
+    monthlyPlan,
+    monthlyPlanPrompt,
+    moveForward,
+    nestTask,
+    nestTaskInBlock,
+    nextBlock,
+    plannedTasks,
+    releaseTask,
+    removeCountdown,
+    removeRitual,
+    removeScheduleBlock,
+    removeWeeklyGoal,
+    renameRitual,
+    renameWeeklyGoal,
+    reorderWeeklyGoals,
+    replaceWeeklyGoals,
+    returnTaskToInbox,
+    rituals,
+    saveDayEntry,
+    scheduleBlocks,
+    scheduleTaskBlock,
+    selectInboxItem,
+    selectedInboxId,
+    setActiveTask,
+    setMonthlyPlan,
+    setViewDate,
+    setWorkdayEnd,
+    setWorkdayStart,
+    timeLogs,
+    toggleRitualComplete,
+    toggleRitualSkipped,
+    toggleTask,
+    unnestTask,
+    unnestTaskFromBlock,
+    unscheduleTaskBlock,
+    updateGoalColor,
+    updateGoalCountdown,
+    updateGoalWhy,
+    updateRitualEstimate,
+    updateScheduleBlock,
+    updateTaskEstimate,
+    userName,
+    viewDateValue,
+    weeklyGoals,
+    weeklyPlanningLastCompleted,
+    workdayEnd,
+    workdayStart,
+  ]);
+
+  const statusValue = useMemo<AppStatusContextValue>(() => ({
+    isInitialized,
+    dayLocked,
+    lockDay,
+    unlockDay,
+    focusResumePrompt,
+    resumeFocusMode,
+    dismissFocusPrompt,
+    resetDay,
+    syncStatus,
+    refreshExternalData,
+    showEndOfDayPrompt,
+    dismissEndOfDayPrompt,
+    showStartOfDayPrompt,
+    dismissStartOfDayPrompt,
+    isFirstLoadOfDay,
+    dayCommitInfo,
+  }), [
+    dayCommitInfo,
+    dayLocked,
+    dismissEndOfDayPrompt,
+    dismissFocusPrompt,
+    dismissStartOfDayPrompt,
+    focusResumePrompt,
+    isFirstLoadOfDay,
+    isInitialized,
+    lockDay,
+    refreshExternalData,
+    resetDay,
+    resumeFocusMode,
+    showEndOfDayPrompt,
+    showStartOfDayPrompt,
+    syncStatus,
+    unlockDay,
+  ]);
+
+  return (
+    <AppShellContext.Provider value={shellValue}>
+      <PlannerContext.Provider value={plannerValue}>
+        <AppStatusContext.Provider value={statusValue}>
+          {children}
+        </AppStatusContext.Provider>
+      </PlannerContext.Provider>
+    </AppShellContext.Provider>
   );
 }
 
 export function useApp() {
-  return useContext(AppContext);
+  const shell = useAppShell();
+  const planner = usePlanner();
+  const status = useAppStatus();
+  return { ...shell, ...planner, ...status };
+}
+
+export function useAppShell() {
+  const context = useContext(AppShellContext);
+  if (!context) throw new Error('useAppShell must be used within AppProvider');
+  return context;
+}
+
+export function usePlanner() {
+  const context = useContext(PlannerContext);
+  if (!context) throw new Error('usePlanner must be used within AppProvider');
+  return context;
+}
+
+export function useAppStatus() {
+  const context = useContext(AppStatusContext);
+  if (!context) throw new Error('useAppStatus must be used within AppProvider');
+  return context;
 }

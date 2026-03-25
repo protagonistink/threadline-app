@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { resolveGoalColor } from '@/lib/goalColors';
 
 /**
@@ -8,7 +8,7 @@ import { resolveGoalColor } from '@/lib/goalColors';
  * Today pulses. Future days are dim.
  */
 export function MonthArc() {
-  const { plannedTasks, weeklyGoals } = useApp();
+  const { plannedTasks, weeklyGoals } = usePlanner();
 
   const { days } = useMemo(() => {
     const now = new Date();

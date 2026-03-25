@@ -68,12 +68,73 @@ export function asPlannedTask(task: AsanaTask, existing?: PlannedTask): PlannedT
     priority: getPriority(task) || existing?.priority,
     notes: task.notes || existing?.notes,
     asanaProject: task.projects?.[0]?.name || existing?.asanaProject,
+    dueOn: task.due_on ?? existing?.dueOn ?? null,
     workMode,
     active: existing?.active || false,
     scheduledEventId: existing?.scheduledEventId,
     scheduledCalendarId: existing?.scheduledCalendarId,
     lastCommittedDate: existing?.lastCommittedDate,
   };
+}
+
+interface InboxSortOptions {
+  primaryGoalId: string | null;
+  planningDate?: string;
+}
+
+function compareNullableDate(a?: string | null, b?: string | null) {
+  if (a && b) return a.localeCompare(b);
+  if (a) return -1;
+  if (b) return 1;
+  return 0;
+}
+
+export function compareInboxTasks(
+  aTask: PlannedTask | undefined,
+  bTask: PlannedTask | undefined,
+  options: InboxSortOptions,
+) {
+  const today = options.planningDate ?? getToday();
+
+  const aIsOverdue = Boolean(aTask?.dueOn && aTask.dueOn < today);
+  const bIsOverdue = Boolean(bTask?.dueOn && bTask.dueOn < today);
+  if (aIsOverdue !== bIsOverdue) return aIsOverdue ? -1 : 1;
+  if (aIsOverdue && bIsOverdue) {
+    const overdueDateOrder = compareNullableDate(aTask?.dueOn, bTask?.dueOn);
+    if (overdueDateOrder !== 0) return overdueDateOrder;
+  }
+
+  const aIsRollover = Boolean(aTask?.lastCommittedDate && aTask.lastCommittedDate < today);
+  const bIsRollover = Boolean(bTask?.lastCommittedDate && bTask.lastCommittedDate < today);
+  if (aIsRollover !== bIsRollover) return aIsRollover ? -1 : 1;
+  if (aIsRollover && bIsRollover) {
+    const rolloverDateOrder = compareNullableDate(aTask?.lastCommittedDate, bTask?.lastCommittedDate);
+    if (rolloverDateOrder !== 0) return rolloverDateOrder;
+  }
+
+  const aIsInk = options.primaryGoalId != null && aTask?.weeklyGoalId === options.primaryGoalId;
+  const bIsInk = options.primaryGoalId != null && bTask?.weeklyGoalId === options.primaryGoalId;
+  if (aIsInk !== bIsInk) return aIsInk ? -1 : 1;
+
+  const aDueOrder = compareNullableDate(aTask?.dueOn, bTask?.dueOn);
+  if (aDueOrder !== 0) return aDueOrder;
+
+  const WORK_MODE_SORT_ORDER: Record<string, number> = {
+    deep_work: 0,
+    collaborative: 1,
+    quick_win: 2,
+    admin: 3,
+  };
+  const aMode = aTask?.workMode ? (WORK_MODE_SORT_ORDER[aTask.workMode] ?? 4) : 4;
+  const bMode = bTask?.workMode ? (WORK_MODE_SORT_ORDER[bTask.workMode] ?? 4) : 4;
+  if (aMode !== bMode) return aMode - bMode;
+
+  const priorityOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+  const aPri = aTask?.priority ? (priorityOrder[aTask.priority.toLowerCase()] ?? 3) : 3;
+  const bPri = bTask?.priority ? (priorityOrder[bTask.priority.toLowerCase()] ?? 3) : 3;
+  if (aPri !== bPri) return aPri - bPri;
+
+  return (aTask?.title ?? '').localeCompare(bTask?.title ?? '');
 }
 
 export function eventDurationMins(event: GCalEvent): number {
@@ -86,14 +147,15 @@ export function eventToBlock(event: GCalEvent, tasks: PlannedTask[]): ScheduleBl
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
 
   const start = new Date(event.start.dateTime);
-  const linkedTask = tasks.find((task) => task.scheduledEventId === event.id)
-    ?? (() => {
-      if (!event.description?.includes(FOCUS_EVENT_MARKER)) return undefined;
-      const match = /\[Inked\]\s*\n([^\n]+)/.exec(event.description);
-      const descTaskId = match?.[1]?.trim();
-      return descTaskId ? tasks.find((task) => task.id === descTaskId) : undefined;
-    })();
-  const isFocus = event.description?.includes(FOCUS_EVENT_MARKER) || Boolean(linkedTask);
+  const isSchedulableTask = (task: PlannedTask) => task.status !== 'done' && task.status !== 'cancelled';
+  const descTaskId = (() => {
+    if (!event.description?.includes(FOCUS_EVENT_MARKER)) return undefined;
+    const match = /\[Inked\]\s*\n([^\n]+)/.exec(event.description);
+    return match?.[1]?.trim();
+  })();
+  const linkedTask = tasks.find((task) => task.scheduledEventId === event.id && isSchedulableTask(task))
+    ?? (descTaskId ? tasks.find((task) => task.id === descTaskId && isSchedulableTask(task)) : undefined);
+  const isFocus = Boolean(linkedTask);
 
   return {
     id: event.id,
@@ -104,6 +166,7 @@ export function eventToBlock(event: GCalEvent, tasks: PlannedTask[]): ScheduleBl
     kind: isFocus ? 'focus' : 'hard',
     readOnly: !isFocus,
     linkedTaskId: linkedTask?.id,
+    linkedGoalId: linkedTask?.weeklyGoalId ?? null,
     eventId: event.id,
     calendarId: event.calendarId,
     source: 'gcal',

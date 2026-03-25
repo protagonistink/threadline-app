@@ -1,5 +1,4 @@
 import { useId } from 'react';
-import { motion } from 'motion/react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -21,6 +20,11 @@ export function InkedLogo({ collapsed = false, className }: InkedLogoProps) {
   const warmWhite = '#FAFAFA';
   const wordmarkFill = isLight ? '#2C2B29' : warmWhite;
   const bracketFill = isLight ? '#1E1E1E' : warmWhite;
+  const fadeIn = (delay: number, duration = 0.7) =>
+    ({
+      opacity: 0,
+      animation: `fade-in ${duration}s ease-out ${delay}s forwards`,
+    }) as React.CSSProperties;
 
   if (collapsed) {
     return (
@@ -57,27 +61,21 @@ export function InkedLogo({ collapsed = false, className }: InkedLogoProps) {
             </filter>
           </defs>
 
-          <motion.path
+          <path
             d="M 235 45 C 255 45, 265 65, 260 80 C 255 90, 255 98, 275 102 C 255 106, 255 114, 260 124 C 265 139, 255 159, 235 159 C 248 152, 252 142, 248 132 C 244 122, 248 112, 262 102 C 248 92, 244 82, 248 72 C 252 62, 248 52, 235 45 Z"
             fill={isLight ? '#1E1E1E' : '#FAFAFA'}
             filter={`url(#${inkFilterId})`}
-            initial={{ opacity: 0, scaleY: 0.85, transformOrigin: 'center' }}
-            animate={{ opacity: 1, scaleY: 1 }}
-            transition={{ delay: 0.2, duration: 0.7, ease: 'easeOut' }}
+            style={{ ...fadeIn(0.2), transformOrigin: 'center', transform: 'scaleY(1)' }}
           />
 
           <g>
-            <motion.circle cx="305" cy="102" r="11" fill="#C83C2F" filter={`url(#${stampFilterId})`}
-              initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5, duration: 0.5, type: "spring" }} />
-            <motion.circle cx="338" cy="102" r="11.5" fill="#C83C2F" filter={`url(#${stampFilterId})`}
-              initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.7, duration: 0.5, type: "spring" }} />
-            <motion.path
+            <circle cx="305" cy="102" r="11" fill="#C83C2F" filter={`url(#${stampFilterId})`} style={fadeIn(0.5, 0.5)} />
+            <circle cx="338" cy="102" r="11.5" fill="#C83C2F" filter={`url(#${stampFilterId})`} style={fadeIn(0.7, 0.5)} />
+            <path
               d="M 364 100 L 370 108 L 382 92"
               fill="none" stroke="#C83C2F" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"
               filter={`url(#${stampFilterId})`}
-              initial={{ opacity: 0, pathLength: 0 }}
-              animate={{ opacity: 1, pathLength: 1 }}
-              transition={{ delay: 0.9, duration: 0.5, type: "spring" }}
+              style={fadeIn(0.9, 0.5)}
             />
           </g>
         </svg>
@@ -112,47 +110,33 @@ export function InkedLogo({ collapsed = false, className }: InkedLogoProps) {
           </filter>
         </defs>
 
-        <motion.text
+        <text
           x="0" y="115"
           textAnchor="start"
           fill={wordmarkFill}
-          style={{
-            fontFamily: '"Satoshi", -apple-system, BlinkMacSystemFont, sans-serif',
-            fontSize: '58px',
-            fontWeight: 700,
-            letterSpacing: '-0.02em',
-          }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1.2, ease: 'easeOut' }}
+          style={{ ...fadeIn(0, 1.2), fontFamily: '"Satoshi", -apple-system, BlinkMacSystemFont, sans-serif', fontSize: '58px', fontWeight: 700, letterSpacing: '-0.02em' }}
           filter={`url(#${inkFilterId})`}
         >
           inked
-        </motion.text>
+        </text>
 
         <g transform="translate(-100, 0)">
-          <motion.path
+          <path
             d="M 235 45 C 255 45, 265 65, 260 80 C 255 90, 255 98, 275 102 C 255 106, 255 114, 260 124 C 265 139, 255 159, 235 159 C 248 152, 252 142, 248 132 C 244 122, 248 112, 262 102 C 248 92, 244 82, 248 72 C 252 62, 248 52, 235 45 Z"
             fill={bracketFill}
             filter={`url(#${inkFilterId})`}
-            initial={{ opacity: 0, scaleY: 0.8, transformOrigin: 'center' }}
-            animate={{ opacity: 1, scaleY: 1 }}
-            transition={{ delay: 0.6, duration: 0.8, ease: 'easeOut' }}
+            style={{ ...fadeIn(0.6, 0.8), transformOrigin: 'center', transform: 'scaleY(1)' }}
           />
         </g>
 
         <g transform="translate(-90, -2)">
-          <motion.circle cx="295" cy="104" r="11" fill="#C83C2F" filter={`url(#${stampFilterId})`}
-            initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.0, duration: 0.5, type: "spring" }} />
-          <motion.circle cx="326" cy="105" r="10.5" fill="#C83C2F" filter={`url(#${stampFilterId})`}
-            initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 1.2, duration: 0.5, type: "spring" }} />
-          <motion.path
+          <circle cx="295" cy="104" r="11" fill="#C83C2F" filter={`url(#${stampFilterId})`} style={fadeIn(1.0, 0.5)} />
+          <circle cx="326" cy="105" r="10.5" fill="#C83C2F" filter={`url(#${stampFilterId})`} style={fadeIn(1.2, 0.5)} />
+          <path
             d="M 350 101 L 356 109 L 368 93"
             fill="none" stroke="#C83C2F" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round"
             filter={`url(#${stampFilterId})`}
-            initial={{ opacity: 0, pathLength: 0 }}
-            animate={{ opacity: 1, pathLength: 1 }}
-            transition={{ delay: 1.4, duration: 0.5, type: "spring" }}
+            style={fadeIn(1.4, 0.5)}
           />
         </g>
       </svg>

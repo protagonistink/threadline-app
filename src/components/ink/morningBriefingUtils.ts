@@ -19,6 +19,8 @@ interface BuildBriefingContextOptions {
   planningDate: string;
   monthlyPlan?: MonthlyPlan | null;
   inkMode?: InkMode;
+  interviewStep?: number;
+  interviewAnswers?: string[];
 }
 
 function normalizeTaskTitle(value: string) {
@@ -35,6 +37,8 @@ export async function buildBriefingContext({
   planningDate,
   monthlyPlan,
   inkMode,
+  interviewStep,
+  interviewAnswers,
 }: BuildBriefingContextOptions): Promise<BriefingContext> {
   let asanaTasks: BriefingContext['asanaTasks'] = [];
   try {
@@ -82,6 +86,7 @@ export async function buildBriefingContext({
   const scheduledMinutes = scheduleBlocks
     .filter((block) => !block.readOnly)
     .reduce((sum, block) => sum + block.durationMins, 0);
+  const availableFocusMinutes = Math.max(0, remainingMins - scheduledMinutes);
   const planningDateLabel = format(parseISO(planningDate), 'EEEE, MMMM d, yyyy');
   const today = format(new Date(), 'yyyy-MM-dd');
 
@@ -94,9 +99,12 @@ export async function buildBriefingContext({
     currentHour: now.getHours(),
     currentMinute: now.getMinutes(),
     weeklyGoals: weeklyGoals.map((goal) => ({ title: goal.title, why: goal.why })),
+    interviewStep,
+    interviewAnswers,
     asanaTasks,
     gcalEvents,
-    availableFocusMinutes: remainingMins,
+    remainingWorkdayMinutes: remainingMins,
+    availableFocusMinutes,
     scheduledMinutes,
     committedTasks: committedTasks.map((task) => {
       const goal = task.weeklyGoalId ? weeklyGoals.find((item) => item.id === task.weeklyGoalId) : null;
