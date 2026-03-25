@@ -7,6 +7,7 @@ import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppProvider, useApp } from './context/AppContext';
 import { DragOverlay } from './components/shared/DragOverlay';
+import { ErrorBoundary, RootFallback, ModeFallback } from './components/shared/ErrorBoundary';
 import { AtmosphereLayer } from './components/AtmosphereLayer';
 import { Sidebar } from './components/chrome/Sidebar';
 import { BriefingMode } from './modes/BriefingMode';
@@ -36,6 +37,7 @@ function AppLayout() {
     resetDay,
     setView,
     setViewDate,
+    resetAppMode,
   } = useApp();
 
   // --- Local UI state ---
@@ -92,6 +94,14 @@ function AppLayout() {
     setAssistantPinned(true);
   }, [assistantPinned, closeAssistant, clearAssistantCloseTimeout, mode]);
 
+  const openWeeklyPlanningAssistant = useCallback(() => {
+    clearAssistantCloseTimeout();
+    setBriefingMode('briefing');
+    setBriefingSessionId((n) => n + 1);
+    setAssistantOpen(true);
+    setAssistantPinned(true);
+  }, [clearAssistantCloseTimeout]);
+
   // --- Fullscreen Ink / briefing ---
   const openFullscreenInk = useCallback(() => {
     closeAssistant();
@@ -127,6 +137,7 @@ function AppLayout() {
   useEffect(() => {
     if (!isInitialized || autoBriefingCheckedRef.current) return;
     autoBriefingCheckedRef.current = true;
+    void window.api.chat.clear(format(new Date(), 'yyyy-MM-dd'));
 
     let cancelled = false;
     void checkAutoBriefing(() => cancelled);
@@ -137,17 +148,17 @@ function AppLayout() {
   // --- Close briefing ---
   const closeBriefing = useCallback(() => {
     const wasEvening = isEveningReflection;
+    const today = format(new Date(), 'yyyy-MM-dd');
     if (pendingDayReset) {
       void resetDay();
       setPendingDayReset(false);
     }
     setIsEveningReflection(false);
     completeBriefing();
-    window.api.store.set(`briefing.dismissed.${format(new Date(), 'yyyy-MM-dd')}`, true);
+    window.api.store.set(`briefing.dismissed.${today}`, true);
 
     // Generate and save evening reflection from today's conversation
     if (wasEvening) {
-      const today = format(new Date(), 'yyyy-MM-dd');
       void window.api.chat.load(today).then((msgs) => {
         if (msgs.length < 2) return;
         const transcript = msgs.map((m) => `${m.role}: ${m.content}`).join('\n').slice(0, 2000);
@@ -164,8 +175,12 @@ function AppLayout() {
             }
           });
         });
+      }).finally(() => {
+        void window.api.chat.clear(today);
       });
+      return;
     }
+    void window.api.chat.clear(today);
   }, [pendingDayReset, resetDay, isEveningReflection, completeBriefing]);
 
   // --- Escape key ---
@@ -179,6 +194,32 @@ function AppLayout() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [mode, assistantPinned, closeBriefing, closeAssistant]);
+
+  // --- View hotkeys ---
+  useEffect(() => {
+    function handleViewHotkeys(e: KeyboardEvent) {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === '1') {
+        setView('flow');
+      } else if (e.key === '2') {
+        setView('intentions');
+      }
+    }
+
+    document.addEventListener('keydown', handleViewHotkeys);
+    return () => document.removeEventListener('keydown', handleViewHotkeys);
+  }, [setView]);
 
   // Cleanup timeout on unmount
   useEffect(() => () => clearAssistantCloseTimeout(), [clearAssistantCloseTimeout]);
@@ -199,6 +240,10 @@ function AppLayout() {
   }, [setView, openFullscreenInk, startDay, setViewDate]);
 
   const showInkOverlay = mode === 'briefing';
+
+  const modeFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
+    <ModeFallback error={error} resetErrorBoundary={resetErrorBoundary} />
+  );
 
   return (
     <div
@@ -229,51 +274,72 @@ function AppLayout() {
             className="flex-1 flex overflow-hidden"
           >
             {view === 'intentions' ? (
-              <Suspense fallback={null}>
-                <IntentionsView />
-              </Suspense>
+              <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
+                <Suspense fallback={null}>
+                  <IntentionsView
+                    assistantOpen={assistantOpen}
+                    assistantPinned={assistantPinned}
+                    onAssistantHover={openAssistantPreview}
+                    onAssistantLeave={scheduleAssistantClose}
+                    onToggleAssistant={togglePinnedAssistant}
+                    onPlanWeekWithInk={openWeeklyPlanningAssistant}
+                    inkStreaming={inkStreaming}
+                    briefingSessionId={briefingSessionId}
+                    onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                    onStreamingChange={setInkStreaming}
+                  />
+                </Suspense>
+              </ErrorBoundary>
             ) : mode === 'briefing' ? (
-              <BriefingMode
-                onComplete={closeBriefing}
-                isEvening={isEveningReflection}
-                briefingSessionId={briefingSessionId}
-                onNewChat={() => setBriefingSessionId((n) => n + 1)}
-                onStreamingChange={setInkStreaming}
-                briefingMode={briefingMode}
-              />
+              <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
+                <BriefingMode
+                  onComplete={closeBriefing}
+                  isEvening={isEveningReflection}
+                  briefingSessionId={briefingSessionId}
+                  onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                  onStreamingChange={setInkStreaming}
+                  briefingMode={briefingMode}
+                />
+              </ErrorBoundary>
             ) : mode === 'focus' && focusTaskId ? (
-              <FocusMode taskId={focusTaskId} onExit={exitFocus} />
+              <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
+                <FocusMode taskId={focusTaskId} onExit={exitFocus} />
+              </ErrorBoundary>
             ) : mode === 'planning' ? (
-              <PlanningMode
-                onStartDay={startDay}
-                onOpenInk={openFullscreenInk}
-                onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
-                assistantOpen={assistantOpen}
-                assistantPinned={assistantPinned}
-                onAssistantHover={openAssistantPreview}
-                onAssistantLeave={scheduleAssistantClose}
-                onToggleAssistant={togglePinnedAssistant}
-                inkStreaming={inkStreaming}
-                briefingSessionId={briefingSessionId}
-                onNewChat={() => setBriefingSessionId((n) => n + 1)}
-                onStreamingChange={setInkStreaming}
-              />
+              <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
+                <PlanningMode
+                  onStartDay={startDay}
+                  onOpenInk={openFullscreenInk}
+                  onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
+                  assistantOpen={assistantOpen}
+                  assistantPinned={assistantPinned}
+                  onAssistantHover={openAssistantPreview}
+                  onAssistantLeave={scheduleAssistantClose}
+                  onToggleAssistant={togglePinnedAssistant}
+                  inkStreaming={inkStreaming}
+                  briefingSessionId={briefingSessionId}
+                  onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                  onStreamingChange={setInkStreaming}
+                />
+              </ErrorBoundary>
             ) : (
-              <ExecutingMode
-                onEnterFocus={enterFocus}
-                onOpenInk={openFullscreenInk}
-                onOpenInbox={openInbox}
-                onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
-                assistantOpen={assistantOpen}
-                assistantPinned={assistantPinned}
-                onAssistantHover={openAssistantPreview}
-                onAssistantLeave={scheduleAssistantClose}
-                onToggleAssistant={togglePinnedAssistant}
-                inkStreaming={inkStreaming}
-                briefingSessionId={briefingSessionId}
-                onNewChat={() => setBriefingSessionId((n) => n + 1)}
-                onStreamingChange={setInkStreaming}
-              />
+              <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
+                <ExecutingMode
+                  onEnterFocus={enterFocus}
+                  onOpenInk={openFullscreenInk}
+                  onOpenInbox={openInbox}
+                  onEndDay={() => { setPendingDayReset(true); openEveningReflection(); }}
+                  assistantOpen={assistantOpen}
+                  assistantPinned={assistantPinned}
+                  onAssistantHover={openAssistantPreview}
+                  onAssistantLeave={scheduleAssistantClose}
+                  onToggleAssistant={togglePinnedAssistant}
+                  inkStreaming={inkStreaming}
+                  briefingSessionId={briefingSessionId}
+                  onNewChat={() => setBriefingSessionId((n) => n + 1)}
+                  onStreamingChange={setInkStreaming}
+                />
+              </ErrorBoundary>
             )}
           </motion.div>
         </AnimatePresence>
@@ -301,7 +367,9 @@ export default function App() {
     <ThemeProvider>
       <AppProvider>
         <DndProvider backend={HTML5Backend}>
-          <AppLayout />
+          <ErrorBoundary fallback={({ error }) => <RootFallback error={error} />}>
+            <AppLayout />
+          </ErrorBoundary>
         </DndProvider>
       </AppProvider>
     </ThemeProvider>
