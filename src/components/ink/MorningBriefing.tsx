@@ -1,9 +1,9 @@
 // src/components/MorningBriefing.tsx
+import { lazy, Suspense } from 'react';
 import { format } from 'date-fns';
 import { AlertCircle, RotateCcw } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/context/ThemeContext';
 import type { BriefingVariant } from '@/types/briefing';
 import { useBriefingState } from '@/hooks/useBriefingState';
 import { MorningWelcome } from './MorningWelcome';
@@ -13,6 +13,8 @@ import { ScheduleChips } from '../ScheduleChips';
 import { CommitChips } from '../CommitChips';
 import { RitualSuggestions } from '../RitualSuggestions';
 import { BriefingInput } from './BriefingInput';
+
+const MarkdownRenderer = lazy(() => import('./MarkdownRenderer').then((m) => ({ default: m.MarkdownRenderer })));
 
 export function MorningBriefing({
   onClose,
@@ -28,6 +30,11 @@ export function MorningBriefing({
   variant?: BriefingVariant;
 }) {
   const { state, actions } = useBriefingState({ onClose, onStreamingChange, mode, variant });
+  const { isLight } = useTheme();
+  const handleNewChat = async () => {
+    await actions.clearPersistedConversation();
+    onNewChat();
+  };
 
   const isEvening = state.promptInkMode === 'evening';
 
@@ -35,9 +42,11 @@ export function MorningBriefing({
     <div
       className={cn('relative flex h-full w-full', state.isOverlay && 'rounded-[28px]')}
       style={{
-        backgroundColor: '#0B1120',
-        backgroundImage: 'radial-gradient(ellipse at 20% 20%, #1E293B, #0B1120 70%)',
-        color: '#CBD5E1',
+        backgroundColor: 'var(--color-bg)',
+        backgroundImage: isLight
+          ? 'radial-gradient(ellipse at 20% 20%, rgba(200,60,47,0.06), transparent 55%), radial-gradient(ellipse at 80% 100%, rgba(30,63,102,0.05), transparent 50%)'
+          : 'radial-gradient(ellipse at 20% 20%, var(--color-bg-elevated), var(--color-bg) 70%)',
+        color: 'var(--color-text-primary)',
       }}
     >
       {/* Warm/cool top gradient overlay */}
@@ -69,18 +78,18 @@ export function MorningBriefing({
             {/* Header */}
             <div className={cn('flex items-center justify-between shrink-0', state.isOverlay ? 'mb-4' : 'mb-6')}>
               <div className="flex items-center gap-2">
-                <div className="text-[10px] uppercase tracking-[0.14em]" style={{ color: '#64748B' }}>
+                <div className="text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
                   {format(state.viewDate, 'EEEE, MMM d')}
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={onNewChat}
+                  onClick={() => { void handleNewChat(); }}
                   className={cn(
                     'flex items-center gap-1.5 rounded-md text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-white',
                     state.isOverlay ? 'px-2 py-1.5' : 'px-2.5 py-1.5'
                   )}
-                  style={{ color: '#64748B', border: '1px solid #1E293B', background: 'transparent' }}
+                  style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', background: 'transparent' }}
                   title="Start a new chat"
                 >
                   <RotateCcw className="w-3 h-3" />
@@ -92,7 +101,7 @@ export function MorningBriefing({
                     'rounded-md text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-white',
                     state.isOverlay ? 'px-2 py-1.5' : 'px-2.5 py-1.5'
                   )}
-                  style={{ color: '#64748B', background: 'transparent' }}
+                  style={{ color: 'var(--color-text-muted)', background: 'transparent' }}
                   title="Close"
                 >
                   Done
@@ -103,11 +112,11 @@ export function MorningBriefing({
             {/* Messages area */}
             <div className={cn('flex-1 overflow-y-auto flex flex-col hide-scrollbar', state.isOverlay ? 'gap-4' : 'gap-6')}>
               {state.phase === 'interview' && state.messages.length <= 1 && !state.streamingContent && (
-                <div className="pb-5" style={{ borderBottom: '1px solid #1E293B' }}>
-                  <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: '#94A3B8' }}>
+                <div className="pb-5" style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <div className="text-[10px] uppercase tracking-[0.18em]" style={{ color: 'var(--color-text-secondary)' }}>
                     Weekly interview
                   </div>
-                  <div className={cn('mt-3 font-display font-bold leading-snug tracking-[-0.02em]', state.isOverlay ? 'text-[20px]' : 'text-[24px]')} style={{ color: '#F8FAFC' }}>
+                  <div className={cn('mt-3 font-display font-bold leading-snug tracking-[-0.02em]', state.isOverlay ? 'text-[20px]' : 'text-[24px]')} style={{ color: 'var(--color-text-emphasis)' }}>
                     Let&apos;s see the week.
                   </div>
                 </div>
@@ -121,9 +130,11 @@ export function MorningBriefing({
               {state.streamingContent && (
                 <div className="flex gap-4">
                   <div className="flex-1 min-w-0 pr-2">
-                    <div className={cn('prose-briefing', state.isOverlay ? 'text-[14px] leading-[1.65]' : 'text-[15px] leading-relaxed')} style={{ color: '#CBD5E1' }}>
+                    <div className={cn('prose-briefing', state.isOverlay ? 'text-[14px] leading-[1.65]' : 'text-[15px] leading-relaxed')} style={{ color: 'var(--color-text-primary)' }}>
                       {state.visibleStreamingContent ? (
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.visibleStreamingContent}</ReactMarkdown>
+                        <Suspense fallback={<div>{state.visibleStreamingContent}</div>}>
+                          <MarkdownRenderer content={state.visibleStreamingContent} />
+                        </Suspense>
                       ) : null}
                       <span className="inline-block w-[2px] h-[14px] bg-accent-warm animate-pulse ml-0.5 align-text-bottom" />
                     </div>
@@ -174,8 +185,8 @@ export function MorningBriefing({
               {state.committed && (
                 <div className="flex items-center justify-center py-6">
                   <div className="text-center animate-fade-in">
-                    <div className="font-display font-bold text-[22px] tracking-[-0.02em]" style={{ color: '#F8FAFC' }}>Held.</div>
-                    <div className="text-[11px] mt-1" style={{ color: '#64748B' }}>Plan locked in</div>
+                    <div className="font-display font-bold text-[22px] tracking-[-0.02em]" style={{ color: 'var(--color-text-emphasis)' }}>Held.</div>
+                    <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>Plan locked in</div>
                   </div>
                 </div>
               )}
@@ -187,15 +198,21 @@ export function MorningBriefing({
             {!state.committed && (
               <BriefingInput
                 inputValue={state.inputValue}
+                attachments={state.attachments}
                 isStreaming={state.isStreaming}
+                isDraggingFiles={state.isDraggingFiles}
                 phase={state.phase}
                 messagesLength={state.messages.length}
                 isOverlay={state.isOverlay}
                 inputRef={state.inputRef}
+                fileInputRef={state.fileInputRef}
                 onChange={state.setInputValue}
                 onKeyDown={actions.handleKeyDown}
                 onSend={actions.sendMessage}
                 onShowCommit={actions.showCommitChips}
+                onPickImages={(files) => void actions.addImageAttachments(files)}
+                onRemoveAttachment={actions.removeAttachment}
+                onDragStateChange={actions.setDraggingFiles}
               />
             )}
           </>

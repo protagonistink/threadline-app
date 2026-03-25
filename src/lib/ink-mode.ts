@@ -37,8 +37,8 @@ function isCurrentWeek(isoDate: string, now: Date): boolean {
 
 /** Max tokens per mode — used by anthropic.ts when building API calls. */
 export const INK_TOKEN_LIMITS: Record<InkMode, number> = {
-  morning: 1500,
-  midday: 600,
-  evening: 1000,
-  'sunday-interview': 2000,
+  morning: 2500,
+  midday: 1200,
+  evening: 1500,
+  'sunday-interview': 3000,
 };

@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { useScheduleManager } from './useScheduleManager';
 import type { DailyPlan, PlannedTask, ScheduleBlock } from '@/types';
+import { installMockApi } from '../test/mockApi';
 
 function useHarness() {
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([
@@ -77,87 +78,8 @@ function useHarness() {
 
 describe('useScheduleManager', () => {
   beforeEach(() => {
-    (window as unknown as { api: typeof window.api }).api = {
-      asana: {
-        getTasks: vi.fn(),
-        addComment: vi.fn(),
-        completeTask: vi.fn(),
-      },
-      gcal: {
-        getEvents: vi.fn(),
-        listCalendars: vi.fn(),
-        createEvent: vi.fn().mockResolvedValue({ success: false, error: 'Calendar exploded' }),
-        updateEvent: vi.fn(),
-        deleteEvent: vi.fn(),
-        auth: vi.fn(),
-      },
-      pomodoro: {
-        start: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        skip: vi.fn(),
-        onTick: vi.fn(),
-      },
-      focus: {
-        enable: vi.fn(),
-        disable: vi.fn(),
-      },
-      store: {
-        get: vi.fn(),
-        set: vi.fn(),
-      },
-      settings: {
-        load: vi.fn(),
-        save: vi.fn(),
-      },
-      window: {
-        activate: vi.fn(),
-        setFocusSize: vi.fn(),
-        showMain: vi.fn(),
-      },
-      ai: {
-        chat: vi.fn(),
-        streamStart: vi.fn(),
-        onToken: vi.fn(),
-        onDone: vi.fn(),
-        onError: vi.fn(),
-      },
-      physics: {
-        get: vi.fn(),
-        update: vi.fn(),
-        log: vi.fn(),
-      },
-      shell: {
-        openExternal: vi.fn(),
-      },
-      ink: {
-        readContext: vi.fn(),
-        writeContext: vi.fn(),
-        appendJournal: vi.fn(),
-      },
-      chat: {
-        load: vi.fn().mockResolvedValue([]),
-        save: vi.fn().mockResolvedValue(true),
-        clear: vi.fn().mockResolvedValue(true),
-      },
-      finance: {
-        getState: vi.fn().mockResolvedValue(null),
-        getAccounts: vi.fn().mockResolvedValue([]),
-        refresh: vi.fn().mockResolvedValue(null),
-        plaidLink: vi.fn().mockResolvedValue({ success: false }),
-        plaidExchange: vi.fn().mockResolvedValue({ success: false }),
-      },
-      menu: {
-        onNewTask: vi.fn().mockReturnValue(() => {}),
-        onNewEvent: vi.fn().mockReturnValue(() => {}),
-        onSetView: vi.fn().mockReturnValue(() => {}),
-        onToggleSidebar: vi.fn().mockReturnValue(() => {}),
-        onGoToday: vi.fn().mockReturnValue(() => {}),
-        onStartDay: vi.fn().mockReturnValue(() => {}),
-        onOpenInk: vi.fn().mockReturnValue(() => {}),
-        onOpenSettings: vi.fn().mockReturnValue(() => {}),
-      },
-    };
+    const api = installMockApi();
+    (api.gcal.createEvent as ReturnType<typeof vi.fn>).mockResolvedValue({ success: false, error: 'Calendar exploded' });
   });
 
   it('rolls back optimistic state when calendar creation fails', async () => {

@@ -12,28 +12,28 @@ export function RitualSuggestions({
 }) {
   return (
     <div className="flex flex-col gap-2 mt-2">
-      <div className="text-[10px] uppercase tracking-[0.14em] font-medium px-1" style={{ color: '#64748B' }}>
+      <div className="text-[10px] uppercase tracking-[0.14em] font-medium px-1" style={{ color: 'var(--color-text-muted)' }}>
         Add as daily ritual?
       </div>
       {rituals.map((title, i) => (
         <div
           key={i}
           className="flex items-center gap-2 px-3 py-2 rounded-lg text-[13px]"
-          style={{ background: 'rgba(30,41,59,0.5)', border: '1px solid #1E293B' }}
+          style={{ background: 'var(--color-bg-chip)', border: '1px solid var(--color-border-chip)' }}
         >
-          <MoonStar className="w-3.5 h-3.5 shrink-0" style={{ color: '#475569' }} />
-          <span className="flex-1 min-w-0 truncate" style={{ color: '#E2E8F0' }}>{title}</span>
+          <MoonStar className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+          <span className="flex-1 min-w-0 truncate" style={{ color: 'var(--color-text-primary)' }}>{title}</span>
           <button
             onClick={() => { onAdd(title); onSkip(i); }}
             className="text-[10px] uppercase tracking-wider font-medium shrink-0 transition-colors"
-            style={{ color: '#C83C2F' }}
+            style={{ color: 'var(--color-accent-warm)' }}
           >
             Add
           </button>
           <button
             onClick={() => onSkip(i)}
-            className="text-[10px] uppercase tracking-wider font-medium shrink-0 transition-colors hover:text-white"
-            style={{ color: '#64748B' }}
+            className="text-[10px] uppercase tracking-wider font-medium shrink-0 transition-colors"
+            style={{ color: 'var(--color-text-muted)' }}
           >
             Skip
           </button>

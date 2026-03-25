@@ -7,7 +7,7 @@ function DragGhost({ item, itemType }: { item: DragItem; itemType: string | symb
   const isBlock = itemType === DragTypes.BLOCK || Boolean(item.blockId);
 
   return (
-    <div className="min-w-[220px] max-w-[280px] rounded-2xl border border-white/12 bg-[linear-gradient(180deg,rgba(28,31,38,0.96),rgba(16,18,24,0.98))] px-4 py-3 text-text-primary shadow-[0_32px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+    <div className="min-w-[220px] max-w-[280px] rounded-2xl border border-border px-4 py-3 text-text-primary shadow-[0_32px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl" style={{ background: 'var(--color-bg-drop)' }}>
       <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-text-muted">
         {isBlock ? <CornerDownLeft className="w-3.5 h-3.5" /> : <Clock3 className="w-3.5 h-3.5" />}
         <span>{isBlock ? 'Returning to Commit' : 'Dropping into Time'}</span>

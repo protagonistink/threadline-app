@@ -12,11 +12,86 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6';
 const AI_DEBUG = process.env.DEBUG_INKED_AI === '1';
 
 // Max conversation turns to send per request (prevents token bloat in long sessions)
-const MAX_HISTORY_TURNS = 40;
+const MAX_HISTORY_TURNS = 80;
 
 function logAI(message: string, ...args: unknown[]) {
   if (!AI_DEBUG) return;
   console.log(message, ...args);
+}
+
+type AnthropicContentBlock =
+  | { type: 'text'; text: string }
+  | {
+      type: 'image';
+      source: {
+        type: 'base64';
+        media_type: 'image/jpeg' | 'image/png' | 'image/webp';
+        data: string;
+      };
+    };
+
+type AnthropicMessage = {
+  role: 'user' | 'assistant';
+  content: string | AnthropicContentBlock[];
+};
+
+function dataUrlToBase64Parts(dataUrl: string): { mediaType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string } | null {
+  const match = dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,(.+)$/);
+  if (!match) return null;
+  return {
+    mediaType: match[1] as 'image/jpeg' | 'image/png' | 'image/webp',
+    data: match[2],
+  };
+}
+
+function toAnthropicMessages(messages: ChatMessage[]): AnthropicMessage[] {
+  return messages.map((message) => {
+    if (message.role === 'assistant' || !message.attachments?.length) {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    }
+
+    const contentBlocks: AnthropicContentBlock[] = [];
+
+    for (const attachment of message.attachments) {
+      const image = dataUrlToBase64Parts(attachment.dataUrl);
+      if (!image) continue;
+      contentBlocks.push({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: image.mediaType,
+          data: image.data,
+        },
+      });
+    }
+
+    if (message.content.trim()) {
+      contentBlocks.push({ type: 'text', text: message.content.trim() });
+    }
+
+    if (contentBlocks.length === 0) {
+      return {
+        role: message.role,
+        content: message.content,
+      };
+    }
+
+    return {
+      role: message.role,
+      content: contentBlocks,
+    };
+  });
+}
+
+function extractTextFromAnthropicResponse(data: { content?: Array<{ type?: string; text?: string }> }): string {
+  if (!Array.isArray(data.content)) return '';
+  return data.content
+    .filter((block) => block.type === 'text' && typeof block.text === 'string')
+    .map((block) => block.text)
+    .join('');
 }
 
 function loadInkContext(): InkContext | null {
@@ -108,34 +183,29 @@ ${journalSection}
 
 ${prevSection}## YOUR JOB
 
-Conduct a 7-question weekly interview, one question at a time. Wait for Patrick's answer before asking the next. If an answer is vague or hedging, push back once — be specific about what's missing — then accept and move on.
+Conduct a short weekly interview. The app tracks the step number, so do not restart from question one and do not repeat earlier questions unless Patrick explicitly asks you to.
 
-The 7 questions, in order:
+The 4 questions, in order:
 
 1. "What's the shape of this week? What's locked, what's in play, what's on fire?"
    → Captures: weeklyContext
 
-2. "Rank your goals. If you could only move one forward this week, which one? Then the next."
-   → Captures: hierarchy
+2. "What 1-3 intentions actually hold the week together, and why do they matter?"
+   → Captures: hierarchy, currentPriority, weeklyGoals
 
-3. "What must happen this week — non-negotiable, can't-slip?"
-   → Captures: musts
+3. "What must happen this week, what gets protected, and what can slip if it has to?"
+   → Captures: musts, protectedBlocks
 
-4. "One thing. If the week goes sideways and you can only protect one outcome, what is it?"
-   → Captures: currentPriority
+4. "Where have you been avoiding the real thing, or repeating a bad pattern, that I should watch for this week?"
+   → Captures: tells, honestAudit
 
-5. "What time is sacred this week? What blocks do I protect no matter what comes in?"
-   → Captures: protectedBlocks
+## INTERVIEW STATE
+- Current step: ${ctx.interviewStep ?? 0} of 4
+${ctx.interviewAnswers && ctx.interviewAnswers.length > 0 ? ctx.interviewAnswers.map((answer, index) => `- Q${index + 1} answer: ${answer}`).join('\n') : '- No answers captured yet.'}
 
-6. "Any patterns you've noticed in how you've been working lately? Anything worth naming — good or bad."
-   → Captures: tells
+## AFTER ALL 4 ANSWERS
 
-7. "What are you avoiding? What keeps getting pushed to next week?"
-   → Captures: honestAudit
-
-## AFTER ALL 7 ANSWERS
-
-Synthesize Patrick's answers into a structured context block. Output it as a fenced JSON code block with exactly these keys:
+Synthesize Patrick's answers into a structured context block and name the 1-3 weekly intentions that should hold the week together. Output it as a fenced JSON code block with exactly these keys:
 
 \`\`\`json
 {
@@ -145,16 +215,25 @@ Synthesize Patrick's answers into a structured context block. Output it as a fen
   "currentPriority": "...",
   "protectedBlocks": "...",
   "tells": "...",
-  "honestAudit": "..."
+  "honestAudit": "...",
+  "weeklyGoals": [
+    { "title": "...", "why": "..." },
+    { "title": "...", "why": "..." }
+  ]
 }
 \`\`\`
 
 Values should be concise summaries (1-2 sentences each), not raw quotes. Capture the signal, drop the filler.
+For \`weeklyGoals\`, return 1-3 concrete intentions only. Titles should be short and durable for the week. \`why\` should be one sentence max.
 
 ## RESPONSE FORMAT
-- One question per turn. Short setup (1-2 sentences max) then the question.
-- If pushing back, be specific about what's vague. One pushback max per question.
-- Max 60 words per question turn. Max 120 words for the synthesis turn.
+- If current step is 0, ask question 1 only.
+- If current step is 1, ask question 2 only.
+- If current step is 2, ask question 3 only.
+- If current step is 3, ask question 4 only.
+- If current step is 4 or more, do not ask another question. Output the final synthesis and JSON only.
+- One question per turn. No pushback loops.
+- Max 45 words per question turn. Max 160 words for the synthesis turn plus JSON.
 - After the final answer, output the JSON block. No closing summary.
 - No preamble ("Great!", "Sure,", "Got it"). Lead with substance.`;
 }
@@ -181,9 +260,9 @@ export function buildSystemPrompt(ctx: BriefingContext): string {
 
   const today = new Date();
 
-  const capacityHours = (ctx.availableFocusMinutes / 60).toFixed(1);
+  const grossCapacityHours = (ctx.remainingWorkdayMinutes / 60).toFixed(1);
   const scheduledHours = (ctx.scheduledMinutes / 60).toFixed(1);
-  const remainingHours = (Math.max(0, ctx.availableFocusMinutes - ctx.scheduledMinutes) / 60).toFixed(1);
+  const remainingHours = (ctx.availableFocusMinutes / 60).toFixed(1);
   const startTime = `${ctx.workdayStartHour}:${String(ctx.workdayStartMin).padStart(2, '0')}`;
   const endTime = `${ctx.workdayEndHour}:${String(ctx.workdayEndMin).padStart(2, '0')}`;
   const pastCloseHours = Math.floor(ctx.minutesPastClose / 60);
@@ -431,7 +510,7 @@ ${countdownsDetailed}
 ${alreadyCommitted}
 
 ### Focus Capacity
-- Total available focus: ${capacityHours}h
+- Total time left in workday: ${grossCapacityHours}h
 - Already scheduled in blocks: ${scheduledHours}h
 - Remaining open capacity: ${remainingHours}h
 
@@ -443,6 +522,13 @@ ${alreadyCommitted}
 
 ---
 ${ctx.inkMode === 'morning' ? `
+## TASK RECOMMENDATIONS
+Before proposing the schedule, scan the Asana task list for items that:
+- Directly advance one of Patrick's weekly goals or needle movers
+- Have due dates within the next 3 days
+- Were started recently but left unfinished (stale tasks worth resuming)
+If you find 1-2 relevant tasks he hasn't committed yet, name them: "I see [Task] in Asana — it moves [Goal] forward. Worth pulling in today?" Keep it to your strongest picks, not a laundry list. If nothing stands out, skip this section entirely.
+
 ## SCHEDULE PROPOSAL
 You MUST end your morning briefing with a \`\`\`schedule code block proposing a concrete time-blocked plan for the planning target date. Always propose a schedule — this is how the user commits the selected day.
 
@@ -496,7 +582,7 @@ If the user asks you to add something as a recurring daily item, habit, or ritua
 - If you propose work after hours, frame it explicitly as tonight or tomorrow.
 
 ## RESPONSE FORMAT
-- Hard limit: ${ctx.inkMode === 'midday' ? '120' : ctx.inkMode === 'evening' ? '180' : '200'} words total. No exceptions.
+- Hard limit: ${ctx.inkMode === 'midday' ? '200' : ctx.inkMode === 'evening' ? '300' : '350'} words total. No exceptions.
 - Bullets for lists. Paragraphs max 2 sentences.
 - No preamble ("Great!", "Sure,", "Of course,"). No closing summaries.
 - No emotional labor ("I understand", "That's totally fine", "Don't worry").
@@ -585,10 +671,10 @@ export function registerAnthropicHandlers() {
 
       injectFinanceContext(ctxWithPhysics);
 
-      const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 400;
+      const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 1200;
 
       // Window the conversation to avoid token bloat in long sessions
-      const windowedMessages = messages.slice(-MAX_HISTORY_TURNS);
+      const windowedMessages = toAnthropicMessages(messages.slice(-MAX_HISTORY_TURNS));
 
       const response = await fetch(ANTHROPIC_API_URL, {
         method: 'POST',
@@ -611,7 +697,7 @@ export function registerAnthropicHandlers() {
       }
 
       const data = await response.json();
-      return { success: true, content: data.content[0].text };
+      return { success: true, content: extractTextFromAnthropicResponse(data) };
     } catch (error) {
       return { success: false, error: (error as Error).message };
     }
@@ -622,7 +708,7 @@ export function registerAnthropicHandlers() {
     try {
       logAI('[AI] stream:start handler called');
       const apiKey = getSecure('anthropic.apiKey');
-      logAI('[AI] API key present:', !!apiKey, '| length:', apiKey?.length ?? 0);
+      logAI('[AI] API key present:', !!apiKey);
       if (!apiKey) throw new Error('Anthropic API key not configured. Go to Settings.');
 
       const model = (store.get('anthropic.model') as string | undefined) ?? DEFAULT_MODEL;
@@ -631,10 +717,10 @@ export function registerAnthropicHandlers() {
 
       injectFinanceContext(ctxWithPhysics);
 
-      const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 400;
+      const maxTokens = ctxWithPhysics.inkMode ? INK_TOKEN_LIMITS[ctxWithPhysics.inkMode] : 1200;
 
       // Window the conversation to avoid token bloat in long sessions
-      const windowedMessages = messages.slice(-MAX_HISTORY_TURNS);
+      const windowedMessages = toAnthropicMessages(messages.slice(-MAX_HISTORY_TURNS));
 
       logAI('[AI] Sending fetch to Anthropic API...');
       const response = await fetch(ANTHROPIC_API_URL, {

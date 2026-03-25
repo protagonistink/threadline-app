@@ -28,12 +28,8 @@ export function BeforeHoursVeil({
       style={{ height: `${height}px` }}
     >
       <div
-        className={cn(
-          'absolute inset-0',
-          isLight
-            ? 'bg-[rgba(176,112,88,0.03)]'
-            : 'bg-[rgba(10,10,10,0.55)]'
-        )}
+        className="absolute inset-0"
+        style={{ background: 'var(--color-bg-veil)' }}
       />
       <div className="absolute inset-x-0 bottom-0 h-0.5">
         <svg className="absolute bottom-[-5px] left-0 right-0 w-full h-[10px] pointer-events-none" preserveAspectRatio="none" viewBox="0 0 100 10">

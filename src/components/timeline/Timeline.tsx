@@ -5,14 +5,14 @@ import { format } from 'date-fns';
 import { cn, formatRoundedHours } from '@/lib/utils';
 import { blockStartMinutes, blockEndMinutes, planFocusCascade, snapToCalendarGrid } from '@/lib/planner';
 import { useTheme } from '@/context/ThemeContext';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, useAppStatus, usePlanner } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { useSound } from '@/hooks/useSound';
 import { usePhysicsWarnings } from '@/hooks/usePhysicsWarnings';
 import { useCurrentMinute } from '@/hooks/useCurrentMinute';
 import type { PomodoroState, ScheduleBlock } from '@/types';
 import { DateHeader } from '../DateHeader';
-import { BASE_HOUR_HEIGHT, GRID_SNAP_MINS, MIN_VISIBLE_DAY_HOURS, clampMinutes, timeToTop, formatTimeShort } from './timelineUtils';
+import { BASE_HOUR_HEIGHT, GRID_SNAP_MINS, MIN_VISIBLE_DAY_HOURS, clampMinutes, formatMins, timeToTop, formatTimeShort } from './timelineUtils';
 import { OpenInterval } from './OpenInterval';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { AfterHoursVeil } from './AfterHoursVeil';
@@ -22,8 +22,11 @@ import { BlockCard } from './BlockCard';
 
 export function Timeline() {
   const { isLight, isFocus } = useTheme();
+  const { startDay } = useAppShell();
+  const { refreshExternalData, syncStatus, dayCommitInfo } = useAppStatus();
   const {
     scheduleBlocks,
+    plannedTasks,
     scheduleTaskBlock,
     updateScheduleBlock,
     removeScheduleBlock,
@@ -37,13 +40,9 @@ export function Timeline() {
     workdayEnd,
     setWorkdayEnd,
     timeLogs,
-    refreshExternalData,
-    syncStatus,
     viewDate,
-    dayCommitInfo,
     unnestTaskFromBlock,
-    startDay,
-  } = useApp();
+  } = usePlanner();
   const timelineLocked = dayCommitInfo.state === 'closed';
   const { play } = useSound();
   const { getWarning } = usePhysicsWarnings();
@@ -227,6 +226,38 @@ export function Timeline() {
     }
     prevBlocksRef.current = scheduleBlocks;
   }, [scheduleBlocks, selectedBlockId]);
+
+  useEffect(() => {
+    if (!selectedBlockId && !selectedNestedTaskId) return;
+
+    const selectedBlock = selectedBlockId
+      ? scheduleBlocks.find((block) => block.id === selectedBlockId) ?? null
+      : null;
+
+    if (selectedBlockId && !selectedBlock) {
+      setSelectedBlockId(null);
+      setSelectedNestedTaskId(null);
+      return;
+    }
+
+    if (selectedBlock?.linkedTaskId) {
+      const selectedTask = plannedTasks.find((task) => task.id === selectedBlock.linkedTaskId) ?? null;
+      if (!selectedTask || selectedTask.status === 'done') {
+        setSelectedBlockId(null);
+        setSelectedNestedTaskId(null);
+        return;
+      }
+    }
+
+    if (!selectedNestedTaskId) return;
+
+    const nestedTask = plannedTasks.find((task) => task.id === selectedNestedTaskId) ?? null;
+    const nestedStillAttached = selectedBlock?.nestedTaskIds?.includes(selectedNestedTaskId) ?? false;
+
+    if (!nestedTask || nestedTask.status === 'done' || !nestedStillAttached) {
+      setSelectedNestedTaskId(null);
+    }
+  }, [plannedTasks, scheduleBlocks, selectedBlockId, selectedNestedTaskId]);
 
   // Keyboard delete for selected block or nested task
   useEffect(() => {
@@ -459,19 +490,11 @@ export function Timeline() {
       targetBlockId
     );
 
-    // Apply cascade updates — push subsequent blocks so nothing overlaps
-    for (const [blockId, update] of cascadePlan.cascadeUpdates) {
-      const existing = scheduleBlocksRef.current.find((b) => b.id === blockId);
-      if (existing) {
-        void updateScheduleBlock(blockId, update.startHour, update.startMin, existing.durationMins);
-      }
-    }
-
     return {
       startHour: cascadePlan.startHour,
       startMin: cascadePlan.startMin,
     };
-  }, [dayEndMins, dayStartMins, updateScheduleBlock]);
+  }, [dayEndMins, dayStartMins]);
 
   const [{ isOver, ghostBlock }, dropRef] = useDrop<DragItem, void, { isOver: boolean; ghostBlock: { startHour: number; startMin: number } | null }>({
     accept: timelineLocked ? [] : DragTypes.TASK,
@@ -534,9 +557,9 @@ export function Timeline() {
   }, [currentMinute, dayStartMins, hourHeight, isTodayView, timelineDensity]);
 
   return (
-    <div className="focus-spotlight stage-bloom relative w-full min-w-0 bg-bg border-l border-[rgba(255,255,255,0.07)] flex flex-col h-full transition-colors duration-700">
+    <div className="focus-spotlight stage-bloom relative w-full min-w-0 bg-bg border-l border-border flex flex-col h-full transition-colors duration-700">
       {/* Sticky Date Header */}
-      <div className="sticky top-0 z-20 px-8 pt-4 pb-4 relative" style={{ background: 'rgba(18, 18, 18, 0.85)', backdropFilter: 'blur(16px)' }}>
+      <div className="sticky top-0 z-20 px-8 pt-4 pb-4 relative" style={{ background: 'color-mix(in srgb, var(--color-bg) 86%, transparent)', backdropFilter: 'blur(16px)' }}>
         <div className="flex items-center justify-center">
           <DateHeader />
         </div>
@@ -553,7 +576,11 @@ export function Timeline() {
       {dayCommitInfo.state === 'committed' && dayCommitInfo.totalBlocks > 0 && (
         <button
           onClick={startDay}
-          className="absolute bottom-6 right-6 z-30 border border-accent-warm/35 bg-[rgba(20,16,15,0.8)] px-4 py-3 text-[10px] font-sans font-semibold uppercase tracking-[0.28em] text-text-emphasis shadow-[0_18px_38px_rgba(0,0,0,0.34)] backdrop-blur-md transition-colors hover:border-accent-warm-hover hover:text-white"
+          className="absolute bottom-6 right-6 z-30 px-4 py-3 text-[10px] font-sans font-semibold uppercase tracking-[0.28em] text-text-emphasis shadow-[0_18px_38px_rgba(0,0,0,0.16)] backdrop-blur-md transition-colors hover:text-text-primary"
+          style={{
+            border: '1px solid color-mix(in srgb, var(--color-accent-warm) 35%, var(--color-border))',
+            background: 'color-mix(in srgb, var(--color-bg-elevated) 90%, transparent)',
+          }}
         >
           <span className="flex items-center gap-3">
             <span className="h-px w-5 bg-accent-warm/70" />
@@ -597,13 +624,40 @@ export function Timeline() {
           ))}
 
           {isOver && ghostBlock && (
-            <div
-              className="absolute left-4 right-4 rounded-xl border-2 border-dashed border-accent-warm/45 bg-accent-warm/8 pointer-events-none z-20"
-              style={{
-                top: `${timeToTop(ghostBlock.startHour * 60 + ghostBlock.startMin, dayStartMins, hourHeight)}px`,
-                height: `${hourHeight}px`,
-              }}
-            />
+            <>
+              <div
+                className="absolute left-4 right-4 pointer-events-none z-20"
+                style={{
+                  top: `${timeToTop(ghostBlock.startHour * 60 + ghostBlock.startMin, dayStartMins, hourHeight)}px`,
+                  height: `${hourHeight}px`,
+                }}
+              >
+                <div className="absolute left-0 right-0 top-0 flex items-center gap-3">
+                  <span
+                    className="rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-accent-warm shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
+                    style={{
+                      border: '1px solid color-mix(in srgb, var(--color-accent-warm) 45%, var(--color-border))',
+                      background: 'color-mix(in srgb, var(--color-accent-warm) 14%, var(--color-bg-elevated))',
+                    }}
+                  >
+                    {formatTimeShort(ghostBlock.startHour, ghostBlock.startMin)}
+                    {' \u2192 '}
+                    {formatTimeShort(ghostBlock.startHour + Math.floor((ghostBlock.startMin + 60) / 60), (ghostBlock.startMin + 60) % 60)}
+                  </span>
+                  <div className="h-px flex-1 bg-accent-warm/60" />
+                </div>
+                <div className="absolute inset-x-0 top-0 bottom-0 rounded-xl border-2 border-dashed border-accent-warm/45 bg-accent-warm/8" />
+                <div
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full px-2.5 py-1 text-[9px] uppercase tracking-[0.18em] text-text-muted/85"
+                  style={{
+                    border: '1px solid var(--color-border)',
+                    background: 'color-mix(in srgb, var(--color-bg-elevated) 92%, transparent)',
+                  }}
+                >
+                  {formatMins(60)} · drop here
+                </div>
+              </div>
+            </>
           )}
 
           <BeforeHoursVeil
@@ -676,7 +730,7 @@ export function Timeline() {
             ))}
             {adHocInput && (
               <div
-                className="absolute left-1 right-1 z-30 rounded-lg border border-dashed border-accent-warm/40 bg-[#1a1a1a] px-3 py-2"
+                className="absolute left-1 right-1 z-30 rounded-lg border border-dashed border-accent-warm/40 bg-bg-elevated px-3 py-2"
                 style={{ top: `${adHocInput.top}px`, height: `${hourHeight}px` }}
               >
                 <input

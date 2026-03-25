@@ -1,10 +1,6 @@
 import { ipcMain } from 'electron';
 import { store } from './store';
-
-interface StoredChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
+import type { ChatMessage as StoredChatMessage } from '../src/types';
 
 interface ChatHistoryEntry {
   date: string; // YYYY-MM-DD
@@ -60,6 +56,13 @@ export function registerChatHistoryHandlers() {
   ipcMain.handle('chat:clear', (_event, date: string) => {
     const entries = readHistory();
     store.set(STORE_KEY, entries.filter((e) => e.date !== date));
+    return true;
+  });
+
+  // Clear all chat history except today's date
+  ipcMain.handle('chat:clearOld', (_event, today: string) => {
+    const entries = readHistory();
+    store.set(STORE_KEY, entries.filter((e) => e.date === today));
     return true;
   });
 }

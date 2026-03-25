@@ -1,11 +1,11 @@
 // src/components/DeadlineMargin.tsx
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 
 const LIFE_EVENT_RE = /birthday|party|anniversary|wedding|graduation|holiday|vacation|trip/i;
 
 export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' | 'vertical' }) {
-  const { countdowns } = useApp();
+  const { countdowns } = usePlanner();
   const today = new Date();
 
   const items = countdowns
@@ -20,7 +20,7 @@ export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' 
       <div
         className="shrink-0 flex items-center gap-6 overflow-x-auto hide-scrollbar"
         style={{
-          borderBottom: '0.5px solid rgba(255,255,255,0.04)',
+          borderBottom: '0.5px solid var(--color-border-subtle)',
           padding: '10px 20px',
         }}
       >
@@ -71,7 +71,7 @@ export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' 
       style={{
         width: '33%',
         minWidth: 140,
-        borderLeft: '0.5px solid rgba(255,255,255,0.04)',
+        borderLeft: '0.5px solid var(--color-border-subtle)',
         padding: '16px 0 8px',
         overflow: 'hidden',
       }}
@@ -95,7 +95,7 @@ export function DeadlineMargin({ layout = 'vertical' }: { layout?: 'horizontal' 
             key={item.id}
             style={{
               padding: '8px 14px',
-              borderBottom: '0.5px solid rgba(255,255,255,0.03)',
+              borderBottom: '0.5px solid var(--color-border-subtle)',
               overflow: 'hidden',
             }}
           >

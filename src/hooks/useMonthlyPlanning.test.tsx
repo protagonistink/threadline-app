@@ -4,90 +4,12 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { format } from 'date-fns';
 import { useMonthlyPlanning } from './useMonthlyPlanning';
+import { installMockApi } from '../test/mockApi';
 
 describe('useMonthlyPlanning', () => {
   beforeEach(() => {
-    (window as unknown as { api: typeof window.api }).api = {
-      asana: {
-        getTasks: vi.fn(),
-        addComment: vi.fn(),
-        completeTask: vi.fn(),
-      },
-      gcal: {
-        getEvents: vi.fn(),
-        listCalendars: vi.fn(),
-        createEvent: vi.fn(),
-        updateEvent: vi.fn(),
-        deleteEvent: vi.fn(),
-        auth: vi.fn(),
-      },
-      pomodoro: {
-        start: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        skip: vi.fn(),
-        onTick: vi.fn(),
-      },
-      focus: {
-        enable: vi.fn(),
-        disable: vi.fn(),
-      },
-      store: {
-        get: vi.fn().mockResolvedValue(null),
-        set: vi.fn(),
-      },
-      settings: {
-        load: vi.fn(),
-        save: vi.fn(),
-      },
-      window: {
-        activate: vi.fn(),
-        setFocusSize: vi.fn(),
-        showMain: vi.fn(),
-      },
-      ai: {
-        chat: vi.fn(),
-        streamStart: vi.fn(),
-        onToken: vi.fn(),
-        onDone: vi.fn(),
-        onError: vi.fn(),
-      },
-      physics: {
-        get: vi.fn(),
-        update: vi.fn(),
-        log: vi.fn(),
-      },
-      shell: {
-        openExternal: vi.fn(),
-      },
-      ink: {
-        readContext: vi.fn(),
-        writeContext: vi.fn(),
-        appendJournal: vi.fn(),
-      },
-      chat: {
-        load: vi.fn().mockResolvedValue([]),
-        save: vi.fn().mockResolvedValue(true),
-        clear: vi.fn().mockResolvedValue(true),
-      },
-      finance: {
-        getState: vi.fn(),
-        getAccounts: vi.fn().mockResolvedValue([]),
-        refresh: vi.fn(),
-        plaidLink: vi.fn(),
-        plaidExchange: vi.fn(),
-      },
-      menu: {
-        onNewTask: vi.fn().mockReturnValue(() => {}),
-        onNewEvent: vi.fn().mockReturnValue(() => {}),
-        onSetView: vi.fn().mockReturnValue(() => {}),
-        onToggleSidebar: vi.fn().mockReturnValue(() => {}),
-        onGoToday: vi.fn().mockReturnValue(() => {}),
-        onStartDay: vi.fn().mockReturnValue(() => {}),
-        onOpenInk: vi.fn().mockReturnValue(() => {}),
-        onOpenSettings: vi.fn().mockReturnValue(() => {}),
-      },
-    };
+    const api = installMockApi();
+    (api.store.get as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   });
 
   it('shows prompt when initialPromptState is true, hides when plan is completed', async () => {
@@ -130,6 +52,33 @@ describe('useMonthlyPlanning', () => {
     );
 
     await waitFor(() => {
+      expect(result.current.monthlyPlanPrompt).toBe(false);
+    });
+  });
+
+  it('fills in the current month when a monthly plan is saved without a month stamp', async () => {
+    const currentMonth = format(new Date(), 'yyyy-MM');
+    const { result } = renderHook(() =>
+      useMonthlyPlanning({
+        initialMonthlyPlan: null,
+        initialPromptState: true,
+      })
+    );
+
+    act(() => {
+      result.current.setMonthlyPlan({
+        month: '',
+        reflection: '',
+        oneThing: 'Finish the month with a clean spine',
+        why: '',
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.monthlyPlan).toMatchObject({
+        month: currentMonth,
+        oneThing: 'Finish the month with a clean spine',
+      });
       expect(result.current.monthlyPlanPrompt).toBe(false);
     });
   });

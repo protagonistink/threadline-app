@@ -55,6 +55,9 @@ const store = new Store({
     scratch: {
       entries: [] as Array<{ id: string; text: string; createdAt: string }>,
     },
+    stripe: {
+      secretKey: '',
+    },
     plaid: {
       clientId: '',
       secret: '',
@@ -65,9 +68,7 @@ const store = new Store({
     },
     finance: {
       configured: false,
-      provider: 'plaid' as 'plaid' | 'ynab',
-      ynabPlanId: '',
-      ynabPlanName: '',
+      provider: 'plaid' as 'plaid',
       weeklyPattern: [] as number[],
     },
     financeConfig: {
@@ -77,6 +78,7 @@ const store = new Store({
     },
     // User preferences
     userPrefs: {
+      ui: { themeMode: 'dark' as 'light' | 'dark' },
       day: { startHour: 9, startMin: 0, endHour: 18, endMin: 0, timeboxDefault: 60, syncFrequencyMins: 2 },
       story: { narrativeStyle: 'practical', storyDepth: 'summary', tone: 'direct', accountabilityLevel: 'firm' },
       tasks: { priorityRule: 'balanced', notificationIntensity: 'standard', distractionFiltering: 'show_all' },
@@ -91,6 +93,11 @@ const SAFE_STORE_KEYS = new Set([
   'dayLocked',
   'dayLockedDate',
   'monthlyPlanDismissedDate',
+  'appMode',
+  'appModeDate',
+  'appModeView',
+  'appModeFocusTaskId',
+  'appModeInboxOpen',
   'startOfDay.shownDate',
   'endOfDay.shownDate',
   'finance.configured',
@@ -138,10 +145,10 @@ export function registerStoreHandlers() {
         buildDate,
       },
       anthropic: {
-        configured: Boolean(store.get('anthropic.apiKey')),
+        configured: Boolean(getSecure('anthropic.apiKey')),
       },
       asana: {
-        configured: Boolean(store.get('asana.token')),
+        configured: Boolean(getSecure('asana.token')),
       },
       gcal: {
         clientId: String(gcal.clientId ?? ''),
@@ -158,16 +165,19 @@ export function registerStoreHandlers() {
       focus: {
         blockedSites: Array.isArray(focus.blockedSites) ? focus.blockedSites : [],
       },
+      stripe: {
+        configured: Boolean(getSecure('stripe.secretKey')),
+      },
       finance: {
         configured: Boolean(store.get('plaid.accessToken')),
-        provider: (String(store.get('finance.provider') || 'plaid') as 'plaid' | 'ynab'),
+        provider: 'plaid' as const,
         institutionName: String(store.get('plaid.institutionName') || ''),
         lastSync: String(store.get('plaid.lastSync') || ''),
         plaidClientIdConfigured: Boolean(store.get('plaid.clientId')),
         plaidSecretConfigured: Boolean(store.get('plaid.secret')),
-        ynabPlanId: String(store.get('finance.ynabPlanId') || ''),
-        ynabPlanName: String(store.get('finance.ynabPlanName') || ''),
-        ynabTokenConfigured: Boolean(getSecure('ynab.token')),
+      },
+      ui: {
+        themeMode: prefs.ui?.themeMode === 'light' ? 'light' : 'dark',
       },
       day: {
         startHour: Number(prefs.day?.startHour ?? 9),
@@ -202,45 +212,63 @@ export function registerStoreHandlers() {
   });
 
   ipcMain.handle('settings:save', (_event, payload: Record<string, unknown>) => {
-    if ('anthropicApiKey' in payload) store.set('anthropic.apiKey', payload.anthropicApiKey);
-    if ('asanaToken' in payload) store.set('asana.token', payload.asanaToken);
-    if ('gcalClientId' in payload) store.set('gcal.clientId', payload.gcalClientId);
-    if ('gcalClientSecret' in payload) store.set('gcal.clientSecret', payload.gcalClientSecret);
-    if ('gcalCalendarIds' in payload) store.set('gcal.calendarIds', payload.gcalCalendarIds);
+    // Helpers
+    const clampInt = (v: unknown, min: number, max: number, fallback: number): number => {
+      const n = Number(v);
+      return Number.isFinite(n) ? Math.max(min, Math.min(max, Math.round(n))) : fallback;
+    };
+    const str = (v: unknown): string => (typeof v === 'string' ? v : '');
+    const oneOf = <T extends string>(v: unknown, allowed: T[], fallback: T): T =>
+      allowed.includes(v as T) ? (v as T) : fallback;
+    const strArray = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((s): s is string => typeof s === 'string') : [];
+
+    // Credentials (encrypted)
+    if ('anthropicApiKey' in payload) setSecure('anthropic.apiKey', str(payload.anthropicApiKey));
+    if ('asanaToken' in payload) setSecure('asana.token', str(payload.asanaToken));
+    if ('gcalClientId' in payload) setSecure('gcal.clientId', str(payload.gcalClientId));
+    if ('gcalClientSecret' in payload) setSecure('gcal.clientSecret', str(payload.gcalClientSecret));
+    if ('stripeSecretKey' in payload) setSecure('stripe.secretKey', str(payload.stripeSecretKey));
+    if ('plaidClientId' in payload) setSecure('plaid.clientId', str(payload.plaidClientId));
+    if ('plaidSecret' in payload) setSecure('plaid.secret', str(payload.plaidSecret));
+
+    // Calendar
+    if ('gcalCalendarIds' in payload) store.set('gcal.calendarIds', strArray(payload.gcalCalendarIds));
     if ('gcalWriteCalendarId' in payload) {
-      store.set('gcal.writeCalendarId', payload.gcalWriteCalendarId);
-      store.set('gcal.calendarId', payload.gcalWriteCalendarId);
+      const calId = str(payload.gcalWriteCalendarId);
+      store.set('gcal.writeCalendarId', calId);
+      store.set('gcal.calendarId', calId);
     }
-    if ('workMins' in payload) store.set('pomodoro.workMins', payload.workMins);
-    if ('breakMins' in payload) store.set('pomodoro.breakMins', payload.breakMins);
-    if ('longBreakMins' in payload) store.set('pomodoro.longBreakMins', payload.longBreakMins);
-    if ('blockedSites' in payload) store.set('focus.blockedSites', payload.blockedSites);
-    if ('plaidClientId' in payload) store.set('plaid.clientId', payload.plaidClientId);
-    if ('plaidSecret' in payload) store.set('plaid.secret', payload.plaidSecret);
-    if ('ynabToken' in payload) setSecure('ynab.token', String(payload.ynabToken ?? ''));
-    if ('financeProvider' in payload) store.set('finance.provider', payload.financeProvider);
-    if ('ynabPlanId' in payload) store.set('finance.ynabPlanId', payload.ynabPlanId);
-    if ('ynabPlanName' in payload) store.set('finance.ynabPlanName', payload.ynabPlanName);
+
+    // Pomodoro (1–120 min range)
+    if ('workMins' in payload) store.set('pomodoro.workMins', clampInt(payload.workMins, 1, 120, 25));
+    if ('breakMins' in payload) store.set('pomodoro.breakMins', clampInt(payload.breakMins, 1, 60, 5));
+    if ('longBreakMins' in payload) store.set('pomodoro.longBreakMins', clampInt(payload.longBreakMins, 1, 60, 15));
+
+    // Focus
+    if ('blockedSites' in payload) store.set('focus.blockedSites', strArray(payload.blockedSites));
+
     // User preferences
-    if ('dayStartHour' in payload) store.set('userPrefs.day.startHour', payload.dayStartHour);
-    if ('dayStartMin' in payload) store.set('userPrefs.day.startMin', payload.dayStartMin);
-    if ('dayEndHour' in payload) store.set('userPrefs.day.endHour', payload.dayEndHour);
-    if ('dayEndMin' in payload) store.set('userPrefs.day.endMin', payload.dayEndMin);
-    if ('timeboxDefault' in payload) store.set('userPrefs.day.timeboxDefault', payload.timeboxDefault);
-    if ('syncFrequencyMins' in payload) store.set('userPrefs.day.syncFrequencyMins', payload.syncFrequencyMins);
-    if ('narrativeStyle' in payload) store.set('userPrefs.story.narrativeStyle', payload.narrativeStyle);
-    if ('storyDepth' in payload) store.set('userPrefs.story.storyDepth', payload.storyDepth);
-    if ('tone' in payload) store.set('userPrefs.story.tone', payload.tone);
-    if ('accountabilityLevel' in payload) store.set('userPrefs.story.accountabilityLevel', payload.accountabilityLevel);
-    if ('priorityRule' in payload) store.set('userPrefs.tasks.priorityRule', payload.priorityRule);
-    if ('notificationIntensity' in payload) store.set('userPrefs.tasks.notificationIntensity', payload.notificationIntensity);
-    if ('distractionFiltering' in payload) store.set('userPrefs.tasks.distractionFiltering', payload.distractionFiltering);
-    if ('sensitiveDataMasking' in payload) store.set('userPrefs.privacy.sensitiveDataMasking', payload.sensitiveDataMasking);
-    if ('auditLog' in payload) store.set('userPrefs.privacy.auditLog', payload.auditLog);
-    if ('dueDateWindowDays' in payload) store.set('userPrefs.moneyPrefs.dueDateWindowDays', payload.dueDateWindowDays);
-    if ('alertSeverity' in payload) store.set('userPrefs.moneyPrefs.alertSeverity', payload.alertSeverity);
-    if ('financialSensitivity' in payload) store.set('userPrefs.moneyPrefs.financialSensitivity', payload.financialSensitivity);
-    if ('timeHorizonDays' in payload) store.set('userPrefs.moneyPrefs.timeHorizonDays', payload.timeHorizonDays);
+    if ('themeMode' in payload) store.set('userPrefs.ui.themeMode', oneOf(payload.themeMode, ['light', 'dark', 'system'], 'dark'));
+    if ('dayStartHour' in payload) store.set('userPrefs.day.startHour', clampInt(payload.dayStartHour, 0, 23, 9));
+    if ('dayStartMin' in payload) store.set('userPrefs.day.startMin', clampInt(payload.dayStartMin, 0, 59, 0));
+    if ('dayEndHour' in payload) store.set('userPrefs.day.endHour', clampInt(payload.dayEndHour, 0, 23, 18));
+    if ('dayEndMin' in payload) store.set('userPrefs.day.endMin', clampInt(payload.dayEndMin, 0, 59, 0));
+    if ('timeboxDefault' in payload) store.set('userPrefs.day.timeboxDefault', clampInt(payload.timeboxDefault, 5, 480, 60));
+    if ('syncFrequencyMins' in payload) store.set('userPrefs.day.syncFrequencyMins', clampInt(payload.syncFrequencyMins, 1, 60, 2));
+    if ('narrativeStyle' in payload) store.set('userPrefs.story.narrativeStyle', str(payload.narrativeStyle));
+    if ('storyDepth' in payload) store.set('userPrefs.story.storyDepth', str(payload.storyDepth));
+    if ('tone' in payload) store.set('userPrefs.story.tone', str(payload.tone));
+    if ('accountabilityLevel' in payload) store.set('userPrefs.story.accountabilityLevel', str(payload.accountabilityLevel));
+    if ('priorityRule' in payload) store.set('userPrefs.tasks.priorityRule', str(payload.priorityRule));
+    if ('notificationIntensity' in payload) store.set('userPrefs.tasks.notificationIntensity', str(payload.notificationIntensity));
+    if ('distractionFiltering' in payload) store.set('userPrefs.tasks.distractionFiltering', str(payload.distractionFiltering));
+    if ('sensitiveDataMasking' in payload) store.set('userPrefs.privacy.sensitiveDataMasking', Boolean(payload.sensitiveDataMasking));
+    if ('auditLog' in payload) store.set('userPrefs.privacy.auditLog', Boolean(payload.auditLog));
+    if ('dueDateWindowDays' in payload) store.set('userPrefs.moneyPrefs.dueDateWindowDays', clampInt(payload.dueDateWindowDays, 1, 90, 7));
+    if ('alertSeverity' in payload) store.set('userPrefs.moneyPrefs.alertSeverity', oneOf(payload.alertSeverity, ['info', 'warning', 'critical'], 'warning'));
+    if ('financialSensitivity' in payload) store.set('userPrefs.moneyPrefs.financialSensitivity', oneOf(payload.financialSensitivity, ['soft', 'direct', 'blunt'], 'soft'));
+    if ('timeHorizonDays' in payload) store.set('userPrefs.moneyPrefs.timeHorizonDays', clampInt(payload.timeHorizonDays, 1, 90, 7));
     return true;
   });
 }

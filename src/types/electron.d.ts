@@ -105,16 +105,19 @@ export interface LoadedSettings {
   focus: {
     blockedSites: string[];
   };
+  stripe: {
+    configured: boolean;
+  };
   finance: {
     configured: boolean;
-    provider: 'plaid' | 'ynab';
+    provider: 'plaid';
     institutionName: string;
     lastSync: string;
     plaidClientIdConfigured: boolean;
     plaidSecretConfigured: boolean;
-    ynabPlanId: string;
-    ynabPlanName: string;
-    ynabTokenConfigured: boolean;
+  };
+  ui: {
+    themeMode: 'light' | 'dark';
   };
   // User preferences
   day: {
@@ -151,6 +154,7 @@ export interface LoadedSettings {
 export interface SettingsUpdate {
   anthropicApiKey?: string;
   asanaToken?: string;
+  stripeSecretKey?: string;
   gcalClientId?: string;
   gcalClientSecret?: string;
   gcalCalendarIds?: string[];
@@ -161,11 +165,8 @@ export interface SettingsUpdate {
   blockedSites?: string[];
   plaidClientId?: string;
   plaidSecret?: string;
-  ynabToken?: string;
-  ynabPlanId?: string;
-  ynabPlanName?: string;
-  financeProvider?: 'plaid' | 'ynab';
   // User preferences
+  themeMode?: 'light' | 'dark';
   dayStartHour?: number;
   dayStartMin?: number;
   dayEndHour?: number;
@@ -212,6 +213,38 @@ interface ChatHistoryAPI {
   load: (date: string) => Promise<ChatMessage[]>;
   save: (date: string, messages: ChatMessage[]) => Promise<boolean>;
   clear: (date: string) => Promise<boolean>;
+  clearOld: (today: string) => Promise<boolean>;
+}
+
+interface StripeDashboardData {
+  received: number;
+  pending: number;
+  overdue: number;
+  upcoming: number;
+  availableBalance: number;
+  pendingBalance: number;
+  recentCharges: Array<{
+    id: string;
+    amount: number;
+    description: string | null;
+    created: number;
+    status: string;
+    customerEmail: string | null;
+  }>;
+  openInvoices: Array<{
+    id: string;
+    amount: number;
+    description: string | null;
+    dueDate: number | null;
+    status: string;
+    customerEmail: string | null;
+    isOverdue: boolean;
+  }>;
+}
+
+interface StripeAPI {
+  getDashboard: () => Promise<ApiResult<StripeDashboardData>>;
+  testConnection: () => Promise<ApiResult<{ currency: string }>>;
 }
 
 interface FinanceAPI {
@@ -248,6 +281,7 @@ declare global {
       shell: ShellAPI;
       ink: InkAPI;
       chat: ChatHistoryAPI;
+      stripe: StripeAPI;
       finance: FinanceAPI;
       menu: MenuAPI;
     };

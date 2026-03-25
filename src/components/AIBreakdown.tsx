@@ -1,7 +1,7 @@
 // src/components/AIBreakdown.tsx
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import type { ScheduleBlock } from '@/types';
 
 export function AIBreakdown({ block }: { block: ScheduleBlock }) {
@@ -9,7 +9,7 @@ export function AIBreakdown({ block }: { block: ScheduleBlock }) {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
-  const { nestTask, addLocalTask } = useApp();
+  const { nestTask, addLocalTask } = usePlanner();
 
   async function fetchBreakdown() {
     setExpanded(true);
@@ -55,13 +55,13 @@ export function AIBreakdown({ block }: { block: ScheduleBlock }) {
       {!expanded ? (
         <button
           onClick={(e) => { e.stopPropagation(); fetchBreakdown(); }}
-          className="font-sans text-[11px] text-[#919fae]/40 hover:text-[#919fae]/70 transition-colors"
+          className="font-sans text-[11px] text-text-muted hover:text-text-secondary transition-colors"
         >
           ✨ AI Breakdown
         </button>
       ) : (
-        <div className="pt-3" style={{ borderTop: '1px solid rgba(250,250,250,0.05)' }}>
-          <span className="font-sans text-[9px] tracking-[0.18em] uppercase text-[#919fae]/28 block mb-3">
+        <div className="pt-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
+          <span className="font-sans text-[9px] tracking-[0.18em] uppercase text-text-whisper block mb-3">
             Ink suggests from Asana
           </span>
           {loading ? (
@@ -79,7 +79,7 @@ export function AIBreakdown({ block }: { block: ScheduleBlock }) {
                 </div>
               ))}
               {selected.size > 0 && (
-                <div className="flex items-center gap-3 mt-4 pt-3" style={{ borderTop: '1px solid rgba(250,250,250,0.04)' }}>
+                <div className="flex items-center gap-3 mt-4 pt-3" style={{ borderTop: '1px solid var(--color-border-subtle)' }}>
                   <button
                     onClick={(e) => { e.stopPropagation(); inkSelected(); }}
                     className="font-sans text-[13px] text-[#C83C2F]/65 hover:text-[#C83C2F]/90 transition-colors cursor-pointer font-medium"

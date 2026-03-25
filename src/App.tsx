@@ -1,23 +1,22 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
-import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './lib/utils';
 import { ThemeProvider } from './context/ThemeContext';
-import { AppProvider, useApp } from './context/AppContext';
+import { AppProvider, useAppShell, usePlanner } from './context/AppContext';
 import { InkAssistantProvider, useInkAssistant } from './context/InkAssistantContext';
 import { DragOverlay } from './components/shared/DragOverlay';
 import { ErrorBoundary, RootFallback, ModeFallback } from './components/shared/ErrorBoundary';
 import { AtmosphereLayer } from './components/AtmosphereLayer';
 import { Sidebar } from './components/chrome/Sidebar';
+import { Settings } from './components/chrome/Settings';
 import { useBriefingLifecycle } from './hooks/useBriefingLifecycle';
-import { BriefingMode } from './modes/BriefingMode';
-import { PlanningMode } from './modes/PlanningMode';
-import { ExecutingMode } from './modes/ExecutingMode';
-import { FocusMode } from './modes/FocusMode';
 import { Skeleton } from './components/shared/Skeleton';
 
-const Settings = lazy(() => import('./components/chrome/Settings').then((m) => ({ default: m.Settings })));
+const BriefingMode = lazy(() => import('./modes/BriefingMode').then((m) => ({ default: m.BriefingMode })));
+const PlanningMode = lazy(() => import('./modes/PlanningMode').then((m) => ({ default: m.PlanningMode })));
+const ExecutingMode = lazy(() => import('./modes/ExecutingMode').then((m) => ({ default: m.ExecutingMode })));
+const FocusMode = lazy(() => import('./modes/FocusMode').then((m) => ({ default: m.FocusMode })));
 const CommandPalette = lazy(() => import('./components/chrome/CommandPalette').then((m) => ({ default: m.CommandPalette })));
 const InkThread = lazy(() => import('./components/ink/Thread').then((m) => ({ default: m.InkThread })));
 const IntentionsView = lazy(() => import('./components/intentions/IntentionsView').then((m) => ({ default: m.IntentionsView })));
@@ -28,13 +27,11 @@ function AppLayout() {
     view,
     focusTaskId,
     startDay,
-    enterFocus,
     exitFocus,
-    openInbox,
     setView,
-    setViewDate,
     resetAppMode,
-  } = useApp();
+  } = useAppShell();
+  const { setViewDate } = usePlanner();
 
   const { assistantOpen, assistantPinned, closeAssistant } = useInkAssistant();
   const { isEveningReflection, openFullscreenInk, requestDayReset, closeBriefing } = useBriefingLifecycle();
@@ -113,15 +110,10 @@ function AppLayout() {
       )}
 
       <main aria-live="polite" className={cn('flex flex-1 overflow-hidden', mode !== 'focus' && 'ml-12')}>
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${mode}-${view}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="flex-1 flex overflow-hidden"
-          >
+        <div
+          key={`${mode}-${view}`}
+          className="animate-fade-in flex-1 flex overflow-hidden"
+        >
             {view === 'intentions' ? (
               <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
                 <Suspense fallback={<Skeleton />}>
@@ -130,42 +122,42 @@ function AppLayout() {
               </ErrorBoundary>
             ) : mode === 'briefing' ? (
               <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
-                <BriefingMode
-                  onComplete={closeBriefing}
-                  isEvening={isEveningReflection}
-                />
+                <Suspense fallback={<Skeleton />}>
+                  <BriefingMode
+                    onComplete={closeBriefing}
+                    isEvening={isEveningReflection}
+                  />
+                </Suspense>
               </ErrorBoundary>
             ) : mode === 'focus' && focusTaskId ? (
               <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
-                <FocusMode taskId={focusTaskId} onExit={exitFocus} />
+                <Suspense fallback={<Skeleton />}>
+                  <FocusMode taskId={focusTaskId} onExit={exitFocus} />
+                </Suspense>
               </ErrorBoundary>
             ) : mode === 'planning' ? (
               <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
-                <PlanningMode
-                  onStartDay={startDay}
-                  onOpenInk={openFullscreenInk}
-                  onEndDay={requestDayReset}
-                />
+                <Suspense fallback={<Skeleton />}>
+                  <PlanningMode
+                    onOpenInk={openFullscreenInk}
+                    onEndDay={requestDayReset}
+                  />
+                </Suspense>
               </ErrorBoundary>
             ) : (
               <ErrorBoundary resetKeys={[mode, view]} onReset={resetAppMode} fallback={modeFallback}>
-                <ExecutingMode
-                  onEnterFocus={enterFocus}
-                  onOpenInk={openFullscreenInk}
-                  onOpenInbox={openInbox}
-                  onEndDay={requestDayReset}
-                />
+                <Suspense fallback={<Skeleton />}>
+                  <ExecutingMode
+                    onOpenInk={openFullscreenInk}
+                    onEndDay={requestDayReset}
+                  />
+                </Suspense>
               </ErrorBoundary>
             )}
-          </motion.div>
-        </AnimatePresence>
+        </div>
       </main>
 
-      {showSettings && (
-        <Suspense fallback={<Skeleton variant="inline" />}>
-          <Settings onClose={() => setShowSettings(false)} />
-        </Suspense>
-      )}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
       <DragOverlay />
       <Suspense fallback={null}>
         <InkThread />
@@ -178,9 +170,9 @@ function AppLayout() {
 }
 
 function AppLayoutWithInk() {
-  const { mode } = useApp();
+  const { mode, view } = useAppShell();
   return (
-    <InkAssistantProvider mode={mode}>
+    <InkAssistantProvider mode={mode} view={view}>
       <ErrorBoundary fallback={({ error }) => <RootFallback error={error} />}>
         <AppLayout />
       </ErrorBoundary>

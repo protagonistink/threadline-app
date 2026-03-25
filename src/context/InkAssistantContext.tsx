@@ -35,9 +35,11 @@ const InkAssistantContext = createContext<InkAssistantContextValue | null>(null)
 export function InkAssistantProvider({
   children,
   mode,
+  view,
 }: {
   children: ReactNode;
   mode: string;
+  view: string;
 }) {
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [assistantPinned, setAssistantPinned] = useState(false);
@@ -60,12 +62,14 @@ export function InkAssistantProvider({
     setAssistantOpen(false);
   }, [clearCloseTimeout]);
 
+  const isBriefingDay = mode === 'briefing' && view === 'day';
+
   const openAssistantPreview = useCallback(() => {
-    if (mode === 'briefing') return;
+    if (isBriefingDay) return;
     clearCloseTimeout();
     setBriefingMode('chat');
     setAssistantOpen(true);
-  }, [clearCloseTimeout, mode]);
+  }, [clearCloseTimeout, isBriefingDay]);
 
   const scheduleAssistantClose = useCallback(() => {
     if (assistantPinned) return;
@@ -80,12 +84,12 @@ export function InkAssistantProvider({
       closeAssistant();
       return;
     }
-    if (mode === 'briefing') return;
+    if (isBriefingDay) return;
     clearCloseTimeout();
     setBriefingMode('chat');
     setAssistantOpen(true);
     setAssistantPinned(true);
-  }, [assistantPinned, closeAssistant, clearCloseTimeout, mode]);
+  }, [assistantPinned, closeAssistant, clearCloseTimeout, isBriefingDay]);
 
   const newChat = useCallback(() => {
     setBriefingSessionId((n) => n + 1);

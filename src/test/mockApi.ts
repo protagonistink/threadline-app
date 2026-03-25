@@ -1,8 +1,8 @@
 import { vi } from 'vitest';
 
-/** Install a full window.api mock. Call in beforeEach. */
-export function installMockApi() {
-  (window as unknown as { api: typeof window.api }).api = {
+/** Install a full window.api mock. Call in beforeEach. Returns the mock for per-test overrides. */
+export function installMockApi(): typeof window.api {
+  const mock: typeof window.api = {
     asana: {
       getTasks: vi.fn(),
       addComment: vi.fn(),
@@ -38,6 +38,7 @@ export function installMockApi() {
         gcal: { configured: false, clientId: '', calendarIds: [], writeCalendarId: '' },
         plaid: { configured: false },
         stripe: { configured: false },
+        ui: { themeMode: 'dark' },
         day: { startHour: 9, startMin: 0, endHour: 18, endMin: 0, timeboxDefault: 60, syncFrequencyMins: 2 },
         pomodoro: { workMins: 25, breakMins: 5, longBreakMins: 15, blockedSites: '' },
         tasks: { priorityRule: 'balanced', notificationIntensity: 'standard', distractionFiltering: 'show_all' },
@@ -76,6 +77,7 @@ export function installMockApi() {
       load: vi.fn().mockResolvedValue([]),
       save: vi.fn().mockResolvedValue(true),
       clear: vi.fn().mockResolvedValue(true),
+      clearOld: vi.fn().mockResolvedValue(true),
     },
     stripe: {
       getDashboard: vi.fn().mockResolvedValue({ success: false }),
@@ -99,4 +101,6 @@ export function installMockApi() {
       onOpenSettings: vi.fn().mockReturnValue(() => {}),
     },
   };
+  (window as unknown as { api: typeof window.api }).api = mock;
+  return mock;
 }

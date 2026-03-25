@@ -5,30 +5,26 @@ import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { cn, formatRoundedHours } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, usePlanner } from '@/context/AppContext';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
 import { resolveGoalColor, withAlpha } from '@/lib/goalColors';
 import type { PlannedTask, ScheduleBlock } from '@/types';
 import { AIBreakdown } from '../AIBreakdown';
 import { timeToTop, formatTimeShort, GRID_SNAP_MINS, getStepMins } from './timelineUtils';
 
-function FocusSetMeter({ durationMins }: { durationMins: number }) {
-  const setCount = Math.max(1, Math.round(durationMins / 25));
+function formatDurationStamp(durationMins: number) {
+  const hours = Math.floor(durationMins / 60);
+  const mins = durationMins % 60;
 
+  if (hours === 0) return `:${String(mins).padStart(2, '0')}`;
+  if (mins === 0) return `${hours}hr${hours === 1 ? '' : 's'}`;
+  return `${hours}:${String(mins).padStart(2, '0')}`;
+}
+
+function DurationMeter({ durationMins }: { durationMins: number }) {
   return (
-    <div className="flex items-center gap-2 rounded-full border border-accent-warm/18 bg-black/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-text-muted/90 focus-fade-meta">
-      <div className="flex items-center gap-1">
-        {Array.from({ length: setCount }).map((_, index) => (
-          <span
-            key={index}
-            className={cn(
-              'h-1.5 rounded-full bg-accent-warm/70',
-              index === 0 ? 'w-4' : 'w-2'
-            )}
-          />
-        ))}
-      </div>
-      <span>{setCount} focus set{setCount === 1 ? '' : 's'}</span>
+    <div className="rounded-full border border-accent-warm/18 bg-black/15 px-2.5 py-1 text-[10px] uppercase tracking-[0.18em] text-text-muted/90 focus-fade-meta">
+      {formatDurationStamp(durationMins)}
     </div>
   );
 }
@@ -77,7 +73,8 @@ export function BlockCard({
   onSelectNestedTask?: (taskId: string) => void;
 }) {
   const { isFocus } = useTheme();
-  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, enterFocus, returnTaskToInbox } = useApp();
+  const { enterFocus } = useAppShell();
+  const { plannedTasks, weeklyGoals, setActiveTask, toggleTask, nestTaskInBlock, returnTaskToInbox } = usePlanner();
   const linkedTask = block.linkedTaskId ? plannedTasks.find((task) => task.id === block.linkedTaskId) : null;
   const isDone = linkedTask?.status === 'done';
   const blockSubtitle = linkedTask?.notes
@@ -85,7 +82,7 @@ export function BlockCard({
     : linkedTask?.asanaProject ?? '';
 
   // Dynamic thread color for border-left based on weekly goal
-  const goalId = linkedTask?.weeklyGoalId ?? null;
+  const goalId = linkedTask?.weeklyGoalId ?? block.linkedGoalId ?? null;
   const goalIndex = goalId ? weeklyGoals.findIndex((g) => g.id === goalId) : -1;
   const goal = goalIndex >= 0 ? weeklyGoals[goalIndex] : null;
   const intentionColor = resolveGoalColor(goal?.color, goalIndex);
@@ -98,19 +95,19 @@ export function BlockCard({
 
   // Style sets per block type
   const blockBorderLeft = isRitual
-    ? '3px dashed rgba(255,255,255,0.1)'
+    ? '3px dashed var(--color-border)'
     : isGcal
-      ? '3px solid rgba(255,255,255,0.05)'
+      ? '3px solid var(--color-border-subtle)'
       : `4px solid ${intentionColor}`;
   const blockBackground = isGcal
-    ? 'rgba(255,255,255,0.02)'
+    ? 'var(--color-surface)'
     : isRitual
-      ? 'rgba(255,255,255,0.015)'
-      : `linear-gradient(90deg, ${withAlpha(intentionColor, 0.2)} 0%, ${withAlpha(intentionColor, 0.11)} 42%, rgba(255,255,255,0.025) 100%)`;
+      ? 'var(--color-surface)'
+      : `linear-gradient(90deg, ${withAlpha(intentionColor, 0.2)} 0%, ${withAlpha(intentionColor, 0.11)} 42%, var(--color-surface) 100%)`;
   const blockBorder = isRitual
-    ? '1px dashed rgba(255,255,255,0.06)'
+    ? '1px dashed var(--color-border-subtle)'
     : isGcal
-      ? '1px solid rgba(255,255,255,0.05)'
+      ? '1px solid var(--color-border-subtle)'
       : `1px solid ${withAlpha(intentionColor, 0.22)}`;
   const blockBorderRadius = isTaskBlock ? '3px 10px 10px 3px' : undefined;
   const nestedTasks = useMemo(
@@ -274,12 +271,22 @@ export function BlockCard({
     void toggleTask(block.linkedTaskId);
   }
 
+  function handleDoubleClick(event: React.MouseEvent<HTMLDivElement>) {
+    if (locked || !block.linkedTaskId || block.readOnly || isDone) return;
+    const target = event.target as HTMLElement;
+    if (target.closest('button')) return;
+    event.stopPropagation();
+    setActiveTask(block.linkedTaskId);
+    enterFocus(block.linkedTaskId);
+  }
+
   return (
     <div
       ref={blockRef}
       data-task-id={block.linkedTaskId || undefined}
       onMouseDown={beginDrag}
       onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       className={cn(
         blockVariant,
         'animate-fade-in absolute overflow-hidden flex flex-col group/block select-none',
@@ -378,7 +385,7 @@ export function BlockCard({
           isCompact ? 'text-[12px]' : 'text-[14px]',
           isDone ? 'text-text-muted line-through' : 'text-slate-100'
         )}>{block.title}</h4>
-        <span className="shrink-0 ml-2 flex items-center gap-1.5 text-[10px] text-[rgba(148,163,184,0.3)] tracking-wider whitespace-nowrap">
+        <span className="shrink-0 ml-2 flex items-center gap-1.5 text-[10px] text-text-muted tracking-wider whitespace-nowrap">
           {physicsWarning && (
             <span
               className="inline-block w-[5px] h-[5px] rounded-full shrink-0"
@@ -391,8 +398,10 @@ export function BlockCard({
       </div>
       {draft && (
         <div className="relative z-10 mt-1">
-          <span className="inline-flex items-center rounded-[3px] border border-white/8 bg-black/20 px-2 py-1 text-[9px] uppercase tracking-[0.18em] text-text-muted/90">
+          <span className="inline-flex items-center gap-2 rounded-[3px] border border-white/8 bg-black/20 px-2 py-1 text-[9px] uppercase tracking-[0.18em] text-text-muted/90">
             {formatTimeShort(draft.startHour, draft.startMin)}
+            <span className="text-text-muted/45">·</span>
+            {formatDurationStamp(draft.durationMins)}
           </span>
         </div>
       )}
@@ -515,7 +524,7 @@ export function BlockCard({
             >
               –
             </button>
-            <FocusSetMeter durationMins={block.durationMins} />
+            <DurationMeter durationMins={block.durationMins} />
             <button
               onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, block.durationMins + getStepMins(block.durationMins)); }}
               className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1"

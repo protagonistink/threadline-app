@@ -33,11 +33,11 @@ export function MorningMoneyBlock() {
   return (
     <div className="mb-8">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-[10px] uppercase tracking-widest" style={{ color: '#64748B' }}>
+        <h3 className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-text-muted)' }}>
           Money
         </h3>
         {lastSync && (
-          <span className="text-[10px]" style={{ color: '#475569' }}>
+          <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
             {formatDistanceToNow(lastSync, { addSuffix: true })}
           </span>
         )}
@@ -46,18 +46,18 @@ export function MorningMoneyBlock() {
       <div
         className="rounded-[18px] px-4 py-4"
         style={{
-          border: '1px solid #1E293B',
-          background: 'linear-gradient(180deg, rgba(15,23,42,0.9), rgba(15,23,42,0.6))',
+          border: '1px solid var(--color-border)',
+          background: 'var(--color-bg-card)',
         }}
       >
-        <div className="text-[28px] font-display font-semibold leading-none" style={{ color: '#F8FAFC' }}>
+        <div className="text-[28px] font-display font-semibold leading-none" style={{ color: 'var(--color-text-emphasis)' }}>
           {formatMoneyCurrency(state.permissionNumber)}
         </div>
-        <div className="text-[11px] mt-1" style={{ color: '#64748B' }}>
+        <div className="text-[11px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
           Available today
         </div>
 
-        <p className="text-[12px] mt-3 leading-relaxed" style={{ color: '#CBD5E1' }}>
+        <p className="text-[12px] mt-3 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
           {buildPositionLine(state, nextObligation)}
         </p>
 
@@ -66,10 +66,10 @@ export function MorningMoneyBlock() {
             {nextObligations.map((obligation) => (
               <div key={obligation.id} className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[12px]" style={{ color: '#E2E8F0' }}>
+                  <p className="text-[12px]" style={{ color: 'var(--color-text-primary)' }}>
                     {obligation.name}
                   </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: '#475569' }}>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
                     {obligation.daysUntilDue === 0
                       ? 'Due today'
                       : obligation.daysUntilDue === 1
@@ -78,10 +78,10 @@ export function MorningMoneyBlock() {
                   </p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className="text-[12px]" style={{ color: '#E2E8F0' }}>
+                  <p className="text-[12px]" style={{ color: 'var(--color-text-primary)' }}>
                     {formatMoneyCurrency(obligation.amount)}
                   </p>
-                  <p className="text-[10px] mt-0.5 uppercase tracking-[0.12em]" style={{ color: '#64748B' }}>
+                  <p className="text-[10px] mt-0.5 uppercase tracking-[0.12em]" style={{ color: 'var(--color-text-muted)' }}>
                     {obligation.cashReserved >= obligation.amount ? 'Covered' : 'Watch'}
                   </p>
                 </div>
@@ -90,15 +90,15 @@ export function MorningMoneyBlock() {
           </div>
         )}
 
-        <div className="mt-4 pt-4" style={{ borderTop: '1px solid #1E293B' }}>
-          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: '#64748B' }}>
+        <div className="mt-4 pt-4" style={{ borderTop: '1px solid var(--color-border)' }}>
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: 'var(--color-text-muted)' }}>
             Today&apos;s Call
           </p>
-          <p className="text-[12px] leading-relaxed" style={{ color: '#E2E8F0' }}>
+          <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-text-primary)' }}>
             {dailyCall}
           </p>
           {workTieIn && (
-            <p className="text-[11px] mt-3 leading-relaxed" style={{ color: '#94A3B8' }}>
+            <p className="text-[11px] mt-3 leading-relaxed" style={{ color: 'var(--color-text-secondary)' }}>
               {workTieIn}
             </p>
           )}

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { addDays, format, isSameDay } from 'date-fns';
 import { Check } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { deriveDayCommitInfo } from '@/hooks/useDayCommitState';
 import { eventToBlock } from '@/lib/planner';
 
@@ -10,7 +10,7 @@ interface DayRowMetrics {
 }
 
 export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
-  const { viewDate, setViewDate, getDailyPlanForDate, plannedTasks, workdayEnd } = useApp();
+  const { viewDate, setViewDate, getDailyPlanForDate, plannedTasks, workdayEnd } = usePlanner();
   const today = useMemo(() => new Date(), []);
   const todayKey = format(today, 'yyyy-MM-dd');
   const rows = useMemo(() => Array.from({ length: 5 }, (_, index) => addDays(today, index - 2)), [today]);
@@ -57,8 +57,8 @@ export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
     <div
       className="absolute left-0 top-full z-30 mt-3 min-w-[220px] overflow-hidden rounded-[4px] border shadow-[0_4px_12px_rgba(0,0,0,0.3)] animate-fade-in"
       style={{
-        background: '#252430',
-        borderColor: 'rgba(255,255,255,0.08)',
+        background: 'var(--color-bg-elevated)',
+        borderColor: 'var(--color-border)',
         animationDuration: '80ms',
         animationTimingFunction: 'ease-out',
       }}
@@ -114,11 +114,11 @@ export function DaySwitcherDropdown({ onSelect }: { onSelect?: () => void }) {
               }}
               className="flex w-full items-center justify-between px-4 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
               style={{
-                background: isActive ? 'rgba(250,250,250,0.05)' : 'transparent',
+                background: isActive ? 'var(--color-bg-hover)' : 'transparent',
                 borderLeft: isToday ? '2px solid rgba(200,60,47,0.85)' : '2px solid transparent',
               }}
             >
-              <span className="text-[13px]" style={{ color: '#D2D6DB' }}>
+              <span className="text-[13px]" style={{ color: 'var(--color-text-primary)' }}>
                 {format(rowDate, 'EEE, MMM d')}
               </span>
               <span

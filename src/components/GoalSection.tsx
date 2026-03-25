@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { useDrop } from 'react-dnd';
 import { DragTypes, type DragItem } from '@/hooks/useDragDrop';
+import { resolveGoalColor, withAlpha } from '@/lib/goalColors';
 import type { PlannedTask, WeeklyGoal } from '@/types';
 import { TaskCard, type DeadlineState } from '@/components/shared/TaskCard';
 
@@ -18,6 +19,8 @@ export function GoalSection({
   deadlineInfo,
   isFirst = false,
   nestedInBlockIds,
+  celebrate = false,
+  celebrationDelayMs = 0,
 }: {
   goal: WeeklyGoal;
   goalIndex?: number;
@@ -30,9 +33,12 @@ export function GoalSection({
   deadlineInfo?: { daysRemaining: number; state: DeadlineState };
   isFirst?: boolean;
   nestedInBlockIds?: Set<string>;
+  celebrate?: boolean;
+  celebrationDelayMs?: number;
 }) {
-  const { bringForward, unscheduleTaskBlock } = useApp();
+  const { bringForward, unscheduleTaskBlock } = usePlanner();
   const finishedCount = tasks.filter((task) => task.status === 'done').length;
+  const goalColor = resolveGoalColor(goal.color, goalIndex);
 
   const subtasksByParent = useMemo(() => {
     const map = new Map<string, PlannedTask[]>();
@@ -61,20 +67,30 @@ export function GoalSection({
     <div
       ref={dropRef}
       className={cn(
-        'flex flex-col gap-3 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
+        'relative flex flex-col gap-3 overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]',
         isOver && 'bg-accent-warm/[0.07] px-3 py-3 -mx-3'
       )}
-      style={!isFirst ? { borderTop: '0.5px solid rgba(255,255,255,0.06)' } : undefined}
+      style={!isFirst ? { borderTop: '0.5px solid var(--color-border-subtle)' } : undefined}
     >
-      <div style={{ padding: '18px 16px 8px' }}>
+      {celebrate && (
+        <div
+          className="goal-handoff-sweep pointer-events-none absolute inset-x-0 top-0 h-full"
+          style={{
+            '--goal-handoff-color': goalColor,
+            '--goal-handoff-soft': withAlpha(goalColor, 0.18),
+            animationDelay: `${celebrationDelayMs}ms`,
+          } as React.CSSProperties}
+        />
+      )}
+      <div className="select-none" style={{ padding: '18px 16px 8px' }}>
         <div className="flex items-center justify-between">
           <div
-            className="font-medium"
+            className="font-medium select-none"
             style={{
               fontSize: 8,
               letterSpacing: '0.14em',
               textTransform: 'uppercase' as const,
-              color: 'rgba(190,90,55,0.45)',
+              color: withAlpha(goalColor, 0.7),
               marginBottom: 5,
             }}
           >
@@ -87,7 +103,7 @@ export function GoalSection({
           )}
         </div>
         <h3
-          className="font-display text-[15px] leading-[1.3]"
+          className="font-display text-[15px] leading-[1.3] select-none"
           style={{ color: 'rgba(225,215,200,0.88)', letterSpacing: '-0.01em' }}
         >
           {goal.title}
@@ -113,11 +129,14 @@ export function GoalSection({
                 task={task}
                 index={startIndex + i}
                 goalIndex={goalIndex}
+                goalColor={goalColor}
                 actualMins={actualByTask.get(task.id) ?? 0}
                 subtasks={subtasksByParent.get(task.id) ?? []}
                 nestTask={nestTask}
                 unnestTask={unnestTask}
                 deadlineInfo={deadlineInfo}
+                celebrate={celebrate}
+                celebrationDelayMs={celebrationDelayMs + i * 90}
               />
             </div>
           ))

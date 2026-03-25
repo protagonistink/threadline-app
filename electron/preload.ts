@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('api', {
     save: (date: string, messages: Array<{ role: string; content: string }>) =>
       ipcRenderer.invoke('chat:save', date, messages),
     clear: (date: string) => ipcRenderer.invoke('chat:clear', date),
+    clearOld: (today: string) => ipcRenderer.invoke('chat:clearOld', today),
   },
   shell: {
     openExternal: (url: string) => ipcRenderer.invoke('shell:open-external', url),
@@ -150,6 +151,11 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('menu:open-settings', handler);
       return () => ipcRenderer.removeListener('menu:open-settings', handler);
     },
+  },
+  // Stripe
+  stripe: {
+    getDashboard: () => ipcRenderer.invoke('stripe:get-dashboard'),
+    testConnection: () => ipcRenderer.invoke('stripe:test-connection'),
   },
   // Finance (Compass engine)
   finance: {

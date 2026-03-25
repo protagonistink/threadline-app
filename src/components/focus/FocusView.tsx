@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Pause, Play, RotateCcw, Check } from 'lucide-react';
-import { useApp } from '@/context/AppContext';
+import { usePlanner } from '@/context/AppContext';
 import { PomodoroTimer } from '@/components/PomodoroTimer';
 import { cn } from '@/lib/utils';
 
@@ -23,7 +23,7 @@ function formatMinsLeft(minsLeft: number): string {
 }
 
 export function FocusView({ taskId, onExit }: FocusViewProps) {
-  const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = useApp();
+  const { plannedTasks, weeklyGoals, scheduleBlocks, toggleTask } = usePlanner();
 
   const [timerProgress, setTimerProgress] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
@@ -161,15 +161,15 @@ export function FocusView({ taskId, onExit }: FocusViewProps) {
             className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
           >
             {isPaused
-              ? <Play className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
-              : <Pause className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />}
+              ? <Play className="w-3.5 h-3.5 text-text-muted" />
+              : <Pause className="w-3.5 h-3.5 text-text-muted" />}
           </button>
           {/* Reset */}
           <button
             onClick={() => void window.api.pomodoro.stop()}
             className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
           >
-            <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
+            <RotateCcw className="w-3.5 h-3.5 text-text-muted" />
           </button>
           {/* Done — larger, rust-styled */}
           <button

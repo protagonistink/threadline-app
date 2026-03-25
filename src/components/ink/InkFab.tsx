@@ -36,7 +36,7 @@ export function InkFab({ briefingModeOverride }: InkFabProps) {
       {assistantOpen && (
         <div
           className={cn(
-            'assistant-overlay no-drag absolute bottom-16 right-0 w-[440px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-[28px] border border-[#243041] shadow-[0_28px_80px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-200 ease-out',
+            'assistant-overlay no-drag absolute bottom-16 right-0 w-[440px] max-w-[calc(100vw-3rem)] overflow-hidden rounded-[28px] border border-border shadow-[0_28px_80px_rgba(0,0,0,0.45)] transition-[opacity,transform] duration-200 ease-out',
             assistantPinned ? 'opacity-100 translate-y-0' : 'opacity-100 translate-y-0'
           )}
         >

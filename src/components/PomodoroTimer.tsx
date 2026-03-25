@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Play, Pause, SkipForward, Square, RotateCcw, Check } from 'lucide-react';
 import type { PomodoroState } from '@/types';
 import { cn } from '@/lib/utils';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, usePlanner } from '@/context/AppContext';
 import { useTheme } from '@/context/ThemeContext';
 
 interface TimeboxDecisionState {
@@ -17,8 +17,9 @@ function formatSeconds(seconds: number): string {
 }
 
 export function PomodoroTimer() {
-  const { logFocusSession, plannedTasks, setActiveTask, setView, toggleTask } = useApp();
-  const { setMode } = useTheme();
+  const { setView } = useAppShell();
+  const { logFocusSession, plannedTasks, setActiveTask, toggleTask } = usePlanner();
+  const { enterFocusMode, exitFocusMode } = useTheme();
   const [state, setState] = useState<PomodoroState>({
     isRunning: false,
     isPaused: false,
@@ -96,13 +97,16 @@ export function PomodoroTimer() {
       });
     });
     return unsubscribe;
-  }, [logFocusSession, plannedTasks, setActiveTask, setView, setMode]);
+  }, [logFocusSession, plannedTasks, setActiveTask, setView]);
 
   useEffect(() => {
     if (state.isRunning) {
-      setMode('focus');
+      enterFocusMode();
+      return;
     }
-  }, [setMode, state.isRunning]);
+
+    exitFocusMode();
+  }, [enterFocusMode, exitFocusMode, state.isRunning]);
 
   // Auto-dismiss the timebox toast after 60s if the user ignores it
   useEffect(() => {
@@ -141,22 +145,21 @@ export function PomodoroTimer() {
                 className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
               >
                 {state.isPaused
-                  ? <Play className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
-                  : <Pause className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />}
+                  ? <Play className="w-3.5 h-3.5 text-text-muted" />
+                  : <Pause className="w-3.5 h-3.5 text-text-muted" />}
               </button>
               {/* Reset */}
               <button
                 onClick={() => void window.api.pomodoro.stop()}
                 className="w-9 h-9 rounded-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-center hover:border-[rgba(255,255,255,0.12)] transition-colors"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-[rgba(255,255,255,0.4)]" />
+                <RotateCcw className="w-3.5 h-3.5 text-text-muted" />
               </button>
               {/* Done — larger, rust-styled */}
               <button
                 onClick={() => {
                   void toggleTask(timeboxDecision.taskId);
                   setView('flow');
-                  setMode('dark');
                   setTimeboxDecision(null);
                 }}
                 className="w-11 h-11 rounded-full bg-[rgba(200,60,47,0.1)] border border-[rgba(200,60,47,0.25)] flex items-center justify-center hover:bg-[rgba(200,60,47,0.15)] transition-colors"
@@ -184,8 +187,8 @@ export function PomodoroTimer() {
             cx="90"
             cy="90"
             r="80"
-            fill={state.isBreak ? '#07111c' : '#111214'}
-            stroke="rgba(255,255,255,0.03)"
+            fill="var(--color-bg)"
+            stroke="var(--color-border-subtle)"
             strokeWidth="3"
           />
           <circle

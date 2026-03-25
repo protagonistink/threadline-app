@@ -5,9 +5,11 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { useTaskActions } from './useTaskActions';
 import type { DailyPlan, PlannedTask, ScheduleBlock, WeeklyGoal } from '@/types';
+import { installMockApi } from '../test/mockApi';
 
 const weeklyGoals: WeeklyGoal[] = [
   { id: 'goal-1', title: 'Client Work', color: 'bg-accent-warm' },
+  { id: 'goal-2', title: 'Writing', color: 'rgb(45,212,191)' },
 ];
 
 function useHarness(options?: { initialTask?: Partial<PlannedTask>; initialDailyPlan?: Partial<DailyPlan> }) {
@@ -74,87 +76,7 @@ function useHarness(options?: { initialTask?: Partial<PlannedTask>; initialDaily
 
 describe('useTaskActions', () => {
   beforeEach(() => {
-    (window as unknown as { api: typeof window.api }).api = {
-      asana: {
-        getTasks: vi.fn(),
-        addComment: vi.fn(),
-        completeTask: vi.fn(),
-      },
-      gcal: {
-        getEvents: vi.fn(),
-        listCalendars: vi.fn(),
-        createEvent: vi.fn(),
-        updateEvent: vi.fn(),
-        deleteEvent: vi.fn().mockResolvedValue({ success: true }),
-        auth: vi.fn(),
-      },
-      pomodoro: {
-        start: vi.fn(),
-        pause: vi.fn(),
-        stop: vi.fn(),
-        skip: vi.fn(),
-        onTick: vi.fn(),
-      },
-      focus: {
-        enable: vi.fn(),
-        disable: vi.fn(),
-      },
-      store: {
-        get: vi.fn(),
-        set: vi.fn(),
-      },
-      settings: {
-        load: vi.fn(),
-        save: vi.fn(),
-      },
-      window: {
-        activate: vi.fn(),
-        setFocusSize: vi.fn(),
-        showMain: vi.fn(),
-      },
-      ai: {
-        chat: vi.fn(),
-        streamStart: vi.fn(),
-        onToken: vi.fn(),
-        onDone: vi.fn(),
-        onError: vi.fn(),
-      },
-      physics: {
-        get: vi.fn(),
-        update: vi.fn(),
-        log: vi.fn(),
-      },
-      shell: {
-        openExternal: vi.fn(),
-      },
-      ink: {
-        readContext: vi.fn(),
-        writeContext: vi.fn(),
-        appendJournal: vi.fn(),
-      },
-      chat: {
-        load: vi.fn().mockResolvedValue([]),
-        save: vi.fn().mockResolvedValue(true),
-        clear: vi.fn().mockResolvedValue(true),
-      },
-      finance: {
-        getState: vi.fn().mockResolvedValue(null),
-        getAccounts: vi.fn().mockResolvedValue([]),
-        refresh: vi.fn().mockResolvedValue(null),
-        plaidLink: vi.fn().mockResolvedValue({ success: false }),
-        plaidExchange: vi.fn().mockResolvedValue({ success: false }),
-      },
-      menu: {
-        onNewTask: vi.fn().mockReturnValue(() => {}),
-        onNewEvent: vi.fn().mockReturnValue(() => {}),
-        onSetView: vi.fn().mockReturnValue(() => {}),
-        onToggleSidebar: vi.fn().mockReturnValue(() => {}),
-        onGoToday: vi.fn().mockReturnValue(() => {}),
-        onStartDay: vi.fn().mockReturnValue(() => {}),
-        onOpenInk: vi.fn().mockReturnValue(() => {}),
-        onOpenSettings: vi.fn().mockReturnValue(() => {}),
-      },
-    };
+    installMockApi();
   });
 
   it('moveForward removes the linked calendar block before migrating the task', async () => {
@@ -178,27 +100,27 @@ describe('useTaskActions', () => {
     });
   });
 
-  it('toggleTask keeps the linked calendar block when completing a scheduled task', async () => {
+  it('toggleTask removes the linked calendar block when completing a scheduled task', async () => {
     const { result } = renderHook(() => useHarness());
 
     await act(async () => {
       await result.current.toggleTask('task-1');
     });
 
-    expect(window.api.gcal.deleteEvent).not.toHaveBeenCalled();
+    expect(window.api.gcal.deleteEvent).toHaveBeenCalledWith('event-1', 'primary');
 
     await waitFor(() => {
-      expect(result.current.scheduleBlocks).toHaveLength(1);
+      expect(result.current.scheduleBlocks).toHaveLength(0);
       expect(result.current.plannedTasks[0]).toMatchObject({
         status: 'done',
         active: false,
-        scheduledEventId: 'event-1',
-        scheduledCalendarId: 'primary',
+        scheduledEventId: undefined,
+        scheduledCalendarId: undefined,
       });
     });
   });
 
-  it('toggleTask restores scheduled state when reopening a completed scheduled task', async () => {
+  it('toggleTask restores committed state when reopening a completed scheduled task', async () => {
     const { result } = renderHook(() => useHarness());
 
     // First toggle: mark done
@@ -216,12 +138,12 @@ describe('useTaskActions', () => {
     });
 
     await waitFor(() => {
-      expect(result.current.scheduleBlocks).toHaveLength(1);
+      expect(result.current.scheduleBlocks).toHaveLength(0);
       expect(result.current.plannedTasks[0]).toMatchObject({
-        status: 'scheduled',
+        status: 'committed',
         active: false,
-        scheduledEventId: 'event-1',
-        scheduledCalendarId: 'primary',
+        scheduledEventId: undefined,
+        scheduledCalendarId: undefined,
       });
     });
   });
@@ -306,6 +228,44 @@ describe('useTaskActions', () => {
         scheduledEventId: undefined,
         scheduledCalendarId: undefined,
         active: false,
+      });
+    });
+  });
+
+  it('bringForward preserves an existing weeklyGoalId when no explicit goal is provided', async () => {
+    const { result } = renderHook(() => useHarness({
+      initialTask: { weeklyGoalId: 'goal-2', status: 'candidate', active: false },
+      initialDailyPlan: { committedTaskIds: [] },
+    }));
+
+    await act(async () => {
+      result.current.bringForward('task-1');
+    });
+
+    await waitFor(() => {
+      expect(result.current.plannedTasks[0]).toMatchObject({
+        weeklyGoalId: 'goal-2',
+        status: 'committed',
+        lastCommittedDate: '2026-03-11',
+      });
+    });
+  });
+
+  it('assignTaskToGoal retags a task without changing the rest of its state', async () => {
+    const { result } = renderHook(() => useHarness({
+      initialTask: { weeklyGoalId: null, status: 'candidate', active: false },
+      initialDailyPlan: { committedTaskIds: [] },
+    }));
+
+    act(() => {
+      result.current.assignTaskToGoal('task-1', 'goal-2');
+    });
+
+    await waitFor(() => {
+      expect(result.current.plannedTasks[0]).toMatchObject({
+        weeklyGoalId: 'goal-2',
+        status: 'candidate',
+        lastCommittedDate: '2026-03-11',
       });
     });
   });

@@ -58,10 +58,11 @@ export function AfterHoursVeil({
       <div
         className={cn(
           'absolute inset-0',
-          isLight
-            ? isPastClose ? 'bg-[rgba(196,132,78,0.04)]' : 'bg-[rgba(176,112,88,0.03)]'
-            : isPastClose ? 'bg-[rgba(200,60,47,0.06)]' : 'bg-[rgba(10,10,10,0.55)]'
+          isPastClose
+            ? isLight ? 'bg-[rgba(196,132,78,0.04)]' : 'bg-[rgba(200,60,47,0.06)]'
+            : ''
         )}
+        style={isPastClose ? undefined : { background: 'var(--color-bg-veil)' }}
       />
     </div>
   );

@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
-import { useApp } from '@/context/AppContext';
+import { useAppShell, useAppStatus } from '@/context/AppContext';
 import { useInkAssistant } from '@/context/InkAssistantContext';
 
 export function useBriefingLifecycle() {
+  const { completeBriefing } = useAppShell();
   const {
-    completeBriefing,
     isInitialized,
     dayCommitInfo,
     resetDay,
-  } = useApp();
+  } = useAppStatus();
 
   const { closeAssistant, setBriefingMode } = useInkAssistant();
 
@@ -52,16 +52,32 @@ export function useBriefingLifecycle() {
     }
   }, [dayCommitInfo.state, dayCommitInfo.hadBlocks, openFullscreenInk, completeBriefing]);
 
+  // Track the current date so we can detect midnight rollover
+  const currentDateRef = useRef(format(new Date(), 'yyyy-MM-dd'));
+
   useEffect(() => {
     if (!isInitialized || autoBriefingCheckedRef.current) return;
     autoBriefingCheckedRef.current = true;
-    void window.api.chat.clear(format(new Date(), 'yyyy-MM-dd'));
+    // Clear old days' conversations (keeps today's intact)
+    void window.api.chat.clearOld(format(new Date(), 'yyyy-MM-dd'));
 
     let cancelled = false;
     void checkAutoBriefing(() => cancelled);
 
     return () => { cancelled = true; };
   }, [isInitialized, checkAutoBriefing]);
+
+  // Detect midnight rollover: clear stale conversation when the date changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = format(new Date(), 'yyyy-MM-dd');
+      if (now !== currentDateRef.current) {
+        currentDateRef.current = now;
+        void window.api.chat.clearOld(now);
+      }
+    }, 60_000); // check every minute
+    return () => clearInterval(interval);
+  }, []);
 
   // --- Close briefing ---
   const closeBriefing = useCallback(() => {

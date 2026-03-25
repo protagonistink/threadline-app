@@ -68,8 +68,8 @@ export function RootFallback({ error }: { error: Error }) {
         justifyContent: 'center',
         height: '100vh',
         width: '100vw',
-        background: '#121212',
-        color: 'rgba(255, 255, 255, 0.92)',
+        background: 'var(--color-bg)',
+        color: 'var(--color-text-primary)',
         fontFamily: 'Satoshi, system-ui, sans-serif',
         padding: '2rem',
         textAlign: 'center',
@@ -106,7 +106,7 @@ export function RootFallback({ error }: { error: Error }) {
         onClick={() => window.location.reload()}
         style={{
           background: '#C83C2F',
-          color: '#fff',
+          color: 'var(--color-text-on-accent)',
           border: 'none',
           borderRadius: '6px',
           padding: '0.5rem 1.25rem',
@@ -139,7 +139,7 @@ export function ModeFallback({
         onClick={resetErrorBoundary}
         className="mt-2 rounded-md bg-accent-warm px-4 py-2 text-sm font-medium text-white hover:bg-accent-warm-hover transition-colors"
       >
-        Back to planning
+        Back to the day
       </button>
     </div>
   );

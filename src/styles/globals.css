@@ -41,9 +41,17 @@
     --color-bg-card: #1C1C1C;
     --color-bg-elevated: #181818;
     --color-bg-hover: #2A2A2A;
+    --color-bg-overlay: rgba(10, 10, 10, 0.96);
+    --color-bg-bubble-user: rgba(30, 41, 59, 0.6);
+    --color-bg-bubble-assistant: transparent;
+    --color-bg-chip: rgba(30, 41, 59, 0.5);
+    --color-bg-chip-hover: rgba(30, 41, 59, 0.7);
+    --color-bg-veil: rgba(10, 10, 10, 0.55);
+    --color-bg-drop: rgba(28, 31, 38, 0.96);
     --color-border: rgba(255, 255, 255, 0.08);
     --color-border-hover: rgba(255, 255, 255, 0.16);
     --color-border-subtle: rgba(255, 255, 255, 0.05);
+    --color-border-chip: rgba(255, 255, 255, 0.08);
     --color-accent-warm: #C83C2F;
     --color-accent-warm-hover: #f47252;
     --color-accent-green: oklch(55% 0.10 155);
@@ -52,9 +60,11 @@
     --color-text-emphasis: rgba(255, 255, 255, 0.97);
     --color-text-secondary: rgba(255, 255, 255, 0.55);
     --color-text-whisper: rgba(255, 255, 255, 0.2);
+    --color-text-on-accent: #FFFFFF;
     --color-surface: rgba(255, 255, 255, 0.03);
     --color-active: #C83C2F;
     --color-done: rgba(255, 255, 255, 0.35);
+    --color-svg-track: rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -70,20 +80,30 @@
   --color-bg-card: #EFEBE5;
   --color-bg-elevated: #F5F2EE;
   --color-bg-hover: #f0eeeb;
+  --color-bg-overlay: rgba(250, 248, 245, 0.96);
+  --color-bg-bubble-user: rgba(60, 50, 40, 0.06);
+  --color-bg-bubble-assistant: rgba(60, 50, 40, 0.03);
+  --color-bg-chip: rgba(60, 50, 40, 0.06);
+  --color-bg-chip-hover: rgba(60, 50, 40, 0.10);
+  --color-bg-veil: rgba(60, 50, 40, 0.08);
+  --color-bg-drop: rgba(60, 50, 40, 0.05);
   --color-border: rgba(60, 50, 40, 0.08);
   --color-border-hover: rgba(120, 113, 100, 0.28);
   --color-border-subtle: rgba(60, 50, 40, 0.06);
-  --color-accent-warm: #C83C2F;
-  --color-accent-warm-hover: #f47252;
+  --color-border-chip: rgba(60, 50, 40, 0.12);
+  --color-accent-warm: #A32A1F;
+  --color-accent-warm-hover: #C83C2F;
   --color-accent-green: oklch(48% 0.10 155);
-  --color-text-muted: rgba(60, 50, 40, 0.4);
-  --color-text-primary: rgba(40, 30, 20, 0.9);
-  --color-text-emphasis: rgba(40, 30, 20, 0.95);
-  --color-text-secondary: rgba(60, 50, 40, 0.5);
-  --color-text-whisper: rgba(60, 50, 40, 0.2);
+  --color-text-muted: #7A7062;
+  --color-text-primary: #2C2420;
+  --color-text-emphasis: #1A1410;
+  --color-text-secondary: #5C5348;
+  --color-text-whisper: rgba(60, 50, 40, 0.3);
+  --color-text-on-accent: #FFFFFF;
   --color-surface: rgba(60, 50, 40, 0.03);
   --color-active: #C83C2F;
   --color-done: #828282;
+  --color-svg-track: rgba(60, 50, 40, 0.08);
 }
 
 /* === FOCUS MODE — Theater Lighting ===
@@ -144,6 +164,7 @@
   min-height: 4.75rem;
   padding: 1rem 1.75rem 0.95rem;
   border-bottom: 1px solid var(--color-border-subtle);
+  user-select: none;
 }
 
 .workspace-header-copy {
@@ -151,6 +172,7 @@
   flex-direction: column;
   gap: 0.28rem;
   min-width: 0;
+  user-select: none;
 }
 
 .workspace-header-kicker {
@@ -191,6 +213,7 @@
   color: rgba(140,130,110,0.35);
   white-space: nowrap;
   letter-spacing: 0.04em;
+  user-select: none;
 }
 
 .workspace-header-toolbar {
@@ -561,6 +584,63 @@
   animation: slideDown 0.3s ease-out both;
 }
 
+@keyframes goalHandoffSweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-18%) scaleX(0.92);
+  }
+  18% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.92;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(14%) scaleX(1.04);
+  }
+}
+
+@keyframes goalHandoffCard {
+  0% {
+    opacity: 0;
+    transform: translateX(-30%);
+  }
+  16% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(22%);
+  }
+}
+
+.goal-handoff-sweep {
+  opacity: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--goal-handoff-soft) 18%,
+      color-mix(in srgb, var(--goal-handoff-color) 20%, transparent) 48%,
+      transparent 82%
+    );
+  animation: goalHandoffSweep 0.95s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.goal-handoff-card {
+  opacity: 0;
+  background:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--goal-handoff-color) 14%, transparent) 20%,
+      var(--goal-handoff-soft) 50%,
+      transparent 82%
+    );
+  animation: goalHandoffCard 0.82s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* Task completion pop — ritual satisfaction */
 @keyframes check-pop {
   0%   { transform: scale(1); }
@@ -595,13 +675,13 @@
 /* Prose styling for briefing chat messages */
 /* Morning Welcome */
 .morning-welcome-input::placeholder {
-  color: #64748B;
+  color: var(--color-text-muted);
 }
 .morning-welcome-cta {
-  color: #94A3B8;
+  color: var(--color-text-secondary);
 }
 .morning-welcome-cta:hover {
-  color: #FFFFFF;
+  color: var(--color-text-emphasis);
 }
 
 .prose-briefing p {
@@ -931,4 +1011,98 @@
 .note-entry.placed {
   opacity: 0.25;
   cursor: default;
+}
+
+/* ============================================================
+   Light Mode Overrides — Component-Level
+   ============================================================ */
+[data-theme="light"] .dot-grid {
+  background-image: radial-gradient(circle, rgba(60, 50, 40, 0.06) 1px, transparent 1px);
+}
+
+[data-theme="light"] .capacity-track {
+  background: rgba(60, 50, 40, 0.08);
+}
+
+[data-theme="light"] .t-gcal {
+  background: rgba(100, 116, 139, 0.06);
+  border-color: rgba(60, 50, 40, 0.06);
+  border-left-color: rgba(100, 116, 139, 0.35);
+}
+[data-theme="light"] .t-gcal:hover {
+  background: rgba(100, 116, 139, 0.10);
+}
+
+[data-theme="light"] .t-ritual {
+  background: rgba(60, 50, 40, 0.03);
+  border-color: rgba(60, 50, 40, 0.06);
+  border-left-color: rgba(60, 50, 40, 0.12);
+}
+[data-theme="light"] .t-ritual:hover {
+  background: rgba(60, 50, 40, 0.06);
+}
+
+[data-theme="light"] .t-draft {
+  background: rgba(200, 60, 47, 0.04);
+  border-color: rgba(200, 60, 47, 0.15);
+  border-left-color: rgba(200, 60, 47, 0.45);
+}
+
+[data-theme="light"] .t-inked:hover {
+  filter: brightness(0.96);
+}
+
+[data-theme="light"] .inked-badge {
+  color: rgba(200, 60, 47, 0.7);
+  background: rgba(200, 60, 47, 0.08);
+}
+
+[data-theme="light"] .triage-row {
+  color: rgba(60, 50, 40, 0.5);
+}
+[data-theme="light"] .triage-row:hover {
+  color: rgba(60, 50, 40, 0.75);
+}
+
+[data-theme="light"] .triage-box {
+  border-color: rgba(200, 60, 47, 0.2);
+}
+[data-theme="light"] .triage-row:hover .triage-box {
+  border-color: rgba(200, 60, 47, 0.35);
+}
+[data-theme="light"] .triage-row.selected .triage-box {
+  border-color: rgba(200, 60, 47, 0.35);
+  box-shadow: 0 0 8px rgba(200, 60, 47, 0.08);
+}
+
+[data-theme="light"] .time-lbl {
+  color: rgba(60, 50, 40, 0.35);
+}
+
+[data-theme="light"] .note-entry:hover {
+  background: rgba(60, 50, 40, 0.04);
+}
+
+[data-theme="light"] .note-entry.thread-general::before {
+  background: rgba(60, 50, 40, 0.1);
+}
+
+[data-theme="light"] .section-lbl {
+  color: rgba(60, 50, 40, 0.4);
+}
+
+[data-theme="light"] .archive-textarea::placeholder {
+  color: rgba(60, 50, 40, 0.25);
+}
+
+[data-theme="light"] .balance-callout {
+  background: rgba(60, 50, 40, 0.04);
+}
+
+[data-theme="light"] .now-pip {
+  box-shadow: 0 0 10px rgba(200, 60, 47, 0.25);
+}
+
+[data-theme="light"] .workspace-header-meta {
+  color: rgba(60, 50, 40, 0.3);
 }
