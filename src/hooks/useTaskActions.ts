@@ -130,7 +130,6 @@ export function useTaskActions({
   }, [setPlannedTasks]);
 
   const bringForward = useCallback((taskId: string, goalId?: string, targetDate?: string) => {
-    const targetGoal = goalId || weeklyGoals[0]?.id || null;
     const commitDate = targetDate || planningDate;
 
     setPlannedTasks((prev) =>
@@ -138,7 +137,7 @@ export function useTaskActions({
         task.id === taskId
           ? {
               ...task,
-              weeklyGoalId: targetGoal,
+              weeklyGoalId: goalId ?? task.weeklyGoalId ?? weeklyGoals[0]?.id ?? null,
               status: task.status === 'done' ? 'done' : 'committed',
               lastCommittedDate: commitDate,
             }
@@ -160,7 +159,7 @@ export function useTaskActions({
   const addLocalTask = useCallback((title: string, goalId?: string, targetDate?: string): string => {
     if (!title.trim()) return '';
 
-    const nextId = `local-${Date.now()}`;
+    const nextId = `local-${crypto.randomUUID()}`;
     const targetGoal = goalId || weeklyGoals[0]?.id || null;
     const commitDate = targetDate || planningDate;
     const task: PlannedTask = {
@@ -182,7 +181,7 @@ export function useTaskActions({
   const addInboxTask = useCallback((title: string): string => {
     if (!title.trim()) return '';
 
-    const nextId = `local-${Date.now()}`;
+    const nextId = `local-${crypto.randomUUID()}`;
     const task: PlannedTask = {
       id: nextId,
       title: title.trim(),
@@ -197,7 +196,7 @@ export function useTaskActions({
     return nextId;
   }, [setPlannedTasks]);
 
-  const assignTaskToGoal = useCallback((taskId: string, goalId: string) => {
+  const assignTaskToGoal = useCallback((taskId: string, goalId: string | null) => {
     setPlannedTasks((prev) =>
       prev.map((task) =>
         task.id === taskId
@@ -262,6 +261,21 @@ export function useTaskActions({
     const task = plannedTasks.find((t) => t.id === id);
     const nextDone = task?.status !== 'done';
 
+    if (nextDone && linkedBlock) {
+      if (linkedBlock.eventId) {
+        try {
+          const result = await window.api.gcal.deleteEvent(linkedBlock.eventId, linkedBlock.calendarId);
+          if (!result.success) {
+            console.warn('Failed to delete linked calendar event on completion:', result.error);
+          }
+        } catch (err) {
+          console.warn('Failed to delete linked calendar event on completion:', err);
+        }
+      }
+
+      setScheduleBlocks((prev) => prev.filter((block) => block.id !== linkedBlock.id));
+    }
+
     setPlannedTasks((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
@@ -269,6 +283,8 @@ export function useTaskActions({
           ...t,
           status: nextDone ? 'done' : linkedBlock ? 'scheduled' : 'committed',
           active: false,
+          scheduledEventId: nextDone ? undefined : t.scheduledEventId,
+          scheduledCalendarId: nextDone ? undefined : t.scheduledCalendarId,
         };
       })
     );
