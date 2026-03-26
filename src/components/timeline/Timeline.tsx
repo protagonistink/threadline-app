@@ -450,14 +450,15 @@ export function Timeline() {
 
     let dragged = false;
     const workdayEndMins = workdayEnd.hour * 60 + workdayEnd.min;
+    const capturedHourHeight = hourHeight;
+    const capturedRect = originGrid.getBoundingClientRect();
 
     const applyBoundary = (clientY: number) => {
       const grid = gridRef.current;
       if (!grid) return;
-      const rect = grid.getBoundingClientRect();
       const scrollTop = grid.scrollTop;
-      const y = clientY - rect.top + scrollTop;
-      const rawMinutes = (y / hourHeight) * 60 + dayStartMins;
+      const y = clientY - capturedRect.top + scrollTop;
+      const rawMinutes = (y / capturedHourHeight) * 60 + dayStartMins;
       const snappedMinutes = snapToCalendarGrid(rawMinutes, GRID_SNAP_MINS);
       const clampedMinutes = Math.max(EARLIEST_VISIBLE_HOUR * 60, Math.min(snappedMinutes, workdayEndMins - 60));
       setWorkdayStart(Math.floor(clampedMinutes / 60), clampedMinutes % 60);
