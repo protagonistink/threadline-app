@@ -117,6 +117,7 @@ function createCaptureWindow() {
     level: 'floating',
     skipTaskbar: true,
     resizable: true,
+    show: false,
     backgroundColor: '#FEF3C7',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -139,7 +140,6 @@ function createCaptureWindow() {
       query: { mode: 'capture' },
     });
   }
-  captureWindow.hide();
 }
 
 function createTray() {
