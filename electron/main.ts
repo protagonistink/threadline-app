@@ -130,6 +130,7 @@ function createCaptureWindow() {
 
   captureWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   captureWindow.on('blur', () => captureWindow?.hide());
+  captureWindow.on('closed', () => { captureWindow = null; });
 
   if (VITE_DEV_SERVER_URL) {
     void captureWindow.loadURL(`${VITE_DEV_SERVER_URL}?mode=capture`);

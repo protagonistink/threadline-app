@@ -5,7 +5,12 @@ export function QuickCaptureNote() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    // Focus when the Electron window gains focus (fires on every show)
+    const onWindowFocus = () => textareaRef.current?.focus();
+    window.addEventListener('focus', onWindowFocus);
+    // Also focus immediately in case the window is already visible at mount
     textareaRef.current?.focus();
+    return () => window.removeEventListener('focus', onWindowFocus);
   }, []);
 
   function submit() {
