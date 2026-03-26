@@ -405,15 +405,17 @@ export function Timeline() {
     const originGrid = gridRef.current;
     if (!originGrid) return;
 
+    const capturedHourHeight = hourHeight;
+    const capturedRect = originGrid.getBoundingClientRect();
+
     let dragged = false;
 
     const applyBoundary = (clientY: number) => {
       const grid = gridRef.current;
       if (!grid) return;
-      const rect = grid.getBoundingClientRect();
       const scrollTop = grid.scrollTop;
-      const y = clientY - rect.top + scrollTop;
-      const rawMinutes = (y / hourHeight) * 60 + dayStartMins;
+      const y = clientY - capturedRect.top + scrollTop;
+      const rawMinutes = (y / capturedHourHeight) * 60 + dayStartMins;
       const snappedMinutes = snapToCalendarGrid(rawMinutes, GRID_SNAP_MINS);
       const maxVisibleMinutes = Math.max(dayStartMins + 60, visibleDayEndMins);
       const clampedMinutes = Math.min(Math.max(snappedMinutes, dayStartMins + 60), maxVisibleMinutes);
@@ -437,7 +439,7 @@ export function Timeline() {
 
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
-  }, [dayStartMins, setWorkdayEnd, visibleDayEndMins]);
+  }, [dayStartMins, hourHeight, setWorkdayEnd, visibleDayEndMins]);
 
   const beginWorkdayStartDrag = useCallback((event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
