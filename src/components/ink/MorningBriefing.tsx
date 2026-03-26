@@ -1,6 +1,7 @@
 // src/components/MorningBriefing.tsx
+import { useState } from 'react';
 import { format } from 'date-fns';
-import { AlertCircle, RotateCcw } from 'lucide-react';
+import { AlertCircle, ChevronDown, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/context/ThemeContext';
 import type { BriefingVariant } from '@/types/briefing';
@@ -16,22 +17,21 @@ import { MarkdownRenderer } from './MarkdownRenderer';
 
 export function MorningBriefing({
   onClose,
-  onNewChat,
   onStreamingChange,
   mode = 'briefing',
   variant = 'fullscreen',
 }: {
   onClose: () => void;
-  onNewChat: () => void;
   onStreamingChange?: (streaming: boolean) => void;
   mode?: 'briefing' | 'chat';
   variant?: BriefingVariant;
 }) {
   const { state, actions } = useBriefingState({ onClose, onStreamingChange, mode, variant });
   const { isLight } = useTheme();
+  const [showThreads, setShowThreads] = useState(false);
   const handleNewChat = async () => {
-    await actions.clearPersistedConversation();
-    onNewChat();
+    setShowThreads(false);
+    await actions.startNewThread();
   };
 
   const isEvening = state.promptInkMode === 'evening';
@@ -81,6 +81,63 @@ export function MorningBriefing({
                 </div>
               </div>
               <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowThreads((prev) => !prev)}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-md text-[10px] uppercase tracking-[0.14em] transition-colors hover:text-white',
+                      state.isOverlay ? 'px-2 py-1.5' : 'px-2.5 py-1.5'
+                    )}
+                    style={{ color: 'var(--color-text-muted)', border: '1px solid var(--color-border)', background: 'transparent' }}
+                    title="Open thread list"
+                  >
+                    Threads
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+                  {showThreads && (
+                    <div
+                      className="absolute right-0 top-[calc(100%+0.5rem)] z-20 w-[320px] overflow-hidden rounded-xl border shadow-2xl"
+                      style={{ background: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+                    >
+                      <div className="border-b px-3 py-2 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}>
+                        Recent threads
+                      </div>
+                      <div className="max-h-[320px] overflow-y-auto p-2">
+                        {state.threads.length === 0 ? (
+                          <div className="px-2 py-4 text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
+                            No saved threads yet.
+                          </div>
+                        ) : (
+                          state.threads.map((thread) => (
+                            <button
+                              key={thread.id}
+                              onClick={() => {
+                                setShowThreads(false);
+                                void actions.selectThread(thread.id);
+                              }}
+                              className={cn(
+                                'mb-1 flex w-full flex-col rounded-lg px-3 py-2 text-left transition-colors',
+                                state.activeThreadId === thread.id ? 'bg-accent-warm/10' : 'hover:bg-bg-elevated'
+                              )}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="truncate text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                                  {thread.title}
+                                </span>
+                                <span className="shrink-0 text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--color-text-muted)' }}>
+                                  {format(new Date(thread.updatedAt), 'MMM d')}
+                                </span>
+                              </div>
+                              <span className="mt-1 line-clamp-2 text-[11px]" style={{ color: 'var(--color-text-secondary)' }}>
+                                {thread.preview || 'Empty thread'}
+                              </span>
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <button
                   onClick={() => { void handleNewChat(); }}
                   className={cn(
@@ -106,6 +163,11 @@ export function MorningBriefing({
                 </button>
               </div>
             </div>
+            {state.activeThreadTitle && (
+              <div className="mb-4 text-[10px] uppercase tracking-[0.14em]" style={{ color: 'var(--color-text-muted)' }}>
+                Thread: {state.activeThreadTitle}
+              </div>
+            )}
 
             {/* Messages area */}
             <div className={cn('flex-1 overflow-y-auto flex flex-col hide-scrollbar', state.isOverlay ? 'gap-4' : 'gap-6')}>
@@ -154,6 +216,7 @@ export function MorningBriefing({
                   isOverlay={state.isOverlay}
                   onToggle={actions.toggleScheduleChip}
                   onExecute={() => void actions.executeSchedule()}
+                  onReorder={actions.reorderScheduleChip}
                 />
               )}
 

@@ -6,11 +6,12 @@ import { useBriefingStream } from '@/hooks/useBriefingStream';
 import { useInterviewFlow } from '@/hooks/useInterviewFlow';
 import { useAttachments } from '@/hooks/useAttachments';
 import { useProposalExecution } from '@/hooks/useProposalExecution';
+import { useInkAssistant } from '@/context/InkAssistantContext';
 import { detectInkMode } from '@/lib/ink-mode';
 import { stripStructuredAssistantBlocks, buildBriefingContext } from '@/components/ink/morningBriefingUtils';
 import type { CommitChip, ScheduleChip } from '@/components/ink/morningBriefingUtils';
 import type { ChatMessage } from '@/types/electron';
-import type { InkMode } from '@/types';
+import type { ChatThreadSummary, InkMode } from '@/types';
 import type { Phase, BriefingVariant } from '@/types/briefing';
 
 export interface BriefingStateValues {
@@ -32,6 +33,9 @@ export interface BriefingStateValues {
   visibleStreamingContent: string;
   isStreaming: boolean;
   error: string | null;
+  threads: ChatThreadSummary[];
+  activeThreadId: string | null;
+  activeThreadTitle: string | null;
   isWelcomeScreen: boolean;
   isOverlay: boolean;
   messagesEndRef: RefObject<HTMLDivElement>;
@@ -51,8 +55,10 @@ export interface BriefingActions {
   executeSchedule: () => Promise<void>;
   toggleChip: (index: number) => void;
   toggleScheduleChip: (index: number) => void;
+  reorderScheduleChip: (fromIndex: number, toIndex: number) => void;
+  selectThread: (threadId: string) => Promise<void>;
+  startNewThread: () => Promise<void>;
   openRevision: (seed?: string) => void;
-  clearPersistedConversation: () => Promise<void>;
   addImageAttachments: (files: FileList | null) => Promise<void>;
   removeAttachment: (index: number) => void;
   setDraggingFiles: (dragging: boolean) => void;
@@ -88,18 +94,22 @@ export function useBriefingState({
     monthlyPlan,
     scheduleTaskBlock,
     clearFocusBlocks,
+    rituals,
   } = usePlanner();
 
   // --- Sub-hooks ---
   const interview = useInterviewFlow();
   const attach = useAttachments();
   const proposal = useProposalExecution(plannedTasks, candidateItems);
+  const { activeThreadId, setActiveThreadId } = useInkAssistant();
 
   // --- Local state ---
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
   const [resolvedInkMode, setResolvedInkMode] = useState<InkMode | null>(null);
+  const [threads, setThreads] = useState<ChatThreadSummary[]>([]);
+  const [historyReady, setHistoryReady] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -107,7 +117,6 @@ export function useBriefingState({
   const phaseRef = useRef<Phase>('idle');
 
   const [todayStr, setTodayStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
-  const shouldPersistHistory = mode === 'briefing' && variant === 'fullscreen';
 
   // Keep todayStr current if the date rolls over while the component is mounted
   useEffect(() => {
@@ -118,11 +127,54 @@ export function useBriefingState({
     return () => clearInterval(interval);
   }, []);
 
-  // Persist messages whenever they change
+  const refreshThreads = useCallback(async () => {
+    const summaries = await window.api.chat.list();
+    setThreads(summaries);
+    return summaries;
+  }, []);
+
+  const upsertThreadSummary = useCallback((summary: ChatThreadSummary | null) => {
+    if (!summary) return;
+    setThreads((prev) => {
+      const next = [summary, ...prev.filter((thread) => thread.id !== summary.id)];
+      next.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return next;
+    });
+  }, []);
+
+  const ensureActiveThread = useCallback(async (threadMode: 'briefing' | 'chat' | 'eod') => {
+    if (activeThreadId) return activeThreadId;
+
+    const thread = await window.api.chat.createThread({
+      date: todayStr,
+      mode: threadMode,
+      seedTitle: threadMode === 'briefing' ? 'Plot' : 'New conversation',
+    });
+    setActiveThreadId(thread.id);
+    void refreshThreads();
+    return thread.id;
+  }, [activeThreadId, refreshThreads, setActiveThreadId, todayStr]);
+
+  // Persist messages whenever the active thread changes
   useEffect(() => {
-    if (!shouldPersistHistory || messages.length === 0) return;
-    void window.api.chat.save(todayStr, messages);
-  }, [messages, todayStr, shouldPersistHistory]);
+    if (!activeThreadId) return;
+    void window.api.chat.saveThread(activeThreadId, messages).then(upsertThreadSummary);
+  }, [activeThreadId, messages, upsertThreadSummary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void window.api.chat.list().then((summaries) => {
+      if (cancelled) return;
+      setThreads(summaries);
+      setHistoryReady(true);
+    }).catch(() => {
+      if (!cancelled) setHistoryReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     void window.api.ink.readContext().then((ctx) => {
@@ -158,7 +210,8 @@ export function useBriefingState({
     inkMode: promptInkMode,
     interviewStep: interview.state.interviewStepRef.current ?? undefined,
     interviewAnswers: interview.state.interviewAnswersRef.current ?? undefined,
-  }), [weeklyGoals, committedTasks, doneTasks, workdayStart, workdayEnd, scheduleBlocks, viewDate, monthlyPlan, promptInkMode, interview.state.interviewStepRef, interview.state.interviewAnswersRef]);
+    rituals,
+  }), [weeklyGoals, committedTasks, doneTasks, workdayStart, workdayEnd, scheduleBlocks, viewDate, monthlyPlan, promptInkMode, interview.state.interviewStepRef, interview.state.interviewAnswersRef, rituals]);
 
   const {
     streamingContent,
@@ -205,7 +258,7 @@ export function useBriefingState({
 
   // Auto-start briefing or interview
   useEffect(() => {
-    if (mode !== 'briefing' || resolvedInkMode === null) return;
+    if (mode !== 'briefing' || resolvedInkMode === null || !historyReady) return;
     if (hasStartedBriefingRef.current) return;
     hasStartedBriefingRef.current = true;
 
@@ -216,39 +269,45 @@ export function useBriefingState({
       setMessages([initialMsg]);
       void streamMessage([initialMsg]);
     }
-  }, [streamMessage, mode, resolvedInkMode, interview.actions]);
+  }, [streamMessage, mode, resolvedInkMode, interview.actions, historyReady]);
 
   // --- Actions ---
 
   const handleStartDay = useCallback((intention: string) => {
     if (isStreaming) return;
-    const userMsg: ChatMessage = { role: 'user', content: intention };
-    const newMessages = [userMsg];
-    setMessages(newMessages);
-    setPhase('briefing');
-    void streamMessage(newMessages);
-  }, [isStreaming, streamMessage]);
+    void (async () => {
+      await ensureActiveThread('briefing');
+      const userMsg: ChatMessage = { role: 'user', content: intention };
+      const newMessages = [userMsg];
+      setMessages(newMessages);
+      setPhase('briefing');
+      void streamMessage(newMessages);
+    })();
+  }, [ensureActiveThread, isStreaming, streamMessage]);
 
   const startConversation = useCallback((prompt: string, nextAttachments: NonNullable<ChatMessage['attachments']> = []) => {
     if ((!prompt.trim() && nextAttachments.length === 0) || isStreaming) return;
-    const nextPhase = phase === 'interview'
-      ? 'interview'
-      : prompt === 'Run my morning briefing.'
-        ? 'briefing'
-        : 'conversation';
-    const userMsg: ChatMessage = {
-      role: 'user',
-      content: prompt.trim(),
-      attachments: nextAttachments.length > 0 ? nextAttachments : undefined,
-    };
-    const newMessages = [...messages, userMsg];
-    if (phase === 'interview') {
-      interview.actions.advanceInterview(prompt.trim());
-    }
-    setMessages(newMessages);
-    setPhase(nextPhase);
-    void streamMessage(newMessages);
-  }, [isStreaming, messages, phase, streamMessage, interview.actions]);
+    void (async () => {
+      const nextPhase = phase === 'interview'
+        ? 'interview'
+        : prompt === 'Run my morning briefing.'
+          ? 'briefing'
+          : 'conversation';
+      await ensureActiveThread(nextPhase === 'briefing' || nextPhase === 'interview' ? 'briefing' : 'chat');
+      const userMsg: ChatMessage = {
+        role: 'user',
+        content: prompt.trim(),
+        attachments: nextAttachments.length > 0 ? nextAttachments : undefined,
+      };
+      const newMessages = [...messages, userMsg];
+      if (phase === 'interview') {
+        interview.actions.advanceInterview(prompt.trim());
+      }
+      setMessages(newMessages);
+      setPhase(nextPhase);
+      void streamMessage(newMessages);
+    })();
+  }, [ensureActiveThread, isStreaming, messages, phase, streamMessage, interview.actions]);
 
   const openRevision = useCallback((seed = '') => {
     setPhase('conversation');
@@ -263,15 +322,40 @@ export function useBriefingState({
     });
   }, [proposal.actions]);
 
-  const clearPersistedConversation = useCallback(async () => {
+  const startNewThread = useCallback(async () => {
+    const threadMode = mode === 'briefing' ? 'briefing' : 'chat';
+    const thread = await window.api.chat.createThread({
+      date: todayStr,
+      mode: threadMode,
+      seedTitle: threadMode === 'briefing' ? 'Plot' : 'New conversation',
+    });
+    setActiveThreadId(thread.id);
+    await refreshThreads();
     setMessages([]);
     proposal.actions.clearProposal();
     setInputValue('');
     attach.actions.clearAttachments();
     setPhase('idle');
     interview.actions.resetInterview();
-    await window.api.chat.clear(todayStr);
-  }, [todayStr, proposal.actions, attach.actions, interview.actions]);
+  }, [attach.actions, interview.actions, mode, proposal.actions, refreshThreads, setActiveThreadId, todayStr]);
+
+  const selectThread = useCallback(async (threadId: string) => {
+    const thread = await window.api.chat.loadThread(threadId);
+    if (!thread) return;
+    setActiveThreadId(thread.id);
+    setMessages(thread.messages);
+    setInputValue('');
+    attach.actions.clearAttachments();
+    proposal.actions.clearProposal();
+    interview.actions.resetInterview();
+    setPhase(
+      thread.messages.length === 0
+        ? 'idle'
+        : thread.mode === 'briefing'
+          ? 'briefing'
+          : 'conversation'
+    );
+  }, [attach.actions, interview.actions, proposal.actions, setActiveThreadId]);
 
   const sendMessage = useCallback(() => {
     if ((!inputValue.trim() && attach.state.attachments.length === 0) || isStreaming) return;
@@ -311,6 +395,7 @@ export function useBriefingState({
   const isWelcomeScreen = phase === 'idle' && !isStreaming && !streamingContent;
   const isOverlay = variant === 'overlay';
   const visibleStreamingContent = stripStructuredAssistantBlocks(streamingContent);
+  const activeThreadTitle = threads.find((thread) => thread.id === activeThreadId)?.title ?? null;
 
   return {
     state: {
@@ -332,6 +417,9 @@ export function useBriefingState({
       visibleStreamingContent,
       isStreaming,
       error,
+      threads,
+      activeThreadId,
+      activeThreadTitle,
       isWelcomeScreen,
       isOverlay,
       messagesEndRef,
@@ -350,8 +438,10 @@ export function useBriefingState({
       executeSchedule: handleExecuteSchedule,
       toggleChip: proposal.actions.toggleChip,
       toggleScheduleChip: proposal.actions.toggleScheduleChip,
+      reorderScheduleChip: proposal.actions.reorderScheduleChips,
+      selectThread,
+      startNewThread,
       openRevision,
-      clearPersistedConversation,
       addImageAttachments: attach.actions.addImageAttachments,
       removeAttachment: attach.actions.removeAttachment,
       setDraggingFiles: attach.actions.setDraggingFiles,
