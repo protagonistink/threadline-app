@@ -244,6 +244,11 @@ app.whenReady().then(() => {
       submenu: [
         { label: 'New Task', accelerator: 'CmdOrCtrl+N', click: () => mainWindow?.webContents.send('menu:new-task') },
         { label: 'New Event', accelerator: 'CmdOrCtrl+Shift+N', click: () => mainWindow?.webContents.send('menu:new-event') },
+        { label: 'Quick Capture', accelerator: 'CmdOrCtrl+Shift+.', click: () => {
+          mainWindow?.show();
+          mainWindow?.focus();
+          mainWindow?.webContents.send('capture:open-overlay');
+        }},
         { type: 'separator' },
         { role: 'close' },
       ],
