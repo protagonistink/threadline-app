@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { format, parseISO } from 'date-fns';
-import { inferPlanningDateFromContent, parseCommitChips, parseRitualSuggestions, parseScheduleProposal, type CommitChip, type ScheduleChip } from '@/components/ink/morningBriefingUtils';
+import { inferPlanningDateFromContent, parseCommitChips, parseRitualSuggestions, parseScheduleProposal, reorderChips, type CommitChip, type ScheduleChip } from '@/components/ink/morningBriefingUtils';
 import type { ChatMessage } from '@/types/electron';
 import type { PlannedTask, DailyPlan, InboxItem } from '@/types';
 
@@ -31,6 +31,7 @@ export interface ProposalActions {
   }) => Promise<void>;
   toggleChip: (index: number) => void;
   toggleScheduleChip: (index: number) => void;
+  reorderScheduleChips: (fromIndex: number, toIndex: number) => void;
   /** Parse an assistant message for schedule/commit proposals. Returns true if proposals were found. */
   parseProposalFromMessage: (
     content: string,
@@ -147,6 +148,10 @@ export function useProposalExecution(
     setScheduleChips((prev) => prev.map((chip, i) => (i === index ? { ...chip, selected: !chip.selected } : chip)));
   }, []);
 
+  const reorderScheduleChips = useCallback((fromIndex: number, toIndex: number) => {
+    setScheduleChips((prev) => reorderChips(prev, fromIndex, toIndex));
+  }, []);
+
   const skipRitual = useCallback((index: number) => {
     setPendingRituals((prev) => prev.filter((_, j) => j !== index));
   }, []);
@@ -166,6 +171,7 @@ export function useProposalExecution(
       executeSchedule,
       toggleChip,
       toggleScheduleChip,
+      reorderScheduleChips,
       parseProposalFromMessage,
       parseRitualsFromMessage,
       skipRitual,
