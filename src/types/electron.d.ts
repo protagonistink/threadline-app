@@ -5,6 +5,8 @@ import type {
   CalendarEventInput,
   CalendarListEntry,
   ChatMessage,
+  ChatThread,
+  ChatThreadSummary,
   GCalEvent,
   InkContext,
   InkJournalEntry,
@@ -225,9 +227,11 @@ interface InkAPI {
 }
 
 interface ChatHistoryAPI {
-  load: (date: string) => Promise<ChatMessage[]>;
-  save: (date: string, messages: ChatMessage[]) => Promise<boolean>;
-  clear: (date: string) => Promise<boolean>;
+  list: () => Promise<ChatThreadSummary[]>;
+  loadThread: (threadId: string) => Promise<ChatThread | null>;
+  createThread: (params: { date: string; mode: 'briefing' | 'chat' | 'eod'; seedTitle?: string }) => Promise<ChatThread>;
+  saveThread: (threadId: string, messages: ChatMessage[]) => Promise<ChatThreadSummary | null>;
+  deleteThread: (threadId: string) => Promise<boolean>;
   clearOld: (today: string) => Promise<boolean>;
 }
 
@@ -279,6 +283,15 @@ interface MenuAPI {
   onStartDay: (cb: () => void) => () => void;
   onOpenInk: (cb: () => void) => () => void;
   onOpenSettings: (cb: () => void) => () => void;
+  onOpenPlot: (cb: () => void) => () => void;
+}
+
+interface CaptureAPI {
+  list: () => Promise<import('./index').CaptureEntry[]>;
+  add: (text: string) => Promise<import('./index').CaptureEntry>;
+  remove: (id: string) => Promise<boolean>;
+  purgeStale: () => Promise<boolean>;
+  onOpenOverlay: (cb: () => void) => () => void;
 }
 
 declare global {
@@ -297,6 +310,7 @@ declare global {
       ink: InkAPI;
       chat: ChatHistoryAPI;
       stripe: StripeAPI;
+      capture: CaptureAPI;
       finance: FinanceAPI;
       menu: MenuAPI;
     };

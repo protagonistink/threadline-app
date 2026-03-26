@@ -74,10 +74,41 @@ export function installMockApi(): typeof window.api {
       appendJournal: vi.fn(),
     },
     chat: {
-      load: vi.fn().mockResolvedValue([]),
-      save: vi.fn().mockResolvedValue(true),
-      clear: vi.fn().mockResolvedValue(true),
+      list: vi.fn().mockResolvedValue([]),
+      loadThread: vi.fn().mockResolvedValue(null),
+      createThread: vi.fn().mockImplementation(async ({ date, mode, seedTitle }) => ({
+        id: 'thread-1',
+        date,
+        mode,
+        title: seedTitle || 'New conversation',
+        messages: [],
+        createdAt: `${date}T09:00:00.000Z`,
+        updatedAt: `${date}T09:00:00.000Z`,
+      })),
+      saveThread: vi.fn().mockResolvedValue({
+        id: 'thread-1',
+        date: '2026-03-24',
+        mode: 'chat',
+        title: 'New conversation',
+        preview: '',
+        messageCount: 0,
+        createdAt: '2026-03-24T09:00:00.000Z',
+        updatedAt: '2026-03-24T09:00:00.000Z',
+      }),
+      deleteThread: vi.fn().mockResolvedValue(true),
       clearOld: vi.fn().mockResolvedValue(true),
+    },
+    capture: {
+      list: vi.fn().mockResolvedValue([]),
+      add: vi.fn().mockImplementation(async (text: string) => ({
+        id: 'cap-1',
+        text,
+        color: 'yellow',
+        createdAt: new Date().toISOString(),
+      })),
+      remove: vi.fn().mockResolvedValue(true),
+      purgeStale: vi.fn().mockResolvedValue(true),
+      onOpenOverlay: vi.fn().mockReturnValue(() => {}),
     },
     stripe: {
       getDashboard: vi.fn().mockResolvedValue({ success: false }),
@@ -99,6 +130,7 @@ export function installMockApi(): typeof window.api {
       onStartDay: vi.fn().mockReturnValue(() => {}),
       onOpenInk: vi.fn().mockReturnValue(() => {}),
       onOpenSettings: vi.fn().mockReturnValue(() => {}),
+      onOpenPlot: vi.fn().mockReturnValue(() => {}),
     },
   };
   (window as unknown as { api: typeof window.api }).api = mock;

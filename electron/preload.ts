@@ -100,10 +100,13 @@ contextBridge.exposeInMainWorld('api', {
   },
   // Chat history persistence
   chat: {
-    load: (date: string) => ipcRenderer.invoke('chat:load', date),
-    save: (date: string, messages: Array<{ role: string; content: string }>) =>
-      ipcRenderer.invoke('chat:save', date, messages),
-    clear: (date: string) => ipcRenderer.invoke('chat:clear', date),
+    list: () => ipcRenderer.invoke('chat:list'),
+    loadThread: (threadId: string) => ipcRenderer.invoke('chat:load-thread', threadId),
+    createThread: (params: { date: string; mode: 'briefing' | 'chat' | 'eod'; seedTitle?: string }) =>
+      ipcRenderer.invoke('chat:create-thread', params),
+    saveThread: (threadId: string, messages: ChatMessage[]) =>
+      ipcRenderer.invoke('chat:save-thread', threadId, messages),
+    deleteThread: (threadId: string) => ipcRenderer.invoke('chat:delete-thread', threadId),
     clearOld: (today: string) => ipcRenderer.invoke('chat:clearOld', today),
   },
   shell: {
@@ -151,11 +154,28 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('menu:open-settings', handler);
       return () => ipcRenderer.removeListener('menu:open-settings', handler);
     },
+    onOpenPlot: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('menu:open-plot', handler);
+      return () => ipcRenderer.removeListener('menu:open-plot', handler);
+    },
   },
   // Stripe
   stripe: {
     getDashboard: () => ipcRenderer.invoke('stripe:get-dashboard'),
     testConnection: () => ipcRenderer.invoke('stripe:test-connection'),
+  },
+  // Quick Captures
+  capture: {
+    list: () => ipcRenderer.invoke('capture:list'),
+    add: (text: string) => ipcRenderer.invoke('capture:add', text),
+    remove: (id: string) => ipcRenderer.invoke('capture:remove', id),
+    purgeStale: () => ipcRenderer.invoke('capture:purge-stale'),
+    onOpenOverlay: (cb: () => void) => {
+      const handler = () => cb();
+      ipcRenderer.on('capture:open-overlay', handler);
+      return () => ipcRenderer.removeListener('capture:open-overlay', handler);
+    },
   },
   // Finance (Compass engine)
   finance: {

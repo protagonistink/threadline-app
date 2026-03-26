@@ -10,6 +10,7 @@ import { registerInkContextHandlers } from './ink-context';
 import { registerChatHistoryHandlers } from './chat-history';
 import { registerFinanceHandlers } from './finance';
 import { registerStripeHandlers } from './stripe';
+import { registerCaptureHandlers, purgeStaleCapturesOnWake } from './capture';
 import { migrateToEncrypted } from './secure-store';
 import { assertRateLimit, logSecurityEvent } from './security';
 
@@ -22,6 +23,7 @@ const TRAY_ICON_PATH = path.join(process.env.VITE_PUBLIC!, 'icon-tray.png');
 
 let mainWindow: BrowserWindow | null;
 let tray: Tray | null = null;
+let isQuitting = false;
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 if (VITE_DEV_SERVER_URL) {
@@ -85,8 +87,10 @@ function createWindow() {
   });
 
   mainWindow.on('close', (e) => {
-    e.preventDefault();
-    mainWindow?.hide();
+    if (!isQuitting) {
+      e.preventDefault();
+      mainWindow?.hide();
+    }
   });
 
   if (VITE_DEV_SERVER_URL) {
@@ -121,7 +125,7 @@ function createTray() {
       },
     },
     { type: 'separator' },
-    { label: 'Quit', click: () => { app.exit(); } },
+    { label: 'Quit', click: () => { app.quit(); } },
   ]);
   tray.setContextMenu(contextMenu);
 
@@ -146,6 +150,10 @@ function createTray() {
   });
 }
 
+
+app.on('before-quit', () => {
+  isQuitting = true;
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
@@ -176,6 +184,7 @@ app.whenReady().then(() => {
   registerChatHistoryHandlers();
   registerFinanceHandlers();
   registerStripeHandlers();
+  registerCaptureHandlers();
 
   ipcMain.handle('window:activate', () => {
     app.focus({ steal: true });
@@ -217,6 +226,16 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
 
+  globalShortcut.register('CommandOrControl+Shift+.', () => {
+    mainWindow?.show();
+    mainWindow?.focus();
+    mainWindow?.webContents.send('capture:open-overlay');
+  });
+
+  // Purge stale captures at midnight and on wake
+  purgeStaleCapturesOnWake();
+  setInterval(() => purgeStaleCapturesOnWake(), 60_000);
+
   // Build full native menu after mainWindow exists so IPC sends work
   const menuTemplate: MenuItemConstructorOptions[] = [
     { role: 'appMenu' },
@@ -235,6 +254,7 @@ app.whenReady().then(() => {
       submenu: [
         { label: 'Flow', accelerator: 'CmdOrCtrl+1', click: () => mainWindow?.webContents.send('menu:set-view', 'flow') },
         { label: 'Intentions', accelerator: 'CmdOrCtrl+2', click: () => mainWindow?.webContents.send('menu:set-view', 'intentions') },
+        { label: 'Plot', accelerator: 'CmdOrCtrl+3', click: () => mainWindow?.webContents.send('menu:open-plot') },
         { type: 'separator' },
         { label: 'Toggle Sidebar', accelerator: 'CmdOrCtrl+\\', click: () => mainWindow?.webContents.send('menu:toggle-sidebar') },
         { type: 'separator' },
