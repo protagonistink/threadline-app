@@ -1,4 +1,4 @@
-import { ipcMain, BrowserWindow } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import { store } from './store';
 import { getSecure } from './secure-store';
 import crypto from 'node:crypto';
@@ -33,7 +33,10 @@ export function purgeStaleCapturesOnWake() {
   if (fresh.length !== entries.length) setEntries(fresh);
 }
 
-export function registerCaptureHandlers(getCaptureWindow: () => BrowserWindow | null = () => null) {
+export function registerCaptureHandlers(
+  getCaptureWindow: () => BrowserWindow | null = () => null,
+  getMainWindow: () => BrowserWindow | null = () => null,
+) {
   ipcMain.handle('capture:list', () => {
     const prefix = todayPrefix();
     return getEntries().filter((e) => e.createdAt.startsWith(prefix));
@@ -102,5 +105,9 @@ export function registerCaptureHandlers(getCaptureWindow: () => BrowserWindow | 
 
   ipcMain.handle('capture:hide-capture-window', () => {
     getCaptureWindow()?.hide();
+    // If the main window isn't open, return focus to whatever app the user was in
+    if (process.platform === 'darwin' && !getMainWindow()?.isVisible()) {
+      app.hide();
+    }
   });
 }

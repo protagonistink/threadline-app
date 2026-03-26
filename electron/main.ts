@@ -130,7 +130,12 @@ function createCaptureWindow() {
   });
 
   captureWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  captureWindow.on('blur', () => captureWindow?.hide());
+  captureWindow.on('blur', () => {
+    captureWindow?.hide();
+    if (process.platform === 'darwin' && !mainWindow?.isVisible()) {
+      app.hide();
+    }
+  });
   captureWindow.on('closed', () => { captureWindow = null; });
 
   if (VITE_DEV_SERVER_URL) {
@@ -227,7 +232,7 @@ app.whenReady().then(() => {
   registerChatHistoryHandlers();
   registerFinanceHandlers();
   registerStripeHandlers();
-  registerCaptureHandlers(() => captureWindow);
+  registerCaptureHandlers(() => captureWindow, () => mainWindow);
 
   ipcMain.handle('window:activate', () => {
     app.focus({ steal: true });
