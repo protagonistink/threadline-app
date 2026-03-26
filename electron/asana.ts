@@ -103,4 +103,35 @@ export function registerAsanaHandlers() {
       }
     }
   );
+
+  ipcMain.handle(
+    'asana:create-task',
+    async (event, name: string) => {
+      try {
+        assertRateLimit('asana:create-task', event.sender.id, 500);
+        if (typeof name !== 'string' || !name.trim()) throw new Error('Task name required');
+        const sanitizedName = name.trim().slice(0, 1000);
+        logSecurityEvent('asana.createTask', {
+          senderId: event.sender.id,
+          nameLength: sanitizedName.length,
+        });
+        const me = await asanaFetch('/users/me');
+        const workspaceId = me.data.workspaces[0]?.gid;
+        if (!workspaceId) throw new Error('No Asana workspace found');
+        const result = await asanaFetch('/tasks', {
+          method: 'POST',
+          body: JSON.stringify({
+            data: {
+              name: sanitizedName,
+              workspace: workspaceId,
+              assignee: 'me',
+            },
+          }),
+        });
+        return { success: true, data: result.data };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    }
+  );
 }

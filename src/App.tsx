@@ -226,11 +226,11 @@ function AppLayout() {
               captures={captures}
               onAdd={addCapture}
               onMakeTask={async (entry) => {
-                // TODO: Task 7 — create Asana task
+                await window.api.asana.createTask(entry.text);
                 await removeCapture(entry.id);
               }}
               onSendToNotion={async (entry) => {
-                // TODO: Task 7 — send to Notion
+                await window.api.capture.sendToNotion(entry.text);
                 await removeCapture(entry.id);
               }}
               onDismiss={removeCapture}

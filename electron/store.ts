@@ -57,6 +57,9 @@ const store = new Store({
     scratch: {
       entries: [] as Array<{ id: string; text: string; color: string; createdAt: string }>,
     },
+    notion: {
+      capturePageId: '',
+    },
     stripe: {
       secretKey: '',
     },
@@ -273,6 +276,10 @@ export function registerStoreHandlers() {
         financialSensitivity: String(prefs.moneyPrefs?.financialSensitivity ?? 'soft'),
         timeHorizonDays: Number(prefs.moneyPrefs?.timeHorizonDays ?? 7),
       },
+      notion: {
+        configured: Boolean(getSecure('notion.apiKey')),
+        capturePageId: String(store.get('notion.capturePageId') || ''),
+      },
     };
   });
 
@@ -296,6 +303,8 @@ export function registerStoreHandlers() {
     if ('stripeSecretKey' in payload) setSecure('stripe.secretKey', str(payload.stripeSecretKey));
     if ('plaidClientId' in payload) setSecure('plaid.clientId', str(payload.plaidClientId));
     if ('plaidSecret' in payload) setSecure('plaid.secret', str(payload.plaidSecret));
+    if ('notionApiKey' in payload) setSecure('notion.apiKey', str(payload.notionApiKey));
+    if ('notionCapturePageId' in payload) store.set('notion.capturePageId', str(payload.notionCapturePageId));
 
     // Calendar
     if ('gcalCalendarIds' in payload) store.set('gcal.calendarIds', strArray(payload.gcalCalendarIds));

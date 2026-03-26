@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import { store } from './store';
+import { getSecure } from './secure-store';
 import crypto from 'node:crypto';
 import type { CaptureColor } from '../src/types';
 
@@ -65,5 +66,37 @@ export function registerCaptureHandlers() {
   ipcMain.handle('capture:purge-stale', () => {
     purgeStaleCapturesOnWake();
     return true;
+  });
+
+  ipcMain.handle('capture:send-to-notion', async (_event, text: string) => {
+    const apiKey = getSecure('notion.apiKey');
+    const pageId = store.get('notion.capturePageId') as string;
+    if (!apiKey) throw new Error('Notion API key not configured. Go to Settings.');
+    if (!pageId) throw new Error('Notion capture page not configured. Go to Settings.');
+    if (typeof text !== 'string' || !text.trim()) throw new Error('Text required');
+
+    const response = await fetch(`https://api.notion.com/v1/blocks/${pageId}/children`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'Notion-Version': '2022-06-28',
+      },
+      body: JSON.stringify({
+        children: [{
+          object: 'block',
+          type: 'bulleted_list_item',
+          bulleted_list_item: {
+            rich_text: [{ type: 'text', text: { content: text.trim().slice(0, 2000) } }],
+          },
+        }],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Notion API error ${response.status}: ${error}`);
+    }
+    return { success: true };
   });
 }

@@ -7,6 +7,7 @@ export function installMockApi(): typeof window.api {
       getTasks: vi.fn(),
       addComment: vi.fn(),
       completeTask: vi.fn(),
+      createTask: vi.fn().mockResolvedValue({ success: true, data: {} }),
     },
     gcal: {
       getEvents: vi.fn(),
@@ -45,6 +46,7 @@ export function installMockApi(): typeof window.api {
         money: { dueDateWindowDays: 7, alertSeverity: 'warning', financialSensitivity: 'soft', timeHorizonDays: 7 },
         story: { narrativeStyle: 'practical', storyDepth: 'summary', tone: 'direct', accountabilityLevel: 'firm' },
         privacy: { sensitiveDataMasking: false, auditLog: false },
+        notion: { configured: false, capturePageId: '' },
       }),
       save: vi.fn(),
     },
@@ -109,6 +111,7 @@ export function installMockApi(): typeof window.api {
       remove: vi.fn().mockResolvedValue(true),
       purgeStale: vi.fn().mockResolvedValue(true),
       onOpenOverlay: vi.fn().mockReturnValue(() => {}),
+      sendToNotion: vi.fn().mockResolvedValue({ success: true }),
     },
     stripe: {
       getDashboard: vi.fn().mockResolvedValue({ success: false }),

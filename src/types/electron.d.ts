@@ -52,6 +52,7 @@ interface AsanaAPI {
   getTasks: (options?: AsanaTaskQuery) => Promise<ApiResult<AsanaTask[]>>;
   addComment: (taskId: string, text: string) => Promise<ApiResult<null>>;
   completeTask: (taskId: string, completed: boolean) => Promise<ApiResult<null>>;
+  createTask: (name: string) => Promise<ApiResult<AsanaTask>>;
 }
 
 interface GCalAPI {
@@ -166,6 +167,10 @@ export interface LoadedSettings {
     financialSensitivity: 'soft' | 'hard';
     timeHorizonDays: number;
   };
+  notion: {
+    configured: boolean;
+    capturePageId: string;
+  };
 }
 
 export interface SettingsUpdate {
@@ -203,6 +208,8 @@ export interface SettingsUpdate {
   alertSeverity?: string;
   financialSensitivity?: string;
   timeHorizonDays?: number;
+  notionApiKey?: string;
+  notionCapturePageId?: string;
 }
 
 interface SettingsAPI {
@@ -292,6 +299,7 @@ interface CaptureAPI {
   remove: (id: string) => Promise<boolean>;
   purgeStale: () => Promise<boolean>;
   onOpenOverlay: (cb: () => void) => () => void;
+  sendToNotion: (text: string) => Promise<{ success: boolean }>;
 }
 
 declare global {

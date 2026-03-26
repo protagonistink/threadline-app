@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('asana:add-comment', taskId, text),
     completeTask: (taskId: string, completed: boolean) =>
       ipcRenderer.invoke('asana:complete-task', taskId, completed),
+    createTask: (name: string) => ipcRenderer.invoke('asana:create-task', name),
   },
   // Google Calendar
   gcal: {
@@ -176,6 +177,7 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('capture:open-overlay', handler);
       return () => ipcRenderer.removeListener('capture:open-overlay', handler);
     },
+    sendToNotion: (text: string) => ipcRenderer.invoke('capture:send-to-notion', text),
   },
   // Finance (Compass engine)
   finance: {
