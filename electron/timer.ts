@@ -54,15 +54,16 @@ function persistLastTask(taskId: string, taskTitle?: string | null) {
   store.set('pomodoro.lastTask', payload);
 }
 
-function startPomodoroSession(taskId: string, taskTitle?: string) {
+function startPomodoroSession(taskId: string, taskTitle?: string, durationMins?: number) {
   const config = getConfig();
+  const workMins = durationMins ?? config.workMins;
   persistLastTask(taskId, taskTitle);
   state = {
     isRunning: true,
     isPaused: false,
     isBreak: false,
-    timeRemaining: config.workMins * 60,
-    totalTime: config.workMins * 60,
+    timeRemaining: workMins * 60,
+    totalTime: workMins * 60,
     currentTaskId: taskId,
     currentTaskTitle: taskTitle || state.currentTaskTitle || null,
     pomodoroCount: state.pomodoroCount,
@@ -129,8 +130,8 @@ function startTimer() {
 }
 
 export function registerTimerHandlers() {
-  ipcMain.handle('pomodoro:start', (_event, taskId: string, taskTitle?: string) => {
-    startPomodoroSession(taskId, taskTitle);
+  ipcMain.handle('pomodoro:start', (_event, taskId: string, taskTitle?: string, durationMins?: number) => {
+    startPomodoroSession(taskId, taskTitle, durationMins);
   });
 
   ipcMain.handle('pomodoro:pause', () => {

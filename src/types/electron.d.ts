@@ -66,7 +66,7 @@ interface GCalAPI {
 }
 
 interface PomodoroAPI {
-  start: (taskId: string, taskTitle?: string) => Promise<void>;
+  start: (taskId: string, taskTitle?: string, durationMins?: number) => Promise<void>;
   pause: () => Promise<void>;
   stop: () => Promise<void>;
   skip: () => Promise<void>;
