@@ -109,4 +109,60 @@ describe('computeGravityState', () => {
     });
     expect(result.active).toBe(false);
   });
+
+  it('handles Infinity daysSinceLastActivity (no activity ever)', () => {
+    const result = computeGravityState({
+      ...baseInput,
+      attentionData: [
+        { goalId: 'g1', energyLevel: 'quiet', daysSinceLastActivity: Infinity, tasksThisWeek: 5, tasksDone: 0 },
+      ],
+    });
+    expect(result.active).toBe(true);
+    expect(result.staleGoalId).toBe('g1');
+  });
+
+  it('picks stalest when multiple are quiet', () => {
+    const result = computeGravityState({
+      ...baseInput,
+      attentionData: [
+        { goalId: 'g1', energyLevel: 'quiet', daysSinceLastActivity: 3, tasksThisWeek: 10, tasksDone: 2 },
+        { goalId: 'g2', energyLevel: 'quiet', daysSinceLastActivity: 5, tasksThisWeek: 8, tasksDone: 1 },
+      ],
+    });
+    expect(result.staleGoalId).toBe('g2');
+  });
+
+  it('releases when ANY stale intention gets focus, not just the stalest', () => {
+    const result = computeGravityState({
+      ...baseInput,
+      attentionData: [
+        { goalId: 'g1', energyLevel: 'quiet', daysSinceLastActivity: 3, tasksThisWeek: 10, tasksDone: 2 },
+        { goalId: 'g2', energyLevel: 'quiet', daysSinceLastActivity: 5, tasksThisWeek: 8, tasksDone: 1 },
+      ],
+      todayTimeLogs: [
+        { objectiveId: 'g1', durationMins: 6 },
+      ],
+    });
+    expect(result.active).toBe(false);
+  });
+
+  it('treats exactly 40% satisfaction as not stale', () => {
+    const result = computeGravityState({
+      ...baseInput,
+      attentionData: [
+        { goalId: 'g1', energyLevel: 'quiet', daysSinceLastActivity: 5, tasksThisWeek: 5, tasksDone: 2 },
+      ],
+    });
+    expect(result.active).toBe(false);
+  });
+
+  it('does not activate for steady intentions', () => {
+    const result = computeGravityState({
+      ...baseInput,
+      attentionData: [
+        { goalId: 'g1', energyLevel: 'steady', daysSinceLastActivity: 3, tasksThisWeek: 10, tasksDone: 1 },
+      ],
+    });
+    expect(result.active).toBe(false);
+  });
 });
