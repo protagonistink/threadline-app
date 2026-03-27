@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { X, ChevronDown, ChevronRight, Check } from 'lucide-react';
+import { X, ChevronDown, ChevronRight, Check, Info } from 'lucide-react';
 import { useDrag, useDrop } from 'react-dnd';
 import { useModifierKey } from '@/hooks/useModifierKey';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -93,6 +93,7 @@ export function TaskCard({
           ? `${formatRoundedHours(Math.abs(varianceMinutes), true)} under`
           : 'on estimate';
 
+  const [flipped, setFlipped] = useState(false);
   const [estimateEditing, setEstimateEditing] = useState(false);
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -171,6 +172,10 @@ export function TaskCard({
   const resolvedGoalColor = goalColor ?? resolveGoalColor(null, goalIndex);
   const threadBorderColor = withAlpha(resolvedGoalColor, 0.68);
 
+  const formattedDueDate = task.dueOn
+    ? new Date(task.dueOn + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+    : null;
+
   return (
     <div
       ref={combinedRef}
@@ -183,135 +188,195 @@ export function TaskCard({
         staggerClass
       )}
       style={{
+        perspective: '800px',
         borderLeftColor: deadlineInfo?.state === 'overdue' ? 'rgba(200,60,47,0.8)' : threadBorderColor,
         boxShadow: celebrate ? `inset 0 0 0 1px ${withAlpha(resolvedGoalColor, 0.08)}` : undefined,
       }}
     >
-      {celebrate && (
-        <div
-          className="goal-handoff-card pointer-events-none absolute inset-0"
-          style={{
-            '--goal-handoff-color': resolvedGoalColor,
-            '--goal-handoff-soft': withAlpha(resolvedGoalColor, 0.18),
-            animationDelay: `${celebrationDelayMs}ms`,
-          } as React.CSSProperties}
-        />
-      )}
-      <div className={cn('flex items-center gap-2.5 py-5 cursor-grab active:cursor-grabbing', !task.active && 'hover:-translate-y-0.5')}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            void toggleTask(task.id);
-            play('click');
-          }}
-          className="shrink-0"
-        >
-          {task.status === 'done' ? (
-            <div className={cn('w-4 h-4 border flex items-center justify-center animate-check-pop', isLight ? 'border-stone-300 bg-stone-200/20' : isFocus ? 'border-stone-700 bg-stone-700/20' : 'border-accent-warm bg-accent-warm/20')}>
-              <Check className="w-2.5 h-2.5 stroke-[2]" />
-            </div>
-          ) : (
-            <div className={cn('w-4 h-4 border transition-colors', task.active ? 'border-accent-warm bg-accent-warm/10 animate-breathe' : 'border-text-muted/40 group-hover:border-text-primary')} />
-          )}
-        </button>
-
-        <div className="flex-1 min-w-0">
-          <button
-            onClick={() => task.status !== 'done' && setActiveTask(task.id)}
-            className="text-left w-full"
-            title="Click to focus this task. Press I to cycle its weekly objective. Option+I clears it."
-          >
+      <div
+        className="relative w-full transition-transform duration-[400ms]"
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}
+      >
+        {/* ── FRONT SIDE ── */}
+        <div style={{ backfaceVisibility: 'hidden' }}>
+          {celebrate && (
             <div
-              title={task.title}
-              className={cn('font-display text-[18px] leading-snug transition-colors line-clamp-2', task.status === 'done' ? 'text-text-muted line-through' : task.active ? 'text-text-emphasis font-semibold' : 'text-text-primary')}
+              className="goal-handoff-card pointer-events-none absolute inset-0"
+              style={{
+                '--goal-handoff-color': resolvedGoalColor,
+                '--goal-handoff-soft': withAlpha(resolvedGoalColor, 0.18),
+                animationDelay: `${celebrationDelayMs}ms`,
+              } as React.CSSProperties}
+            />
+          )}
+          <div className={cn('flex items-center gap-2.5 py-5 cursor-grab active:cursor-grabbing', !task.active && 'hover:-translate-y-0.5')}>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                void toggleTask(task.id);
+                play('click');
+              }}
+              className="shrink-0"
             >
-              {task.title}
-            </div>
-            <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mt-1 flex items-center gap-2">
-              {estimateEditing ? (
-                <span
-                  className="flex items-center gap-0.5"
-                  onBlur={handleEstimateBlur}
-                  onKeyDown={handleEstimateKeyDown}
-                  tabIndex={-1}
-                >
-                  <button
-                    onMouseDown={handleEstimateButtonMouseDown}
-                    onClick={handleEstimateDecrement}
-                    className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
-                    title="Decrease estimate"
-                  >
-                    –
-                  </button>
-                  <span className="min-w-[28px] text-center text-text-primary font-mono">{plannedHours}</span>
-                  <button
-                    onMouseDown={handleEstimateButtonMouseDown}
-                    onClick={handleEstimateIncrement}
-                    className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
-                    title="Increase estimate"
-                  >
-                    +
-                  </button>
-                </span>
+              {task.status === 'done' ? (
+                <div className={cn('w-4 h-4 border flex items-center justify-center animate-check-pop', isLight ? 'border-stone-300 bg-stone-200/20' : isFocus ? 'border-stone-700 bg-stone-700/20' : 'border-accent-warm bg-accent-warm/20')}>
+                  <Check className="w-2.5 h-2.5 stroke-[2]" />
+                </div>
               ) : (
-                <span
-                  onClick={handleEstimateClick}
-                  className="cursor-pointer hover:text-text-primary transition-colors"
-                  title="Click to edit estimate"
+                <div className={cn('w-4 h-4 border transition-colors', task.active ? 'border-accent-warm bg-accent-warm/10 animate-breathe' : 'border-text-muted/40 group-hover:border-text-primary')} />
+              )}
+            </button>
+
+            <div className="flex-1 min-w-0">
+              <button
+                onClick={() => task.status !== 'done' && setActiveTask(task.id)}
+                className="text-left w-full"
+                title="Click to focus this task. Press I to cycle its weekly intention. Option+I clears it."
+              >
+                <div
+                  title={task.title}
+                  className={cn('font-display text-[18px] leading-snug transition-colors line-clamp-2', task.status === 'done' ? 'text-text-muted line-through' : task.active ? 'text-text-emphasis font-semibold' : 'text-text-primary')}
                 >
-                  {plannedHours}
-                </span>
-              )}
-              {actualMins > 0 && <span>{actualHours} actual</span>}
-              {varianceLabel && <span>{varianceLabel}</span>}
-              {task.active && task.status !== 'done' && <span className="text-active">now</span>}
-              {task.status === 'scheduled' && (
-                <span className="text-accent-warm/50 italic tracking-normal lowercase">on calendar</span>
-              )}
-              {task.status !== 'scheduled' && !task.active && index === 0 && task.status !== 'done' && (
-                <span className="text-text-muted/50 italic tracking-normal lowercase">on deck</span>
-              )}
+                  {task.title}
+                </div>
+                <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mt-1 flex items-center gap-2">
+                  {estimateEditing ? (
+                    <span
+                      className="flex items-center gap-0.5"
+                      onBlur={handleEstimateBlur}
+                      onKeyDown={handleEstimateKeyDown}
+                      tabIndex={-1}
+                    >
+                      <button
+                        onMouseDown={handleEstimateButtonMouseDown}
+                        onClick={handleEstimateDecrement}
+                        className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
+                        title="Decrease estimate"
+                      >
+                        –
+                      </button>
+                      <span className="min-w-[28px] text-center text-text-primary font-mono">{plannedHours}</span>
+                      <button
+                        onMouseDown={handleEstimateButtonMouseDown}
+                        onClick={handleEstimateIncrement}
+                        className="px-1 py-0.5 rounded hover:bg-bg-elevated hover:text-text-primary transition-colors leading-none"
+                        title="Increase estimate"
+                      >
+                        +
+                      </button>
+                    </span>
+                  ) : (
+                    <span
+                      onClick={handleEstimateClick}
+                      className="cursor-pointer hover:text-text-primary transition-colors"
+                      title="Click to edit estimate"
+                    >
+                      {plannedHours}
+                    </span>
+                  )}
+                  {actualMins > 0 && <span>{actualHours} actual</span>}
+                  {varianceLabel && <span>{varianceLabel}</span>}
+                  {task.active && task.status !== 'done' && <span className="text-active">now</span>}
+                  {task.status === 'scheduled' && (
+                    <span className="text-accent-warm/50 italic tracking-normal lowercase">on calendar</span>
+                  )}
+                  {task.status !== 'scheduled' && !task.active && index === 0 && task.status !== 'done' && (
+                    <span className="text-text-muted/50 italic tracking-normal lowercase">on deck</span>
+                  )}
+                </div>
+              </button>
             </div>
-          </button>
+
+            <div className={cn(
+              'flex items-center gap-0.5 transition-opacity duration-150',
+              task.active ? 'opacity-30 group-hover:opacity-70' : 'opacity-0 group-hover:opacity-100'
+            )}>
+              {task.active && task.status !== 'done' && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setFlipped(true); }}
+                  className="p-1.5 text-text-muted/30 hover:text-text-muted/60 transition-colors"
+                  title="Show details"
+                >
+                  <Info className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onClick={() => { void releaseTask(task.id); }}
+                className="p-1.5 text-text-muted/30 hover:text-text-muted/60 transition-colors"
+                title="Release"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {subtasks.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setExpanded((prev) => !prev); }}
+              className="flex items-center gap-1.5 px-3 pb-3 text-[11px] text-text-muted hover:text-text-primary transition-colors"
+            >
+              {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+              <span>{subtasks.length} task{subtasks.length !== 1 ? 's' : ''}</span>
+            </button>
+          )}
+          {expanded && subtasks.map((sub) => (
+            <SubtaskRow key={sub.id} task={sub} unnestTask={unnestTask} />
+          ))}
+
+          {deadlineInfo?.state === 'soon' && (
+            <span className="absolute bottom-1 left-1.5 text-[9px] font-mono text-amber-400/70 pointer-events-none select-none">
+              {deadlineInfo.daysRemaining}d
+            </span>
+          )}
         </div>
 
-        <div className={cn(
-          'flex items-center transition-opacity duration-150',
-          task.active ? 'opacity-30 group-hover:opacity-70' : 'opacity-0 group-hover:opacity-100'
-        )}>
-          <button
-            onClick={() => { void releaseTask(task.id); }}
-            className="p-1.5 text-text-muted/30 hover:text-text-muted/60 transition-colors"
-            title="Release"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
+        {/* ── BACK SIDE ── */}
+        <div
+          onClick={() => setFlipped(false)}
+          className="absolute inset-0 cursor-pointer px-3 py-4 flex flex-col gap-2.5"
+          style={{
+            backfaceVisibility: 'hidden',
+            transform: 'rotateY(180deg)',
+          }}
+        >
+          {task.notes && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mb-0.5">Notes</div>
+              <p className="font-display text-[14px] leading-snug text-text-primary/80 line-clamp-3">{task.notes}</p>
+            </div>
+          )}
+          {formattedDueDate && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mb-0.5">Due</div>
+              <p className="font-display text-[14px] leading-snug text-text-primary/80">{formattedDueDate}</p>
+            </div>
+          )}
+          {task.asanaProject && (
+            <div>
+              <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mb-0.5">Project</div>
+              <p className="font-display text-[14px] leading-snug text-text-primary/80">{task.asanaProject}</p>
+            </div>
+          )}
+          <div>
+            <div className="text-[9px] uppercase tracking-[0.18em] text-text-muted mb-0.5">Source</div>
+            <span className={cn(
+              'inline-block text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm',
+              task.source === 'asana' ? 'bg-accent-warm/10 text-accent-warm' : 'bg-text-muted/10 text-text-muted'
+            )}>
+              {task.source === 'asana' ? 'Asana' : 'Local'}
+            </span>
+          </div>
+          <p className="mt-auto text-[9px] text-text-muted/40 italic">Click to flip back</p>
         </div>
       </div>
-
-      {subtasks.length > 0 && (
-        <button
-          onClick={(e) => { e.stopPropagation(); setExpanded((prev) => !prev); }}
-          className="flex items-center gap-1.5 px-3 pb-3 text-[11px] text-text-muted hover:text-text-primary transition-colors"
-        >
-          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          <span>{subtasks.length} task{subtasks.length !== 1 ? 's' : ''}</span>
-        </button>
-      )}
-      {expanded && subtasks.map((sub) => (
-        <SubtaskRow key={sub.id} task={sub} unnestTask={unnestTask} />
-      ))}
 
       {isNestOver && canNest && (
         <div className="absolute inset-0 rounded-lg flex items-center justify-center pointer-events-none bg-accent-warm/5">
           <span className="text-[11px] text-accent-warm/80 uppercase tracking-wider">Nest here</span>
         </div>
-      )}
-
-      {deadlineInfo?.state === 'soon' && (
-        <span className="absolute bottom-1 left-1.5 text-[9px] font-mono text-amber-400/70 pointer-events-none select-none">
-          {deadlineInfo.daysRemaining}d
-        </span>
       )}
     </div>
   );

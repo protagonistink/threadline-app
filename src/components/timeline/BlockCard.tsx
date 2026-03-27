@@ -497,6 +497,7 @@ export function BlockCard({
             onClick={(e) => { e.stopPropagation(); onUpdateDuration(Math.max(15, block.durationMins - getStepMins(block.durationMins))); }}
             disabled={block.durationMins <= 15}
             className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1 disabled:opacity-30"
+            title="Decrease duration"
           >
             –
           </button>
@@ -506,6 +507,7 @@ export function BlockCard({
           <button
             onClick={(e) => { e.stopPropagation(); onUpdateDuration(block.durationMins + getStepMins(block.durationMins)); }}
             className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1"
+            title="Increase duration"
           >
             +
           </button>
@@ -521,6 +523,7 @@ export function BlockCard({
               onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, Math.max(15, block.durationMins - getStepMins(block.durationMins))); }}
               disabled={block.durationMins <= 15}
               className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1 disabled:opacity-30"
+              title="Decrease duration"
             >
               –
             </button>
@@ -528,6 +531,7 @@ export function BlockCard({
             <button
               onClick={(e) => { e.stopPropagation(); onUpdate(block.startHour, block.startMin, block.durationMins + getStepMins(block.durationMins)); }}
               className="text-[12px] text-text-muted hover:text-text-primary transition-colors px-1"
+              title="Increase duration"
             >
               +
             </button>

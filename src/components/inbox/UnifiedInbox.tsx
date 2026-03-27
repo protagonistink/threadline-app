@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
-import { Filter, Plus, X } from 'lucide-react';
+import { Filter, Plus, RefreshCw, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { compareInboxTasks } from '@/lib/planner';
 import { useAppStatus, usePlanner } from '@/context/AppContext';
@@ -138,7 +138,7 @@ function IncomingCard({
           isPlaced && 'opacity-30 cursor-default',
           selected && 'bg-[rgba(250,250,250,0.03)]'
         )}
-        title="Select this task, then press I to cycle its weekly objective. Option+I clears it."
+        title="Select this task, then press I to cycle its weekly intention. Option+I clears it."
       >
         <div className="flex items-start gap-2.5">
           {/* Open circle / checkbox — click to toggle done */}
@@ -312,7 +312,7 @@ function ReturnDropZone({ onDrop }: { onDrop: (item: DragItem) => void }) {
 const PAGE_SIZE = 7;
 
 export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
-  const { syncStatus } = useAppStatus();
+  const { syncStatus, refreshExternalData } = useAppStatus();
   const {
     candidateItems,
     plannedTasks,
@@ -439,6 +439,17 @@ export function UnifiedInbox({ collapsed = false }: { collapsed?: boolean }) {
           </div>
           <div className="flex items-center gap-2">
             {syncStatus.loading && <span className="workspace-header-meta">syncing</span>}
+            <button
+              onClick={() => void refreshExternalData()}
+              className={cn(
+                'rounded-md p-1.5 text-text-muted transition-colors hover:text-text-primary hover:bg-surface/50',
+                syncStatus.loading && 'animate-spin pointer-events-none'
+              )}
+              title="Refresh sources"
+              disabled={syncStatus.loading}
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+            </button>
             <button
               className="rounded-md p-1.5 text-text-muted transition-colors hover:text-text-primary hover:bg-surface/50"
               title="Filter"

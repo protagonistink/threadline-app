@@ -84,11 +84,15 @@ export function RightRail({ onOpenInk: _onOpenInk, onEndDay }: RightRailProps) {
   const balanceAwareness = computeBalanceAwareness({ intentions: intentionsWithCounts });
 
   // Intentions for display
-  const intentions = weeklyGoals.map((goal, i) => ({
-    title: goal.title,
-    color: resolveGoalColor(goal.color, i),
-    totalTasks: plannedTasks.filter(t => t.weeklyGoalId === goal.id).length,
-  }));
+  const intentions = useMemo(() => weeklyGoals.map((goal, i) => {
+    const goalTasks = plannedTasks.filter(t => t.weeklyGoalId === goal.id);
+    return {
+      title: goal.title,
+      color: resolveGoalColor(goal.color, i),
+      totalTasks: goalTasks.length,
+      doneTasks: goalTasks.filter(t => t.status === 'done').length,
+    };
+  }), [weeklyGoals, plannedTasks]);
 
   const referenceDate = startOfDay(viewDate);
 

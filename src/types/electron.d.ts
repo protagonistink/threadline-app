@@ -52,6 +52,7 @@ interface AsanaAPI {
   getTasks: (options?: AsanaTaskQuery) => Promise<ApiResult<AsanaTask[]>>;
   addComment: (taskId: string, text: string) => Promise<ApiResult<null>>;
   completeTask: (taskId: string, completed: boolean) => Promise<ApiResult<null>>;
+  updateTaskDue: (taskId: string, dueOn: string, dueAt?: string) => Promise<ApiResult<null>>;
   createTask: (name: string) => Promise<ApiResult<AsanaTask>>;
 }
 

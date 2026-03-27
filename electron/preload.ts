@@ -19,6 +19,8 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('asana:add-comment', taskId, text),
     completeTask: (taskId: string, completed: boolean) =>
       ipcRenderer.invoke('asana:complete-task', taskId, completed),
+    updateTaskDue: (taskId: string, dueOn: string, dueAt?: string) =>
+      ipcRenderer.invoke('asana:update-task-due', taskId, dueOn, dueAt),
     createTask: (name: string) => ipcRenderer.invoke('asana:create-task', name),
   },
   // Google Calendar

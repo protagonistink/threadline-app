@@ -140,10 +140,13 @@ export async function buildBriefingContext({
   };
 }
 
-export function inferPlanningDateFromContent(content: string, fallbackDate: string): string {
+export function inferPlanningDateFromContent(
+  content: string,
+  fallbackDate: string,
+  referenceDate: string = format(new Date(), 'yyyy-MM-dd'),
+): string {
   const normalized = content.toLowerCase();
-  const actualToday = format(new Date(), 'yyyy-MM-dd');
-  const today = new Date(`${actualToday}T12:00:00`);
+  const today = new Date(`${referenceDate}T12:00:00`);
 
   if (/\btomorrow\b/.test(normalized)) {
     const d = new Date(today);
@@ -151,7 +154,7 @@ export function inferPlanningDateFromContent(content: string, fallbackDate: stri
     return format(d, 'yyyy-MM-dd');
   }
   if (/\btoday\b|\btonight\b|\bthis evening\b/.test(normalized)) {
-    return actualToday;
+    return referenceDate;
   }
 
   // Match day names and resolve to nearest occurrence (±3 days of today)

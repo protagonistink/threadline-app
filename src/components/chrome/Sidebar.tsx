@@ -45,12 +45,13 @@ export function Sidebar({ onSettingsClick, onPlotClick, onCaptureClick, captureC
       <aside
         aria-label="Main navigation"
         className="fixed left-0 top-0 bottom-0 z-50 w-12 flex flex-col items-center bg-bg-elevated border-r border-border-subtle"
-        style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       >
+        {/* Drag handle — title bar region */}
+        <div className="w-full h-[36px] shrink-0" style={{ WebkitAppRegion: 'drag' } as React.CSSProperties} />
         {/* Hamburger toggle */}
         <button
           onClick={() => setOpen((v) => !v)}
-          className="no-drag mt-[40px] mb-4 p-2 rounded-md text-text-secondary hover:text-text-emphasis hover:bg-surface/70 transition-colors"
+          className="no-drag mb-4 p-2 rounded-md text-text-secondary hover:text-text-emphasis hover:bg-surface/70 transition-colors"
           title={open ? 'Close menu' : 'Open menu'}
           aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}

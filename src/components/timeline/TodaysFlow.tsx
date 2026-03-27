@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Plus, CornerDownLeft, ArrowRight, Lock, LockOpen, ChevronDown } from 'lucide-react';
 import { useDrop, useDragLayer } from 'react-dnd';
 import { differenceInCalendarDays, format, parseISO } from 'date-fns';
@@ -28,6 +28,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
     unscheduleTaskBlock,
     nestTask,
     unnestTask,
+    releaseTask,
     viewDate,
     scheduleBlocks,
     weeklyPlanningLastCompleted,
@@ -55,6 +56,20 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
   const unscheduledCount = committedTasks.filter(
     (task) => task.status === 'committed' && !nestedInBlockIds.has(task.id)
   ).length;
+
+  /** Push scheduled times back to Asana as due dates on lock. */
+  const syncScheduleToAsana = useCallback(() => {
+    const dateKey = format(viewDate, 'yyyy-MM-dd');
+    for (const block of scheduleBlocks) {
+      if (block.kind !== 'focus' || !block.linkedTaskId) continue;
+      const task = plannedTasks.find((t) => t.id === block.linkedTaskId);
+      if (!task?.sourceId || task.source !== 'asana') continue;
+      const hour = String(block.startHour).padStart(2, '0');
+      const min = String(block.startMin).padStart(2, '0');
+      const dueAt = `${dateKey}T${hour}:${min}:00.000Z`;
+      void window.api.asana.updateTaskDue(task.sourceId, dateKey, dueAt);
+    }
+  }, [viewDate, scheduleBlocks, plannedTasks]);
 
   const actualByTask = useMemo(() => {
     const totals = new Map<string, number>();
@@ -157,6 +172,20 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTask, assignTaskToGoal, weeklyGoals]);
+
+  // Delete/Backspace removes the active task from the plan
+  useEffect(() => {
+    function handleDelete(event: KeyboardEvent) {
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+      const el = document.activeElement as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (!activeTask) return;
+      event.preventDefault();
+      void releaseTask(activeTask.id);
+    }
+    window.addEventListener('keydown', handleDelete);
+    return () => window.removeEventListener('keydown', handleDelete);
+  }, [activeTask, releaseTask]);
 
   const [{ isOver }, dropRef] = useDrop<DragItem, void, { isOver: boolean }>({
     accept: [DragTypes.TASK, DragTypes.BLOCK],
@@ -308,7 +337,7 @@ export function TodaysFlow({ collapsed = false }: { collapsed?: boolean }) {
             <line x1="0" y1="50%" x2="100%" y2="50%" stroke="currentColor" className="text-text-muted/20" strokeWidth="1" strokeDasharray="8 4 12 4 6 4" />
           </svg>
           <button
-            onClick={() => { lockDay(); play('paper'); }}
+            onClick={() => { lockDay(); syncScheduleToAsana(); play('paper'); }}
             className="w-full flex items-center justify-between px-6 py-3 bg-[#C83C2F]/10 hover:bg-[#C83C2F] text-[#C83C2F] hover:text-[#FAFAFA] transition-all duration-300 group"
           >
             <span className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] font-medium">

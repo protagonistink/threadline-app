@@ -71,7 +71,7 @@ export function useProposalExecution(
     if (chips.length === 0) return false;
 
     const currentViewDateKey = format(viewDate, 'yyyy-MM-dd');
-    const inferredDate = inferPlanningDateFromContent(content, currentViewDateKey);
+    const inferredDate = inferPlanningDateFromContent(content, currentViewDateKey, currentViewDateKey);
     setProposalDate(inferredDate);
     if (inferredDate !== currentViewDateKey) {
       setViewDate(new Date(`${inferredDate}T12:00:00`));
@@ -93,7 +93,7 @@ export function useProposalExecution(
     const chips = parseCommitChips(lastAssistant.content, plannedTasks, candidateItems);
     if (chips.length > 0) {
       const currentViewDateKey = format(viewDate, 'yyyy-MM-dd');
-      const inferredDate = inferPlanningDateFromContent(lastAssistant.content, currentViewDateKey);
+      const inferredDate = inferPlanningDateFromContent(lastAssistant.content, currentViewDateKey, currentViewDateKey);
       setProposalDate(inferredDate);
       setScheduleChips([]);
       setCommitChips(chips);

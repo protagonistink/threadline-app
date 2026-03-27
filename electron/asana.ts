@@ -105,6 +105,36 @@ export function registerAsanaHandlers() {
   );
 
   ipcMain.handle(
+    'asana:update-task-due',
+    async (event, taskId: string, dueOn: string, dueAt?: string) => {
+      try {
+        assertRateLimit('asana:update-task-due', event.sender.id, 300);
+        const sanitizedTaskId = sanitizeAsanaTaskId(taskId);
+        logSecurityEvent('asana.updateTaskDue', {
+          senderId: event.sender.id,
+          taskId: sanitizedTaskId,
+          dueOn,
+          dueAt,
+        });
+        const data: Record<string, string | null> = {};
+        if (dueAt) {
+          // due_at includes time precision — Asana shows it on the task
+          data.due_at = dueAt;
+        } else {
+          data.due_on = dueOn;
+        }
+        const result = await asanaFetch(`/tasks/${sanitizedTaskId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ data }),
+        });
+        return { success: true, data: result.data };
+      } catch (error) {
+        return { success: false, error: (error as Error).message };
+      }
+    }
+  );
+
+  ipcMain.handle(
     'asana:create-task',
     async (event, name: string) => {
       try {

@@ -7,6 +7,7 @@ export function installMockApi(): typeof window.api {
       getTasks: vi.fn(),
       addComment: vi.fn(),
       completeTask: vi.fn(),
+      updateTaskDue: vi.fn().mockResolvedValue({ success: true, data: {} }),
       createTask: vi.fn().mockResolvedValue({ success: true, data: {} }),
     },
     gcal: {
