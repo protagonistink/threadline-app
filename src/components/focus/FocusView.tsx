@@ -10,10 +10,9 @@ type FocusPhase = 'initiation' | 'active' | 'paused' | 'concluded';
 
 const DURATION_OPTIONS = [
   { label: '15m', value: 15 },
+  { label: '25m', value: 25 },
   { label: '45m', value: 45 },
-  { label: '90m', value: 90 },
-  { label: '120m', value: 120 },
-  { label: '180m', value: 180 },
+  { label: '75m', value: 75 },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -392,7 +391,7 @@ export function FocusView({ taskId, onExit }: FocusViewProps) {
   const { enterFocusMode, exitFocusMode } = useTheme();
 
   const [phase, setPhase] = useState<FocusPhase>('initiation');
-  const [selectedDuration, setSelectedDuration] = useState(90);
+  const [selectedDuration, setSelectedDuration] = useState(25);
   const [timerState, setTimerState] = useState<PomodoroState | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
